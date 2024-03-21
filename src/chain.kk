@@ -35,18 +35,21 @@ pub type step<i,o,e>
   Pure(name: string, step: pure-step<i,o>)
   Effectful(name: string, step: effectful-step<i,o,e>)
 
-pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
+pub fun run-step<i,o,e>(s: step<i,o,e>, i: i, ?i/ser: (i)->string, ?o/ser: (o)->string): <pure,logger|e> o
   match s
     Pure(nm, f) -> 
-      log-enter(nm, "")
-      val r = f(i)
-      log-complete("")
-      r
+      log-enter(nm, ser(i))
+      val o = f(i)
+      log-complete(ser(o))
+      o
     Effectful(nm, f) -> 
-      log-enter(nm, "")
-      val r = f(i)
-      log-complete("")
-      r
+      log-enter(nm, ser(i))
+      val o = f(i)
+      log-complete(ser(o))
+      o
+
+fun int/ser(i: int): string
+ i.show
 
 pub fun run-some-steps()
   val s1 = Pure("inc", fn (x) {x + 1})
@@ -105,12 +108,12 @@ pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
     Link(lst, fr) -> Link(s, Link(lst, fr))
 
 // run a chain of steps. blows up stack if chain too long
-pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
-  match c
-    First(fst) -> run-step(fst,i)
-    Link(lst, fr) -> 
-      val r = run-chain(fr, i)
-      run-step(lst,r)
+// pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
+//   match c
+//     First(fst) -> run-step(fst, i)
+//     Link(lst, fr) -> 
+//       val r = run-chain(fr, i)
+//       run-step(lst,r)
 
 // three stages to a computation
 // - inputs: takes a command/event value and produces the data-inputs
