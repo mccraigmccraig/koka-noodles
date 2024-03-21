@@ -48,35 +48,51 @@ pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
       log-complete("")
       r
 
-pub fun foo()
+pub fun run-some-steps()
   val s1 = Pure("inc", fn (x) {x + 1})
-  val s2 = Effectful("double", fn (x: int) {println("double:" ++ x.show()) ; x + x})
+  val s2 = Effectful("double", fn (x: int) {println("double:" ++ x.show) ; x + x})
+  val s3 = Effectful("throws", fn (x: int) {println("throws:" ++ x.show) ; throw("error") ; x + x})
   val s1r = run-step(s1, 1)
   println("s1r: " ++ s1r.show())
   val s2r = run-step(s2, 2)
   println("s2r: " ++ s2r.show())
+  val s3r = run-step(s3, 3)
+  println("s3r: " ++ s3r.show())
 
-pub fun test-foo()
-  var stack: list<string> := []
+value type frame 
+  Complete
+  Name(n: string)
+  
+pub fun test-some-steps()
+  var stack: list<frame> := []
   with handler
     fun log-enter(name, input-str)
-      stack := Cons(name, stack)
+      stack := Cons(Name(name), stack)
       println("enter: <" ++ name ++ "> " ++ input-str)
     fun log-complete(output-str)
-      val h = stack.head()
+      val h = stack.head
       match h 
-        Just(name) -> 
-          stack := stack.tail()
+        Just(Name(name)) -> 
+          stack := stack.tail
           println("complete: <" ++ name ++ "> " ++ output-str)
+        Just(Complete) -> println("complete: <?>" ++ " " ++ output-str)
         Nothing -> println("complete: <?>" ++ " " ++ output-str)
     fun log-error(output-str)
-      val h = stack.head()
+      val h = stack.head
       match h 
-        Just(name) -> 
+        Just(Name(name)) -> 
           stack := stack.tail()
           println("error: <" ++ name ++ "> " ++ output-str)
+        Just(Complete) -> println("error: <?>" ++ " " ++ output-str)
         Nothing -> println("error: <?>" ++ " " ++ output-str)
-  foo()    
+  with finally
+    val h = stack.head
+    match h
+      Just(Name(name)) -> 
+        println("exception: <" ++ name ++ ">")
+        stack := stack.tail
+      Just(Complete) -> stack := stack.tail
+  run-some-steps()    
 
 // it's a backwards cons of steps - last step first... 
 pub type chain<i,o,e>
