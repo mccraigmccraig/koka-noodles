@@ -68,6 +68,12 @@ fun int/deser(s: string): either<string,int>
 
 val int/serde = Serde(int/ser, int/deser)
 
+fun string/ser(s: string): string
+  s
+fun string/deser(s: string): either<string,string>
+  Right(s)
+val string/serde = Serde(string/ser, string/deser)
+
 pub fun run-some-steps()
   val s1 = Pure("inc", fn (x: int) {x + 1}, int/serde, int/serde)
   val s2 = Effectful("double", fn (x: int) {println("double:" ++ x.show) ; x + x})
@@ -125,12 +131,19 @@ pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
     Link(lst, fr) -> Link(s, Link(lst, fr))
 
 // run a chain of steps. blows up stack if chain too long
-// pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
-//   match c
-//     First(fst) -> run-step(fst, i)
-//     Link(lst, fr) -> 
-//       val r = run-chain(fr, i)
-//       run-step(lst,r)
+pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
+  match c
+    First(fst) -> run-step(fst, i)
+    Link(lst, fr) -> 
+      val r = run-chain(fr, i)
+      run-step(lst,r)
+
+pub fun simple-chain()
+  val s1 = Pure("inc", fn (x: int) {x + 1}, int/serde, int/serde)
+  val s2 = Effectful("tostr", fn (x: int) {println("tostr:" ++ x.show) ; x.show}, int/serde, string/serde)
+  val s3 = Effectful("concat", fn (x: string) {println("throws:" ++ x) ; throw("error") ; x ++ x})
+  val c = First(s1).add-step(s2).add-step(s3)
+  run-chain(c, 1)
 
 // three stages to a computation
 // - inputs: takes a command/event value and produces the data-inputs
