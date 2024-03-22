@@ -20,11 +20,11 @@ pub struct chain-log
 
 pub effect logger
   // open a step-log
-  fun log-enter(name: string, input-str: string) : ()
+  fun log-enter(name: string, input-ser: ()->string) : ()
   // close a step log successfully
-  fun log-complete(output-str: string) : ()
+  fun log-complete(output-ser: ()->string) : ()
   // close a step log with an error
-  fun log-error(error-str: string) : ()
+  fun log-error(error-ser: ()->string) : ()
 
 pub value struct serde<a>
   ser: (a) -> string
@@ -50,14 +50,14 @@ pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
     Pure(nm, f, iserde, oserde) -> 
       // TODO can i pass i and iser to the log-enter and leave the 
       // decision about whether to serialize to the logger?
-      log-enter(nm, iserde.ser()(i))
+      log-enter(nm, {iserde.ser()(i)})
       val o = f(i)
-      log-complete(oserde.ser()(o))
+      log-complete({oserde.ser()(o)})
       o
     Effectful(nm, f, iserde, oserde) -> 
-      log-enter(nm, iserde.ser()(i))
+      log-enter(nm, {iserde.ser()(i)})
       val o = f(i)
-      log-complete(oserde.ser()(o))
+      log-complete({oserde.ser()(o)})
       o
 
 fun int/ser(i: int): string
@@ -88,25 +88,25 @@ value type frame
 pub fun test-some-steps()
   var stack: list<frame> := []
   with handler
-    fun log-enter(name, input-str)
+    fun log-enter(name, input-ser)
       stack := Cons(Name(name), stack)
-      println("enter: <" ++ name ++ "> " ++ input-str)
-    fun log-complete(output-str)
+      println("enter: <" ++ name ++ "> " ++ input-ser())
+    fun log-complete(output-ser)
       val h = stack.head
       match h 
         Just(Name(name)) -> 
           stack := stack.tail
-          println("complete: <" ++ name ++ "> " ++ output-str)
-        Just(Complete) -> println("complete: <?>" ++ " " ++ output-str)
-        Nothing -> println("complete: <?>" ++ " " ++ output-str)
-    fun log-error(output-str)
+          println("complete: <" ++ name ++ "> " ++ output-ser())
+        Just(Complete) -> println("complete: <?>" ++ " " ++ output-ser())
+        Nothing -> println("complete: <?>" ++ " " ++ output-ser())
+    fun log-error(error-ser)
       val h = stack.head
       match h 
         Just(Name(name)) -> 
           stack := stack.tail()
-          println("error: <" ++ name ++ "> " ++ output-str)
-        Just(Complete) -> println("error: <?>" ++ " " ++ output-str)
-        Nothing -> println("error: <?>" ++ " " ++ output-str)
+          println("error: <" ++ name ++ "> " ++ error-ser())
+        Just(Complete) -> println("error: <?>" ++ " " ++ error-ser())
+        Nothing -> println("error: <?>" ++ " " ++ error-ser())
   with finally
     val h = stack.head
     match h
