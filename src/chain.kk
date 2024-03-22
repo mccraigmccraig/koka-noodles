@@ -48,8 +48,6 @@ pub type step<i,o,e>
 pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
   match s
     Pure(nm, f, iserde, oserde) -> 
-      // TODO can i pass i and iser to the log-enter and leave the 
-      // decision about whether to serialize to the logger?
       log-enter(nm, {iserde.ser()(i)})
       val o = f(i)
       log-complete({oserde.ser()(o)})
