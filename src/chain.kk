@@ -26,33 +26,52 @@ pub effect logger
   // close a step log with an error
   fun log-error(error-str: string) : ()
 
+pub value struct serde<a>
+  ser: (a) -> string
+  deser: (string) -> either<string,a>
+
 pub alias pure-step<i,o> = (i) -> <pure,logger> o
 pub alias effectful-step<i,o,e> = (i) -> <pure,logger|e> o
 pub alias either-step<i,o> = (i) -> <div,logger> either<string,o>
 pub alias handle-step<i,o,e> = (effectful-step<i,o,e>) -> either-step<i,o>
 
 pub type step<i,o,e>
-  Pure(name: string, step: pure-step<i,o>)
-  Effectful(name: string, step: effectful-step<i,o,e>)
+  Pure(pname: string, 
+    pstep: pure-step<i,o>, 
+    ?pi/serde: serde<i>, 
+    ?po/serde: serde<o>)
+  Effectful(fname: string, 
+    fstep: effectful-step<i,o,e>, 
+    ?fi/serde: serde<i>, 
+    ?fo/serde: serde<o>)
 
-pub fun run-step<i,o,e>(s: step<i,o,e>, i: i, ?i/ser: (i)->string, ?o/ser: (o)->string): <pure,logger|e> o
+pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
   match s
-    Pure(nm, f) -> 
-      log-enter(nm, ser(i))
+    Pure(nm, f, iserde, oserde) -> 
+      // TODO can i pass i and iser to the log-enter and leave the 
+      // decision about whether to serialize to the logger?
+      log-enter(nm, iserde.ser()(i))
       val o = f(i)
-      log-complete(ser(o))
+      log-complete(oserde.ser()(o))
       o
-    Effectful(nm, f) -> 
-      log-enter(nm, ser(i))
+    Effectful(nm, f, iserde, oserde) -> 
+      log-enter(nm, iserde.ser()(i))
       val o = f(i)
-      log-complete(ser(o))
+      log-complete(oserde.ser()(o))
       o
 
 fun int/ser(i: int): string
  i.show
 
+fun int/deser(s: string): either<string,int>
+  match s.parse-int()
+    Just(i) -> Right(i)
+    Nothing -> Left("failed to parse int: " ++ s)
+
+val int/serde = Serde(int/ser, int/deser)
+
 pub fun run-some-steps()
-  val s1 = Pure("inc", fn (x) {x + 1})
+  val s1 = Pure("inc", fn (x: int) {x + 1}, int/serde, int/serde)
   val s2 = Effectful("double", fn (x: int) {println("double:" ++ x.show) ; x + x})
   val s3 = Effectful("throws", fn (x: int) {println("throws:" ++ x.show) ; throw("error") ; x + x})
   val s1r = run-step(s1, 1)
