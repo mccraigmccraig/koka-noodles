@@ -89,12 +89,13 @@ value type frame
   Complete
   Name(n: string)
 
+// handle the logger effect by printing to console
 pub fun print-logger(action)
   var current := Complete
   with finally
     match current
       Name(name) -> 
-        println("exception: <" ++ name ++ ">")
+        println("unhandled effect: <" ++ name ++ ">")
         current := Complete
   handle(action)
     fun log-enter(name, input-ser)
@@ -167,18 +168,12 @@ pub struct computation<i,d,o,v,e>
   pure: pure-step<d,o>
   output-chain: chain<o,v,e>
 
-
-
-
-
-
 // allows control of input-gathering and output-performing actions - 
 // perhaps data is read directly from a serialized message, or written 
 // to a kafka topic rather than performed immediately
 pub effect computation-effect<i,d,o,v,e>
   ctl inputs-fx(i: i, c: computation<i,d,o,v,e>) : d
   ctl outputs-fx(o: o, c: computation<i,d,o,v,e>) : v
-
 
 // intermediate computation state
 pub struct computation-log
@@ -204,21 +199,3 @@ pub fun run-computation<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <pure,logg
   v
 
 
-  
-// ok, now we've got a chain of steps... want to allow for things like:
-// - resumable computation
-// - automatic logging and tracing
-// - splitting and distributing parts of the pipeline execution, e.g. could 
-//   have a sequence of [<effectful-input-step*> <pure-step> <effectful-output-step*>]
-//   and just execute the input-steps, or the output steps, or the pure step... 
-
-
-
-// pub fun chain/while( predicate : () -> <div|e> bool, action : () -> <div|e> () ) : <div|e> ()
-//   if predicate() then
-//     action()
-//     chain/while(predicate, action)
-
-// pub fun test_run_while()
-//   val r = chain/while(random-bool, fn() print("hello"))
-//   r
