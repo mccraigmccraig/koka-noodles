@@ -88,36 +88,33 @@ pub fun run-some-steps()
 value type frame 
   Complete
   Name(n: string)
-  
-pub fun test-some-steps()
-  var stack: list<frame> := []
-  with handler
+
+pub fun print-logger(action)
+  var current := Complete
+  with finally
+    match current
+      Name(name) -> 
+        println("exception: <" ++ name ++ ">")
+        current := Complete
+  handle(action)
     fun log-enter(name, input-ser)
-      stack := Cons(Name(name), stack)
+      current := Name(name)
       println("enter: <" ++ name ++ "> " ++ input-ser())
     fun log-complete(output-ser)
-      val h = stack.head
-      match h 
-        Just(Name(name)) -> 
-          stack := stack.tail
+      match current
+        Name(name) -> 
           println("complete: <" ++ name ++ "> " ++ output-ser())
-        Just(Complete) -> println("complete: <?>" ++ " " ++ output-ser())
-        Nothing -> println("complete: <?>" ++ " " ++ output-ser())
+          current := Complete
+        Complete -> println("complete: <?>" ++ " " ++ output-ser())
     fun log-error(error-ser)
-      val h = stack.head
-      match h 
-        Just(Name(name)) -> 
-          stack := stack.tail()
+      match current
+        Name(name) -> 
           println("error: <" ++ name ++ "> " ++ error-ser())
-        Just(Complete) -> println("error: <?>" ++ " " ++ error-ser())
-        Nothing -> println("error: <?>" ++ " " ++ error-ser())
-  with finally
-    val h = stack.head
-    match h
-      Just(Name(name)) -> 
-        println("exception: <" ++ name ++ ">")
-        stack := stack.tail
-      Just(Complete) -> stack := stack.tail
+          current := Complete
+        Complete -> println("error: <?>" ++ " " ++ error-ser())
+
+pub fun test-some-steps()
+  with print-logger
   run-some-steps()    
 
 // it's a backwards cons of steps - last step first... 
@@ -146,36 +143,9 @@ pub fun simple-chain()
   run-chain(c, 1)
 
 pub fun test-simple-chain()
-  var stack: list<frame> := []
-  with handler
-    fun log-enter(name, input-ser)
-      stack := Cons(Name(name), stack)
-      println("enter: <" ++ name ++ "> " ++ input-ser())
-    fun log-complete(output-ser)
-      val h = stack.head
-      match h 
-        Just(Name(name)) -> 
-          stack := stack.tail
-          println("complete: <" ++ name ++ "> " ++ output-ser())
-        Just(Complete) -> println("complete: <?>" ++ " " ++ output-ser())
-        Nothing -> println("complete: <?>" ++ " " ++ output-ser())
-    fun log-error(error-ser)
-      val h = stack.head
-      match h 
-        Just(Name(name)) -> 
-          stack := stack.tail()
-          println("error: <" ++ name ++ "> " ++ error-ser())
-        Just(Complete) -> println("error: <?>" ++ " " ++ error-ser())
-        Nothing -> println("error: <?>" ++ " " ++ error-ser())
-  with finally
-    val h = stack.head
-    match h
-      Just(Name(name)) -> 
-        println("exception: <" ++ name ++ ">")
-        stack := stack.tail
-      Just(Complete) -> stack := stack.tail
+  with print-logger
   simple-chain()
-
+  
 // three stages to a computation
 // - inputs: takes a command/event value and produces the data-inputs
 //   for the pure stage, possibly with side-effects
