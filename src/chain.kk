@@ -192,10 +192,30 @@ pub struct final-computation-log
 // now need to deal with de/serialization of input/output values, gathering logs
 // resuming from errors and giving control over the execution process (for e.g. 
 // remote logging)
-pub fun run-computation<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <pure,logger,computation-effect<i,d,o,v,e>|e> v
+pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <pure,logger,computation-effect<i,d,o,v,e>|e> v
   val d = i.inputs-fx(c)
   val o = c.pure()(d)
   val v = o.outputs-fx(c)
   v
 
+// handle the computation specific effects, leaving just the logger effect.
+// a good time to inject fake services etc
+pub fun handle-computation-fx<i,d,o,v,e>(
+  c: computation<i,d,o,v,e>, 
+  i: i, 
+  h: (() -> <pure,logger,computation-effect<i,d,o,v,e>|e> v) 
+  -> <pure,logger> v) : <pure,logger> v
+  with h 
+  run-computation-steps(c, i)
 
+// run a computation, handling all effects and returning final output and 
+// logs. the logs have not been persisted at this point - a decision can be made later
+pub fun log-computation<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : computation-effect<i,d,o,v,e> (final-computation-log, v)
+  handle-computation-fx(c, i, {run-computation-steps(c, i)})   
+
+// run a computation, handling input and output effects, and returning final output
+// could add something at this point to deal with e.g. remote logging successes and 
+// failures, or retry policies
+// need some standard handlers for simple inputs/outputs, e.g. literal data
+// (can use the return override of effects to provide literal outputs alongside the log and value)
+// pub fun run-computation<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : total (final-computation-log, v)
