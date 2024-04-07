@@ -1,7 +1,8 @@
 module chain
 
-import std/core/list
+import std/core/exn
 import std/core/int
+import std/core/list
 import std/num/random
 
 pub alias stringsrc = () -> string
@@ -164,6 +165,66 @@ pub effect computation-effect<i,d,o,v,e>
   ctl inputs-fx(i: i, c: computation<i,d,o,v,e>) : d
   ctl outputs-fx(o: o, c: computation<i,d,o,v,e>) : v
 
+pub alias computation-effect-handler<i,d,o,v,e> = (() -> <pure,logger,computation-effect<i,d,o,v,e>|e> v) -> <pure,logger> v
+
+// a de/serializable log of a single step
+// names should be unique, but it won't matter if not,
+// since chain position is the true unique identifier
+pub value struct open-step
+  name: string
+  input-str: stringsrc 
+
+pub struct step-log
+  name: string
+  input-str: stringsrc
+  output-str: either<stringsrc,stringsrc>
+
+pub value struct computation-log
+  name: string
+  step-logs: list<step-log>
+
+pub fun print-log(log: computation-log)
+  println("computation: " ++ log.name)
+  log.step-logs.foreach( fn (step-log)
+    println("  step: " ++ step-log.name)
+    println("  input: " ++ step-log.input-str()())
+    match step-log.output-str
+      Left(err) -> println("  error: " ++ err())
+      Right(out) -> println("  output: " ++ out())
+  )  
+
+// collect and return a list of step-logs from a computation
+// this handler should also handle any exn effect, so the 
+// return is div (would be nice for it to be total, but there's
+// no stdlib for timeouts yet afaics)
+pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <div> (either<string,v>, computation-log)
+  var steps: list<step-log> := []
+  var next-step: maybe<open-step> := Nothing
+  with return(v) (v, Computation-Log(computation-name, steps))
+  with handler
+    final ctl throw-exn(ex)
+      match next-step
+        Just(Open-step(name, input-str)) ->
+          steps := Cons(Step-Log(name, input-str, Left({"Unhandled Exception: " ++ ex.show})), steps)
+          Left("Unhandled Exception: " ++ ex.show)
+        Nothing -> Left("Unhandled Exception outside step:" ++ ex.show)
+  with handler
+    fun log-enter(name, input-ser)
+      next-step := Just(Open-Step(name, input-ser))
+    fun log-complete(output-ser)
+      match next-step
+        Just(Open-step(name, input-ser)) -> 
+          steps := Cons(Step-Log(name, input-ser, Right(output-ser)), steps)
+        Nothing ->
+          throw("Unexpected log-complete")
+    fun log-error(error-ser)
+      match next-step
+        Just(Open-step(name, input-ser)) ->
+          steps := Cons(Step-Log(name, input-ser, Left(error-ser)), steps)
+        Nothing ->
+          throw("Unexpected log-error")
+  Right(action())
+
 // run a computation - using effects to gather inputs and perform outputs
 // now need to deal with de/serialization of input/output values, gathering logs
 // resuming from errors and giving control over the execution process (for e.g. 
@@ -174,86 +235,13 @@ pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <pur
   val v = o.outputs-fx(c)
   v
 
-// given a handler, handle the computation specific effects, leaving just the logger effect.
-// a good time to inject fake services etc
-pub fun handle-computation-fx<i,d,o,v,e>(
-    c: computation<i,d,o,v,e>, 
-    i: i, 
-    h: (() -> <pure,logger,computation-effect<i,d,o,v,e>|e> v) -> <pure,logger> v
-  ) : <pure,logger> v
-  with h 
-  run-computation-steps(c, i)
-
-// a de/serializable log of a single step
-// names should be unique, but it won't matter if not,
-// since chain position is the true unique identifier
-pub struct step-log
-  name: string
-  input-str: stringsrc
-  output-str: either<stringsrc,stringsrc>
-
-// intermediate computation state log
-pub struct computation-log
-  name: string
-  input-str: stringsrc
-  step-logs: list<step-log>
-
-// the final state of a computation
-pub struct final-computation-log
-  name: string
-  input-str: stringsrc
-  step-logs: list<step-log>
-  output-str: either<stringsrc,stringsrc>
-
-pub value type log
-  None
-  Collecting(log: computation-log)
-  Complete(log: final-computation-log)
-
-// collect and return a list of step-logs from a computation
-pub fun log-collector(action)
-  var log := None
-  with return(v) 
-    val tlog = log
-    log := None
-    (v, tlog)
-  with handler
-    fun log-enter(name, input-ser)
-      log := Collecting(Computation-Log(name, input-ser, []))
-    fun log-complete(output-ser)
-      match log
-        Collecting(l) -> 
-          log := Complete(Final-Computation-Log(l.name, l.input-str, l.step-logs, Right(output-ser)))
-    fun log-error(error-ser)
-      match log
-        Collecting(l) -> 
-          log := Complete(Final-Computation-Log(l.name, l.input-str, l.step-logs, Left(error-ser)))
-  action()
-
-pub fun print-log(log: final-computation-log)
-  println("computation: " ++ log.name)
-  println("input: " ++ log.input-str()())
-  log.step-logs.foreach( fn (step-log)
-    println("  step: " ++ step-log.name)
-    println("  input: " ++ step-log.input-str()())
-    match step-log.output-str
-      Left(err) -> println("  error: " ++ err())
-      Right(out) -> println("  output: " ++ out())
-  )
-  match log.output-str
-    Left(err) -> println("error: " ++ err())
-    Right(out) -> println("output: " ++ out())
-
-
-// run a computation, handling all effects and returning final output and 
-// logs. the logs have not been persisted at this point - a decision can be made later
-// pub fun log-computation<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : computation-effect<i,d,o,v,e> (final-computation-log, v)
-//   with handle-computation-fx(c, i)   
-//   val v = run-computation-steps(c, i)
-
 // run a computation, handling input and output effects, and returning final output
 // could add something at this point to deal with e.g. remote logging successes and 
 // failures, or retry policies
 // need some standard handlers for simple inputs/outputs, e.g. literal data
 // (can use the return override of effects to provide literal outputs alongside the log and value)
-// pub fun run-computation<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : total (final-computation-log, v)
+pub fun run-computation<i,d,o,v,e>(h: computation-effect-handler<i,d,o,v,e>, c: computation<i,d,o,v,e>, i: i) : div (either<string,v>, computation-log)
+  with log-collector(c.name)
+  with h
+  run-computation-steps(c, i)
+  
