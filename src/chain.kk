@@ -161,11 +161,11 @@ pub struct computation<i,d,o,v,e>
 // allows control of input-gathering and output-performing actions - 
 // perhaps data is read directly from a serialized message, or written 
 // to a kafka topic rather than performed immediately
-pub effect computation-effect<i,d,o,v,e>
-  ctl inputs-fx(i: i, c: computation<i,d,o,v,e>) : d
-  ctl outputs-fx(o: o, c: computation<i,d,o,v,e>) : v
+pub effect computation-io<i,d,o,v,e>
+  ctl inputs-fx(c: computation<i,d,o,v,e>, i: i) : d
+  ctl outputs-fx(c: computation<i,d,o,v,e>, o: o) : v
 
-pub alias computation-effect-handler<i,d,o,v,e> = (() -> <pure,logger,computation-effect<i,d,o,v,e>|e> v) -> <pure,logger> v
+pub alias computation-io-handler<i,d,o,v,e> = (() -> <pure,logger,computation-io<i,d,o,v,e>|e> v) -> <pure,logger|e> v
 
 // a de/serializable log of a single step
 // names should be unique, but it won't matter if not,
@@ -229,19 +229,35 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <
 // now need to deal with de/serialization of input/output values, gathering logs
 // resuming from errors and giving control over the execution process (for e.g. 
 // remote logging)
-pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <pure,logger,computation-effect<i,d,o,v,e>|e> v
-  val d = i.inputs-fx(c)
+pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <pure,logger,computation-io<i,d,o,v,e>|e> v
+  val d = c.inputs-fx(i)
   val o = c.pure()(d)
-  val v = o.outputs-fx(c)
+  val v = c.outputs-fx(o)
   v
+
+// a handler for the computation specific effects
+pub alias computation-fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
 
 // run a computation, handling input and output effects, and returning final output
 // could add something at this point to deal with e.g. remote logging successes and 
 // failures, or retry policies
 // need some standard handlers for simple inputs/outputs, e.g. literal data
 // (can use the return override of effects to provide literal outputs alongside the log and value)
-pub fun run-computation<i,d,o,v,e>(h: computation-effect-handler<i,d,o,v,e>, c: computation<i,d,o,v,e>, i: i) : div (either<string,v>, computation-log)
+pub fun run-computation<i,d,o,v,e>(
+    io-handler: computation-io-handler<i,d,o,v,e>, 
+    fx-handler: computation-fx-handler<v,e>, 
+    c: computation<i,d,o,v,e>, 
+    i: i) : div (either<string,v>, computation-log)
   with log-collector(c.name)
-  with h
+  with fx-handler
+  with io-handler
   run-computation-steps(c, i)
-  
+
+// handle computation io by running chains
+pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <pure,logger,computation-io<i,d,o,v,e>|e> v): <pure,logger|e> v
+  with handler
+    ctl inputs-fx(c, i)
+      run-chain(c.input-chain, i)
+    ctl outputs-fx(c, o)
+      run-chain(c.output-chain, o)
+  action()
