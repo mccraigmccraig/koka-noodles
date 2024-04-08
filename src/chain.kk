@@ -151,15 +151,14 @@ pub effect computation-io<i,d,o,v,e>
 pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger|e> v
 
 // handle computation io by running chains
-// pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
-//   with handler 
-//     ctl inputs-fx(c, i)
-//       run-chain(c.input-chain, i)
-//     ctl outputs-fx(c, o)
-//       run-chain(c.output-chain, o)
-//   action()
+pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
+  with handler 
+    ctl inputs-fx(c, i)
+      run-chain(c.input-chain, i)
+    ctl outputs-fx(c, o)
+      run-chain(c.output-chain, o)
+  action()
   
-
 // a de/serializable log of a single step
 // names should be unique, but it won't matter if not,
 // since chain position is the true unique identifier
