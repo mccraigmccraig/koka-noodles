@@ -19,31 +19,47 @@ pub value struct serde<a>
   ser: (a) -> string
   deser: (string) -> either<string,a>
 
-pub alias pure-step<i,o> = (i) -> <pure,logger> o
-pub alias effectful-step<i,o,e> = (i) -> <pure,logger|e> o
+pub alias pure-step-fn<i,o> = (i) -> <pure,logger> o
+pub alias effectful-step-fn<i,o,e> = (i) -> <pure,logger|e> o
 
-pub type step<i,o,e>
-  Pure(pname: string, 
-    step: pure-step<i,o>, 
-    ?i/serde: serde<i>, 
-    ?o/serde: serde<o>)
-  Effectful(fname: string, 
-    step: effectful-step<i,o,e>, 
-    ?i/serde: serde<i>, 
-    ?o/serde: serde<o>)
+pub struct pure-step<i,o>
+  name: string
+  step: pure-step-fn<i,o>
+  i-serde: serde<i>
+  o-serde: serde<o>
+
+pub fun make-pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/serde: serde<i>, ?o/serde: serde<o>): pure-step<i,o>
+  Pure-step(name, step, ?i/serde, ?o/serde)
+
+pub struct effectful-step<i,o,e>
+  name: string
+  step: effectful-step-fn<i,o,e>
+  i-serde: serde<i>
+  o-serde: serde<o>
+
+pub fun make-effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/serde: serde<i>, ?o/serde: serde<o>): effectful-step<i,o,e>
+  Effectful-step(name, step, ?i/serde, ?o/serde)
+
+pub value type step<i,o,e>
+  Pure(step: pure-step<i,o>)
+  Effectful(step: effectful-step<i,o,e>)
+
+pub fun run-pure-step<i,o>(s: pure-step<i,o>, i: i): <pure,logger> o
+  log-enter(s.name, {s.i-serde.ser()(i)})
+  val o = s.step()(i)
+  log-complete({s.o-serde.ser()(o)})
+  o
+
+pub fun run-effectful-step<i,o,e>(s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
+  log-enter(s.name, {s.i-serde.ser()(i)})
+  val o = s.step()(i)
+  log-complete({s.o-serde.ser()(o)})
+  o
 
 pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
   match s
-    Pure(nm, f, iserde, oserde) -> 
-      log-enter(nm, {iserde.ser()(i)})
-      val o = f(i)
-      log-complete({oserde.ser()(o)})
-      o
-    Effectful(nm, f, iserde, oserde) -> 
-      log-enter(nm, {iserde.ser()(i)})
-      val o = f(i)
-      log-complete({oserde.ser()(o)})
-      o
+    Pure(step) -> run-pure-step(step, i)
+    Effectful(step) -> run-effectful-step(step, i)
 
 fun int/ser(i: int): string
  i.show
@@ -62,9 +78,9 @@ fun string/deser(s: string): either<string,string>
 val string/serde = Serde(string/ser, string/deser)
 
 pub fun run-some-steps()
-  val s1 = Pure("inc", fn (x: int) {x + 1}, int/serde, int/serde)
-  val s2 = Effectful("double", fn (x: int) {println("double:" ++ x.show) ; x + x})
-  val s3 = Effectful("throws", fn (x: int) {println("throws:" ++ x.show) ; throw("error") ; x + x})
+  val s1 = Pure(make-pure-step("inc", fn (x: int) {x + 1}))
+  val s2 = Effectful(make-effectful-step("double", fn (x: int) {println("double:" ++ x.show) ; x + x}))
+  val s3 = Effectful(make-effectful-step("throws", fn (x: int) {println("throws:" ++ x.show) ; throw("error") ; x + x}))
   val s1r = run-step(s1, 1)
   println("s1r: " ++ s1r.show())
   val s2r = run-step(s2, 2)
@@ -120,8 +136,8 @@ pub fun first-i-serde<i,o,e>(c: chain<i,o,e>): serde<i>
   match c
     First(fst) -> 
       match fst
-        Pure(_, _, iserde, _) -> iserde
-        Effectful(_, _, iserde, _) -> iserde
+        Pure(Pure-step(_, _, iserde, _)) -> iserde
+        Effectful(Effectful-step(_, _, iserde, _)) -> iserde
     Link(_lst, fr) -> 
       first-i-serde(fr)
 
@@ -129,12 +145,12 @@ pub fun last-o-serde<i,o,e>(c: chain<i,o,e>): serde<o>
   match c
     First(fst) -> 
       match fst
-        Pure(_, _, _, oserde) -> oserde
-        Effectful(_, _, _, oserde) -> oserde
+        Pure(Pure-step(_, _, _, oserde)) -> oserde
+        Effectful(Effectful-step(_, _, _, oserde)) -> oserde
     Link(lst, _fr) -> 
       match lst
-        Pure(_, _, _, oserde) -> oserde
-        Effectful(_, _, _, oserde) -> oserde
+        Pure(Pure-step(_, _, _, oserde)) -> oserde
+        Effectful(Effectful-step(_, _, _, oserde)) -> oserde
 
 // run a chain of steps. blows up stack if chain too long
 pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
@@ -145,9 +161,9 @@ pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
       run-step(lst,r)
 
 pub fun simple-chain()
-  val s1 = Pure("inc", fn (x: int) {x + 1}, int/serde, int/serde)
-  val s2 = Effectful("tostr", fn (x: int) {println("tostr:" ++ x.show) ; x.show}, int/serde, string/serde)
-  val s3 = Effectful("concat", fn (x: string) {println("throws:" ++ x) ; throw("error") ; x ++ x})
+  val s1 = Pure(make-pure-step("inc", fn (x: int) {x + 1}))
+  val s2 = Effectful(make-effectful-step("tostr", fn (x: int) {println("tostr:" ++ x.show) ; x.show}))
+  val s3 = Effectful(make-effectful-step("concat", fn (x: string) {println("throws:" ++ x) ; throw("error") ; x ++ x}))
   val c = First(s1).add-step(s2).add-step(s3)
   run-chain(c, 1)
 
@@ -234,9 +250,9 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <
 // remote logging)
 pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
   val d = c.inputs-fx(i)
-  log-enter(c.name, {"serialization needed"})
-  val o = c.pure()(d)
-  log-complete({"serialization needed"})
+  log-enter(c.name, {c.pure.i-serde.ser()(d)})
+  val o = c.pure.step()(d)
+  log-complete({c.pure.o-serde.ser()(o)})
   val v = c.outputs-fx(o)
   v
 
