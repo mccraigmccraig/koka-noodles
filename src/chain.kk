@@ -24,13 +24,13 @@ pub alias effectful-step<i,o,e> = (i) -> <pure,logger|e> o
 
 pub type step<i,o,e>
   Pure(pname: string, 
-    pstep: pure-step<i,o>, 
-    ?pi/serde: serde<i>, 
-    ?po/serde: serde<o>)
+    step: pure-step<i,o>, 
+    ?i/serde: serde<i>, 
+    ?o/serde: serde<o>)
   Effectful(fname: string, 
-    fstep: effectful-step<i,o,e>, 
-    ?fi/serde: serde<i>, 
-    ?fo/serde: serde<o>)
+    step: effectful-step<i,o,e>, 
+    ?i/serde: serde<i>, 
+    ?o/serde: serde<o>)
 
 pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
   match s
@@ -116,6 +116,26 @@ pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
     First(fst) -> Link(s, First(fst))
     Link(lst, fr) -> Link(s, Link(lst, fr))
 
+pub fun first-i-serde<i,o,e>(c: chain<i,o,e>): serde<i>
+  match c
+    First(fst) -> 
+      match fst
+        Pure(_, _, iserde, _) -> iserde
+        Effectful(_, _, iserde, _) -> iserde
+    Link(_lst, fr) -> 
+      first-i-serde(fr)
+
+pub fun last-o-serde<i,o,e>(c: chain<i,o,e>): serde<o>
+  match c
+    First(fst) -> 
+      match fst
+        Pure(_, _, _, oserde) -> oserde
+        Effectful(_, _, _, oserde) -> oserde
+    Link(lst, _fr) -> 
+      match lst
+        Pure(_, _, _, oserde) -> oserde
+        Effectful(_, _, _, oserde) -> oserde
+
 // run a chain of steps. blows up stack if chain too long
 pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
   match c
@@ -150,15 +170,6 @@ pub effect computation-io<i,d,o,v,e>
 
 pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger|e> v
 
-// handle computation io by running chains
-pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
-  with handler 
-    ctl inputs-fx(c, i)
-      run-chain(c.input-chain, i)
-    ctl outputs-fx(c, o)
-      run-chain(c.output-chain, o)
-  action()
-  
 // a de/serializable log of a single step
 // names should be unique, but it won't matter if not,
 // since chain position is the true unique identifier
@@ -223,9 +234,9 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <
 // remote logging)
 pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
   val d = c.inputs-fx(i)
-  log-enter(c.name, {c.name ++ " input - serialization needed"})
+  log-enter(c.name, {"serialization needed"})
   val o = c.pure()(d)
-  log-complete({c.name ++ " output - serialization needed"})
+  log-complete({"serialization needed"})
   val v = c.outputs-fx(o)
   v
 
@@ -247,3 +258,12 @@ pub fun run-computation<i,d,o,v,e>(
   with io-handler
   run-computation-steps(c, i)
 
+// handle computation io by running chains (note the fun handlers)
+pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
+  with handler 
+    fun inputs-fx(c, i)
+      run-chain(c.input-chain, i)
+    fun outputs-fx(c, o)
+      run-chain(c.output-chain, o)
+  action()
+  
