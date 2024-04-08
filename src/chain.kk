@@ -21,8 +21,6 @@ pub value struct serde<a>
 
 pub alias pure-step<i,o> = (i) -> <pure,logger> o
 pub alias effectful-step<i,o,e> = (i) -> <pure,logger|e> o
-pub alias either-step<i,o> = (i) -> <div,logger> either<string,o>
-pub alias handle-step<i,o,e> = (effectful-step<i,o,e>) -> either-step<i,o>
 
 pub type step<i,o,e>
   Pure(pname: string, 
@@ -137,21 +135,6 @@ pub fun test-simple-chain()
   with print-logger
   simple-chain()
   
-// three stages to a computation
-// - inputs: takes a command/event value and produces the data-inputs
-//   for the pure stage, possibly with side-effects
-// - pure: a pure function that transforms the data-inputs to the data-outputs
-// - outputs: takes the data-outputs and performs any side-effects
-// maybe the inputs/outputs stages should themselves be effects - since
-// being able to change when/where the stages are performed is desirable - e.g. you might 
-// want to write data-outputs to kafka (or postgresql) rather than performing 
-// effects immediately
-
-// want input and output stages to be composed of multiple steps, and to support
-// - auto logging/tracing
-// - resumption from error values
-// - serialization of input/output values
-
 pub struct computation<i,d,o,v,e>
   name: string // the name of the computation, and also the name of the pure step
   input-chain: chain<i,d,e>
@@ -165,7 +148,17 @@ pub effect computation-io<i,d,o,v,e>
   ctl inputs-fx(c: computation<i,d,o,v,e>, i: i) : d
   ctl outputs-fx(c: computation<i,d,o,v,e>, o: o) : v
 
-pub alias computation-io-handler<i,d,o,v,e> = (() -> <pure,logger,computation-io<i,d,o,v,e>|e> v) -> <pure,logger|e> v
+pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger|e> v
+
+// handle computation io by running chains
+pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
+  with handler 
+    ctl inputs-fx(c, i)
+      run-chain(c.input-chain, i)
+    ctl outputs-fx(c, o)
+      run-chain(c.output-chain, o)
+  action()
+  
 
 // a de/serializable log of a single step
 // names should be unique, but it won't matter if not,
@@ -229,7 +222,7 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <
 // now need to deal with de/serialization of input/output values, gathering logs
 // resuming from errors and giving control over the execution process (for e.g. 
 // remote logging)
-pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <pure,logger,computation-io<i,d,o,v,e>|e> v
+pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
   val d = c.inputs-fx(i)
   val o = c.pure()(d)
   val v = c.outputs-fx(o)
@@ -253,11 +246,3 @@ pub fun run-computation<i,d,o,v,e>(
   with io-handler
   run-computation-steps(c, i)
 
-// handle computation io by running chains
-pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <pure,logger,computation-io<i,d,o,v,e>|e> v): <pure,logger|e> v
-  with handler
-    ctl inputs-fx(c, i)
-      run-chain(c.input-chain, i)
-    ctl outputs-fx(c, o)
-      run-chain(c.output-chain, o)
-  action()
