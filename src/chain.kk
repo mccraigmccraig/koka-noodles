@@ -151,13 +151,13 @@ pub effect computation-io<i,d,o,v,e>
 pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger|e> v
 
 // handle computation io by running chains
-pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
-  with handler 
-    ctl inputs-fx(c, i)
-      run-chain(c.input-chain, i)
-    ctl outputs-fx(c, o)
-      run-chain(c.output-chain, o)
-  action()
+// pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
+//   with handler 
+//     ctl inputs-fx(c, i)
+//       run-chain(c.input-chain, i)
+//     ctl outputs-fx(c, o)
+//       run-chain(c.output-chain, o)
+//   action()
   
 
 // a de/serializable log of a single step
@@ -224,7 +224,9 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <
 // remote logging)
 pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
   val d = c.inputs-fx(i)
+  log-enter(c.name, {c.name ++ " input - serialization needed"})
   val o = c.pure()(d)
+  log-complete({c.name ++ " output - serialization needed"})
   val v = c.outputs-fx(o)
   v
 
