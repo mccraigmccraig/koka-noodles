@@ -1,6 +1,5 @@
 module chain
 
-import std/core/console
 import std/core/exn
 import std/core/int
 import std/core/list
@@ -80,14 +79,14 @@ val string/serde = Serde(string/ser, string/deser)
 
 pub fun run-some-steps()
   val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
-  val s2 = Effectful(effectful-step("double", fn (x: int) {string/println("double:" ++ x.show) ; x + x}))
-  val s3 = Effectful(effectful-step("throws", fn (x: int) {string/println("throws:" ++ x.show) ; throw("error") ; x + x}))
+  val s2 = Effectful(effectful-step("double", fn (x: int) {println("double:" ++ x.show) ; x + x}))
+  val s3 = Effectful(effectful-step("throws", fn (x: int) {println("throws:" ++ x.show) ; throw("error") ; x + x}))
   val s1r = run-step(s1, 1)
-  string/println("s1r: " ++ s1r.show())
+  println("s1r: " ++ s1r.show())
   val s2r = run-step(s2, 2)
-  string/println("s2r: " ++ s2r.show())
+  println("s2r: " ++ s2r.show())
   val s3r = run-step(s3, 3)
-  string/println("s3r: " ++ s3r.show())
+  println("s3r: " ++ s3r.show())
 
 value type frame 
   NoFrame
@@ -99,25 +98,25 @@ pub fun print-logger(action)
   with finally
     match current
       Name(name) -> 
-        string/println("unhandled effect: <" ++ name ++ ">")
+        println("unhandled effect: <" ++ name ++ ">")
         current := NoFrame
       NoFrame -> ()
   with handler
     fun log-enter(name, input-ser)
       current := Name(name)
-      string/println("enter: <" ++ name ++ "> " ++ input-ser())
+      println("enter: <" ++ name ++ "> " ++ input-ser())
     fun log-complete(output-ser)
       match current
         Name(name) -> 
-          string/println("complete: <" ++ name ++ "> " ++ output-ser())
+          println("complete: <" ++ name ++ "> " ++ output-ser())
           current := NoFrame
-        NoFrame -> string/println("complete: <?>" ++ " " ++ output-ser())
+        NoFrame -> println("complete: <?>" ++ " " ++ output-ser())
     fun log-error(error-ser)
       match current
         Name(name) -> 
-          string/println("error: <" ++ name ++ "> " ++ error-ser())
+          println("error: <" ++ name ++ "> " ++ error-ser())
           current := NoFrame
-        NoFrame -> string/println("error: <?>" ++ " " ++ error-ser())
+        NoFrame -> println("error: <?>" ++ " " ++ error-ser())
   action()
 
 pub fun test-some-steps()
@@ -164,8 +163,8 @@ pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
 
 pub fun simple-chain()
   val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
-  val s2 = Effectful(effectful-step("tostr", fn (x: int) {string/println("tostr:" ++ x.show) ; x.show}))
-  val s3 = Effectful(effectful-step("concat", fn (x: string) {string/println("throws:" ++ x) ; throw("error") ; x ++ x}))
+  val s2 = Effectful(effectful-step("tostr", fn (x: int) {println("tostr:" ++ x.show) ; x.show}))
+  val s3 = Effectful(effectful-step("concat", fn (x: string) {println("throws:" ++ x) ; throw("error") ; x ++ x}))
   val c = First(s1).add-step(s2).add-step(s3)
   run-chain(c, 1)
 
@@ -205,13 +204,13 @@ pub value struct computation-log
   step-logs: list<step-log>
 
 pub fun print-log(log: computation-log)
-  string/println("computation: " ++ log.name)
+  println("computation: " ++ log.name)
   log.step-logs.foreach( fn (step-log)
-    string/println("  step: " ++ step-log.name)
-    string/println("  input: " ++ step-log.input-str()())
+    println("  step: " ++ step-log.name)
+    println("  input: " ++ step-log.input-str()())
     match step-log.output-str
-      Left(err) -> string/println("  error: " ++ err())
-      Right(out) -> string/println("  output: " ++ out())
+      Left(err) -> println("  error: " ++ err())
+      Right(out) -> println("  output: " ++ out())
   )  
 
 // collect and return a list of step-logs from a computation
@@ -356,8 +355,8 @@ val command-with-user/serde = Serde(command-with-user/ser, command-with-user/des
 
 pub fun fetch-user(cmd: update-user-command): <pure,logger> command-with-user
   match cmd 
-    Update-user-command(user-id, name, password) -> 
-      Command-with-user(cmd, User(user-id, name, password))
+    Update-user-command(user-id, _name, _password) -> 
+      Command-with-user(cmd, User(user-id, "name", "password"))
 
 value struct command-with-user-and-output {
   command: update-user-command
@@ -393,7 +392,7 @@ pub fun test-computation()
     run-chain-io-handler, 
     fn (action) {action()}, 
     computation, 
-    Update-user-command(1, "name", "password"))
+    Update-user-command(1, "new-name", "new-password"))
 
   match r 
     (_,log) -> print-log(log)
