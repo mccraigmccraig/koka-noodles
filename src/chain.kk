@@ -1,5 +1,6 @@
 module chain
 
+import std/core/console
 import std/core/exn
 import std/core/int
 import std/core/list
@@ -28,7 +29,7 @@ pub struct pure-step<i,o>
   i-serde: serde<i>
   o-serde: serde<o>
 
-pub fun make-pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/serde: serde<i>, ?o/serde: serde<o>): pure-step<i,o>
+pub fun pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/serde: serde<i>, ?o/serde: serde<o>): pure-step<i,o>
   Pure-step(name, step, ?i/serde, ?o/serde)
 
 pub struct effectful-step<i,o,e>
@@ -37,7 +38,7 @@ pub struct effectful-step<i,o,e>
   i-serde: serde<i>
   o-serde: serde<o>
 
-pub fun make-effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/serde: serde<i>, ?o/serde: serde<o>): effectful-step<i,o,e>
+pub fun effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/serde: serde<i>, ?o/serde: serde<o>): effectful-step<i,o,e>
   Effectful-step(name, step, ?i/serde, ?o/serde)
 
 pub value type step<i,o,e>
@@ -78,15 +79,15 @@ fun string/deser(s: string): either<string,string>
 val string/serde = Serde(string/ser, string/deser)
 
 pub fun run-some-steps()
-  val s1 = Pure(make-pure-step("inc", fn (x: int) {x + 1}))
-  val s2 = Effectful(make-effectful-step("double", fn (x: int) {println("double:" ++ x.show) ; x + x}))
-  val s3 = Effectful(make-effectful-step("throws", fn (x: int) {println("throws:" ++ x.show) ; throw("error") ; x + x}))
+  val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
+  val s2 = Effectful(effectful-step("double", fn (x: int) {string/println("double:" ++ x.show) ; x + x}))
+  val s3 = Effectful(effectful-step("throws", fn (x: int) {string/println("throws:" ++ x.show) ; throw("error") ; x + x}))
   val s1r = run-step(s1, 1)
-  println("s1r: " ++ s1r.show())
+  string/println("s1r: " ++ s1r.show())
   val s2r = run-step(s2, 2)
-  println("s2r: " ++ s2r.show())
+  string/println("s2r: " ++ s2r.show())
   val s3r = run-step(s3, 3)
-  println("s3r: " ++ s3r.show())
+  string/println("s3r: " ++ s3r.show())
 
 value type frame 
   NoFrame
@@ -98,24 +99,25 @@ pub fun print-logger(action)
   with finally
     match current
       Name(name) -> 
-        println("unhandled effect: <" ++ name ++ ">")
+        string/println("unhandled effect: <" ++ name ++ ">")
         current := NoFrame
+      NoFrame -> ()
   with handler
     fun log-enter(name, input-ser)
       current := Name(name)
-      println("enter: <" ++ name ++ "> " ++ input-ser())
+      string/println("enter: <" ++ name ++ "> " ++ input-ser())
     fun log-complete(output-ser)
       match current
         Name(name) -> 
-          println("complete: <" ++ name ++ "> " ++ output-ser())
+          string/println("complete: <" ++ name ++ "> " ++ output-ser())
           current := NoFrame
-        NoFrame -> println("complete: <?>" ++ " " ++ output-ser())
+        NoFrame -> string/println("complete: <?>" ++ " " ++ output-ser())
     fun log-error(error-ser)
       match current
         Name(name) -> 
-          println("error: <" ++ name ++ "> " ++ error-ser())
+          string/println("error: <" ++ name ++ "> " ++ error-ser())
           current := NoFrame
-        NoFrame -> println("error: <?>" ++ " " ++ error-ser())
+        NoFrame -> string/println("error: <?>" ++ " " ++ error-ser())
   action()
 
 pub fun test-some-steps()
@@ -161,9 +163,9 @@ pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
       run-step(lst,r)
 
 pub fun simple-chain()
-  val s1 = Pure(make-pure-step("inc", fn (x: int) {x + 1}))
-  val s2 = Effectful(make-effectful-step("tostr", fn (x: int) {println("tostr:" ++ x.show) ; x.show}))
-  val s3 = Effectful(make-effectful-step("concat", fn (x: string) {println("throws:" ++ x) ; throw("error") ; x ++ x}))
+  val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
+  val s2 = Effectful(effectful-step("tostr", fn (x: int) {string/println("tostr:" ++ x.show) ; x.show}))
+  val s3 = Effectful(effectful-step("concat", fn (x: string) {string/println("throws:" ++ x) ; throw("error") ; x ++ x}))
   val c = First(s1).add-step(s2).add-step(s3)
   run-chain(c, 1)
 
@@ -203,20 +205,20 @@ pub value struct computation-log
   step-logs: list<step-log>
 
 pub fun print-log(log: computation-log)
-  println("computation: " ++ log.name)
+  string/println("computation: " ++ log.name)
   log.step-logs.foreach( fn (step-log)
-    println("  step: " ++ step-log.name)
-    println("  input: " ++ step-log.input-str()())
+    string/println("  step: " ++ step-log.name)
+    string/println("  input: " ++ step-log.input-str()())
     match step-log.output-str
-      Left(err) -> println("  error: " ++ err())
-      Right(out) -> println("  output: " ++ out())
+      Left(err) -> string/println("  error: " ++ err())
+      Right(out) -> string/println("  output: " ++ out())
   )  
 
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
 // return is div (would be nice for it to be total, but there's
 // no stdlib for timeouts yet afaics)
-pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <div> (either<string,v>, computation-log)
+pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : div (either<string,v>, computation-log)
   var steps: list<step-log> := []
   var next-step: maybe<open-step> := Nothing
   with return(v) (v, Computation-Log(computation-name, steps))
@@ -243,6 +245,16 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : <
         Nothing ->
           throw("Unexpected log-error")
   Right(action())
+
+pub fun collect-test-logs()
+  with log-collector("boo")
+  log-enter("a", {"a"})
+  log-complete({"b"})
+  1
+
+pub fun test-collect-test-logs()
+  val r = collect-test-logs()
+  r
 
 // run a computation - using effects to gather inputs and perform outputs
 // now need to deal with de/serialization of input/output values, gathering logs
@@ -274,12 +286,115 @@ pub fun run-computation<i,d,o,v,e>(
   with io-handler
   run-computation-steps(c, i)
 
-// handle computation io by running chains (note the fun handlers)
+// handle computation io by running chains
 pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
   with handler 
-    fun inputs-fx(c, i)
-      run-chain(c.input-chain, i)
-    fun outputs-fx(c, o)
-      run-chain(c.output-chain, o)
+    ctl inputs-fx(c, i)
+      resume(run-chain(c.input-chain, i))
+    ctl outputs-fx(c, o)
+      resume(run-chain(c.output-chain, o))
   action()
+  
+// now to build a computation and run it, outputting the result and the log... 
+// then test under various failure conditions and 
+// create a resume-log-chain-io-handler which resumes the computation from a failure point
+
+struct update-user-command {
+  user-id: int
+  name: string
+  password: string
+}
+
+fun update-user-command/ser(cmd: update-user-command): string
+  "{id: " ++ cmd.user-id.show ++ ", name: " ++ cmd.name ++ ", password: " ++ cmd.password ++ "}"
+
+fun update-user-command/deser(s: string): either<string,update-user-command>
+  Left("not implemented")
+
+val update-user-command/serde = Serde(update-user-command/ser, update-user-command/deser)
+
+struct user {
+  user-id: int
+  name: string
+  encryptedPassword: string
+}
+
+fun user/ser(u: user): string
+  "{id: " ++ u.user-id.show ++ ", name: " ++ u.name ++ ", password: " ++ u.encryptedPassword ++ "}"
+
+fun user/deser(s: string): either<string,user>
+  Left("not implemented")
+
+val user/serde = Serde(user/ser, user/deser)
+
+struct user-updated-event {
+  user-id: int
+  name: string
+  encryptedPassword: string
+}
+
+fun user-updated-event/ser(e: user-updated-event): string
+  "{id: " ++ e.user-id.show ++ ", name: " ++ e.name ++ ", password: " ++ e.encryptedPassword ++ "}"
+
+fun user-updated-event/deser(s: string): either<string,user-updated-event>
+  Left("not implemented")
+
+val user-updated-event/serde = Serde(user-updated-event/ser, user-updated-event/deser)
+
+value struct command-with-user {
+  command: update-user-command
+  user: user
+}
+
+fun command-with-user/ser(cu: command-with-user): string
+  "{command: " ++ update-user-command/ser(cu.command) ++ ", user: " ++ user/ser(cu.user) ++ "}"
+
+fun command-with-user/deser(s: string): either<string,command-with-user>
+  Left("not implemented")
+
+val command-with-user/serde = Serde(command-with-user/ser, command-with-user/deser)
+
+pub fun fetch-user(cmd: update-user-command): <pure,logger> command-with-user
+  match cmd 
+    Update-user-command(user-id, name, password) -> 
+      Command-with-user(cmd, User(user-id, name, password))
+
+value struct command-with-user-and-output {
+  command: update-user-command
+  user: user
+  event: user-updated-event
+}
+
+fun command-with-user-and-output/ser(cu: command-with-user-and-output): string
+  "{command: " ++ update-user-command/ser(cu.command) ++ ", user: " ++ user/ser(cu.user) ++ ", event: " ++ user-updated-event/ser(cu.event) ++ "}"
+
+fun command-with-user-and-output/deser(s: string): either<string,command-with-user-and-output>
+  Left("not implemented")
+
+val command-with-user-and-output/serde = Serde(command-with-user-and-output/ser, command-with-user-and-output/deser)
+
+pub fun update-user(cu: command-with-user): <pure,logger> command-with-user-and-output
+  match cu
+    Command-with-user(cmd, user) -> 
+      Command-with-user-and-output(cmd, user, User-updated-event(user.user-id, cmd.name, cmd.password))
+
+pub fun process-user-updated-event(cuo: command-with-user-and-output): <pure,logger> command-with-user-and-output
+  cuo
+
+pub fun test-computation()
+  val s1 = Effectful(effectful-step("fetch-user", fetch-user))
+  val input-chain = First(s1)
+  val s2 = pure-step("update-user", update-user)
+  val s3 = Effectful(effectful-step("process-user-updated-event", process-user-updated-event))
+  val output-chain = First(s3)
+  val computation = Computation("update-user", input-chain, s2, output-chain)
+
+  val r = run-computation(
+    run-chain-io-handler, 
+    fn (action) {action()}, 
+    computation, 
+    Update-user-command(1, "name", "password"))
+
+  match r 
+    (_,log) -> print-log(log)
   
