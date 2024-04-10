@@ -195,7 +195,7 @@ pub fun print-computation-log(log: computation-log)
 // this handler should also handle any exn effect, so the 
 // return is div (would be nice for it to be total, but there's
 // no stdlib for timeouts yet afaics)
-pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : div (either<string,v>, computation-log)
+pub fun log-collector<v>(computation-name, action: () -> <pure,logger> v) : div (either<string,v>, computation-log)
   var steps: list<step-log> := []
   var next-step: maybe<open-step> := Nothing
   with return(v) (v, Computation-Log(computation-name, steps))
@@ -244,35 +244,34 @@ pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <com
   v
 
 // a handler for the computation io operations
-pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger|e> v
-
-// a handler for the computation specific effects
-pub alias computation-fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
+pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger> v
 
 // run a computation, handling input and output effects, and returning final
 // output, and a log of the computation. the log can be used for 
 // debugging and introspection, and in the case of failure can be used 
 // with an io-handler to retry the computation
-// TODO - can/should the io-handler and fx-handler be combined ?
-// TODO - can we add a timer to get rid of the div effect, or convert it to
-//    <ndet,exn>
+// TODO - can we add a timer to convert the div effect to <ndet,exn> ?
+//      how would that work with truly non-terminating computations ?
+//      can they be interrupted ?
 pub fun run-computation<i,d,o,v,e>(
     io-handler: computation-io-handler<i,d,o,v,e>, 
-    fx-handler: computation-fx-handler<v,e>, 
+    // fx-handler: computation-fx-handler<v,e>, 
     c: computation<i,d,o,v,e>, 
     i: i) : div (either<string,v>, computation-log)
   with log-collector(c.name)
-  with fx-handler
   with io-handler
   run-computation-steps(c, i)
 
-// handle computation io by running chains
-pub fun run-chain-io-handler<i,d,o,v,e>(action: () -> <computation-io<i,d,o,v,e>,pure,logger|e> v): <pure,logger|e> v
-  with handler 
-    ctl inputs-fx(c, i)
-      resume(run-chain(c.input-chain, i))
-    ctl outputs-fx(c, o)
-      resume(run-chain(c.output-chain, o))
-  action()
-  
+// handle computation-specific effects
+pub alias fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
 
+// basic case - handle computation io by running effectful input/output chains
+pub fun run-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-handler<i,d,o,v,e>
+  fn (action)
+    with hdl
+    with handler 
+      ctl inputs-fx(c, i)
+        resume(run-chain(c.input-chain, i))
+      ctl outputs-fx(c, o)
+        resume(run-chain(c.output-chain, o))
+    action()
