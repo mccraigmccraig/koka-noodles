@@ -258,6 +258,7 @@ pub fun run-computation<i,d,o,v,e>(
     // fx-handler: computation-fx-handler<v,e>, 
     c: computation<i,d,o,v,e>, 
     i: i) : div (either<string,v>, computation-log)
+    
   with log-collector(c.name)
   with io-handler
   run-computation-steps(c, i)
