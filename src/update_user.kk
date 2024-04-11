@@ -2,6 +2,7 @@ module update_user
 
 import chain
 import logger
+import fcore
 
 // basic objects
 
