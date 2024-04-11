@@ -1,6 +1,22 @@
 module update_user
 
 import chain
+import logger
+
+// basic objects
+
+struct user {
+  user-id: int
+  name: string
+  encryptedPassword: string
+}
+fun user/ser(u: user): string
+  "{id: \"" ++ u.user-id.show ++ "\", name: \"" ++ u.name ++ "\", password: \"" ++ u.encryptedPassword ++ "\"}"
+
+fun user/deser(s: string): either<string,user>
+  Left("not implemented")
+
+val user/serde = Serde(user/ser, user/deser)
 
 struct update-user-command {
   user-id: int
@@ -9,26 +25,12 @@ struct update-user-command {
 }
 
 fun update-user-command/ser(cmd: update-user-command): string
-  "{id: " ++ cmd.user-id.show ++ ", name: " ++ cmd.name ++ ", password: " ++ cmd.password ++ "}"
+  "{id: \"" ++ cmd.user-id.show ++ "\", name: \"" ++ cmd.name ++ "\", password: \"" ++ cmd.password ++ "\"}"
 
 fun update-user-command/deser(s: string): either<string,update-user-command>
   Left("not implemented")
 
 val update-user-command/serde = Serde(update-user-command/ser, update-user-command/deser)
-
-struct user {
-  user-id: int
-  name: string
-  encryptedPassword: string
-}
-
-fun user/ser(u: user): string
-  "{id: " ++ u.user-id.show ++ ", name: " ++ u.name ++ ", password: " ++ u.encryptedPassword ++ "}"
-
-fun user/deser(s: string): either<string,user>
-  Left("not implemented")
-
-val user/serde = Serde(user/ser, user/deser)
 
 struct user-updated-event {
   user-id: int
@@ -37,12 +39,14 @@ struct user-updated-event {
 }
 
 fun user-updated-event/ser(e: user-updated-event): string
-  "{id: " ++ e.user-id.show ++ ", name: " ++ e.name ++ ", password: " ++ e.encryptedPassword ++ "}"
+  "{id: \"" ++ e.user-id.show ++ "\", name: \"" ++ e.name ++ "\", password: \"" ++ e.encryptedPassword ++ "\"}"
 
 fun user-updated-event/deser(s: string): either<string,user-updated-event>
   Left("not implemented")
 
 val user-updated-event/serde = Serde(user-updated-event/ser, user-updated-event/deser)
+
+// chain objects
 
 value struct command-with-user {
   command: update-user-command
@@ -57,11 +61,6 @@ fun command-with-user/deser(s: string): either<string,command-with-user>
 
 val command-with-user/serde = Serde(command-with-user/ser, command-with-user/deser)
 
-pub fun fetch-user(cmd: update-user-command): <pure,logger> command-with-user
-  match cmd 
-    Update-user-command(user-id, _name, _password) -> 
-      Command-with-user(cmd, User(user-id, "name", "password"))
-
 value struct command-with-user-and-output {
   command: update-user-command
   user: user
@@ -75,6 +74,13 @@ fun command-with-user-and-output/deser(s: string): either<string,command-with-us
   Left("not implemented")
 
 val command-with-user-and-output/serde = Serde(command-with-user-and-output/ser, command-with-user-and-output/deser)
+
+// chain functions
+
+pub fun fetch-user(cmd: update-user-command): <pure,logger> command-with-user
+  match cmd 
+    Update-user-command(user-id, _name, _password) -> 
+      Command-with-user(cmd, User(user-id, "name", "password"))
 
 pub fun update-user(cu: command-with-user): <pure,logger> command-with-user-and-output
   match cu

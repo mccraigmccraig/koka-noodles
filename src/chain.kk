@@ -4,16 +4,7 @@ import std/core/exn
 import std/core/int
 import std/core/list
 import std/num/random
-
-pub alias stringsrc = () -> string
-
-pub effect logger
-  // open a step-log
-  fun log-enter(name: string, input-ser: stringsrc) : ()
-  // close a step log successfully
-  fun log-complete(output-ser: stringsrc) : ()
-  // close a step log with an error
-  fun log-error(error-ser: stringsrc) : ()
+import logger
 
 pub value struct serde<a>
   ser: (a) -> string
@@ -79,49 +70,25 @@ val string/serde = Serde(string/ser, string/deser)
 
 pub fun run-some-steps()
   val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
-  val s2 = Effectful(effectful-step("double", fn (x: int) {println("double:" ++ x.show) ; x + x}))
-  val s3 = Effectful(effectful-step("throws", fn (x: int) {println("throws:" ++ x.show) ; throw("error") ; x + x}))
+  val s2 = Effectful(effectful-step("double", fn (x: int) x + x))
+  val s3 = Effectful(effectful-step("throws", fn (x: int) {throw("error") ; x + x}))
   val s1r = run-step(s1, 1)
-  println("s1r: " ++ s1r.show())
+  // println("s1r: " ++ s1r.show())
   val s2r = run-step(s2, 2)
-  println("s2r: " ++ s2r.show())
+  // println("s2r: " ++ s2r.show())
   val s3r = run-step(s3, 3)
-  println("s3r: " ++ s3r.show())
+  // println("s3r: " ++ s3r.show())
+  s3r
 
-value type frame 
-  NoFrame
-  Name(n: string)
-
-// handle the logger effect by printing to console
-pub fun print-logger(action)
-  var current := NoFrame
-  with finally
-    match current
-      Name(name) -> 
-        println("unhandled effect: <" ++ name ++ ">")
-        current := NoFrame
-      NoFrame -> ()
-  with handler
-    fun log-enter(name, input-ser)
-      current := Name(name)
-      println("enter: <" ++ name ++ "> " ++ input-ser())
-    fun log-complete(output-ser)
-      match current
-        Name(name) -> 
-          println("complete: <" ++ name ++ "> " ++ output-ser())
-          current := NoFrame
-        NoFrame -> println("complete: <?>" ++ " " ++ output-ser())
-    fun log-error(error-ser)
-      match current
-        Name(name) -> 
-          println("error: <" ++ name ++ "> " ++ error-ser())
-          current := NoFrame
-        NoFrame -> println("error: <?>" ++ " " ++ error-ser())
-  action()
+pub fun log-some-steps()
+  with log-collector("some-steps")
+  run-some-steps() 
 
 pub fun test-some-steps()
-  with print-logger
-  run-some-steps()    
+  match log-some-steps()
+    (v, log) ->
+      print-computation-log(log)
+      println("result: " ++ v.show())
 
 // it's a backwards cons of steps - last step first... 
 pub type chain<i,o,e>
@@ -143,14 +110,20 @@ pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
 
 pub fun simple-chain()
   val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
-  val s2 = Effectful(effectful-step("tostr", fn (x: int) {println("tostr:" ++ x.show) ; x.show}))
-  val s3 = Effectful(effectful-step("concat", fn (x: string) {println("throws:" ++ x) ; throw("error") ; x ++ x}))
+  val s2 = Effectful(effectful-step("tostr", fn (x: int) x.show))
+  val s3 = Effectful(effectful-step("concat", fn (x: string) {throw("error") ; x ++ x}))
   val c = First(s1).add-step(s2).add-step(s3)
   run-chain(c, 1)
 
-pub fun test-simple-chain()
-  with print-logger
+pub fun log-simple-chain()
+  with log-collector("simple-chain")
   simple-chain()
+
+pub fun test-simple-chain()
+  match log-simple-chain()
+    (v, log) ->
+      print-computation-log(log)
+      println("result: " ++ v.show())
   
 pub struct computation<i,d,o,v,e>
   name: string // the name of the computation, and also the name of the pure step
@@ -164,74 +137,6 @@ pub struct computation<i,d,o,v,e>
 pub effect computation-io<i,d,o,v,e>
   ctl inputs-fx(c: computation<i,d,o,v,e>, i: i) : d
   ctl outputs-fx(c: computation<i,d,o,v,e>, o: o) : v
-
-// a de/serializable log of a single step
-// names should be unique, but it won't matter if not,
-// since chain position is the true unique identifier
-pub value struct open-step
-  name: string
-  input-str: stringsrc 
-
-pub struct step-log
-  name: string
-  input-str: stringsrc
-  output-str: either<stringsrc,stringsrc>
-
-pub value struct computation-log
-  name: string
-  step-logs: list<step-log>
-
-pub fun print-computation-log(log: computation-log)
-  println("computation: " ++ log.name)
-  log.step-logs.foreach( fn (step-log)
-    println("  step: " ++ step-log.name)
-    println("  input: " ++ step-log.input-str()())
-    match step-log.output-str
-      Left(err) -> println("  error: " ++ err())
-      Right(out) -> println("  output: " ++ out())
-  )  
-
-// collect and return a list of step-logs from a computation
-// this handler should also handle any exn effect, so the 
-// return is div (would be nice for it to be total, but there's
-// no stdlib for timeouts yet afaics)
-pub fun log-collector<v>(computation-name, action: () -> <pure,logger> v) : div (either<string,v>, computation-log)
-  var steps: list<step-log> := []
-  var next-step: maybe<open-step> := Nothing
-  with return(v) (v, Computation-Log(computation-name, steps))
-  with handler
-    final ctl throw-exn(ex)
-      match next-step
-        Just(Open-step(name, input-str)) ->
-          steps := Cons(Step-Log(name, input-str, Left({"Unhandled Exception: " ++ ex.show})), steps)
-          Left("Unhandled Exception: " ++ ex.show)
-        Nothing -> Left("Unhandled Exception outside step:" ++ ex.show)
-  with handler
-    fun log-enter(name, input-ser)
-      next-step := Just(Open-Step(name, input-ser))
-    fun log-complete(output-ser)
-      match next-step
-        Just(Open-step(name, input-ser)) -> 
-          steps := Cons(Step-Log(name, input-ser, Right(output-ser)), steps)
-        Nothing ->
-          throw("Unexpected log-complete")
-    fun log-error(error-ser)
-      match next-step
-        Just(Open-step(name, input-ser)) ->
-          steps := Cons(Step-Log(name, input-ser, Left(error-ser)), steps)
-        Nothing ->
-          throw("Unexpected log-error")
-  Right(action())
-
-pub fun collect-test-logs()
-  with log-collector("boo")
-  log-enter("a", {"a"})
-  log-complete({"b"})
-  1
-
-pub fun test-collect-test-logs()
-  val r = collect-test-logs()
-  r
 
 // the core business of running a computation - using effects to gather inputs
 // and perform outputs
@@ -255,7 +160,6 @@ pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,
 //      can they be interrupted ?
 pub fun run-computation<i,d,o,v,e>(
     io-handler: computation-io-handler<i,d,o,v,e>, 
-    // fx-handler: computation-fx-handler<v,e>, 
     c: computation<i,d,o,v,e>, 
     i: i) : div (either<string,v>, computation-log)
     
@@ -276,3 +180,11 @@ pub fun run-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-ha
       ctl outputs-fx(c, o)
         resume(run-chain(c.output-chain, o))
     action()
+
+// next up - a resume handler which will take a computation-log, presumably 
+// from a failed computation, and resume it from the point of failure
+// need proper deserialization to make this work... and probably also want 
+// to tie the computation-log to the computation itself so that you can't 
+// resume a computation with a log from a completely different computation
+
+// pub fun resume-io-handler<i,d,o,v,e>(log: computation-log, hdl: fx-handler<v,e>): computation-io-handler<i,d,o,v,e>

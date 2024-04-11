@@ -1,0 +1,97 @@
+module logger
+
+pub alias stringsrc = () -> string
+
+pub effect logger
+  // open a step-log
+  fun log-enter(name: string, input-ser: stringsrc) : ()
+  // close a step log successfully
+  fun log-complete(output-ser: stringsrc) : ()
+  // close a step log with an error
+  fun log-error(error-ser: stringsrc) : ()
+
+// a de/serializable log of a single step
+// names should be unique, but it won't matter if not,
+// since chain position is the true unique identifier
+value struct open-step
+  name: string
+  input-str: stringsrc 
+
+pub struct step-log
+  name: string
+  input-str: stringsrc
+  output-str: either<stringsrc,stringsrc>
+
+pub value struct computation-log
+  name: string
+  step-logs: list<step-log>
+
+pub fun print-computation-log(log: computation-log)
+  println("computation: " ++ log.name ++ "\n--")
+  log.step-logs.reverse.foreach( fn (step-log)
+    println("  step: " ++ step-log.name)
+    println("  input: " ++ step-log.input-str()())
+    match step-log.output-str
+      Left(err) -> println("  error: " ++ err())
+      Right(out) -> println("  output: " ++ out())
+    println("--")
+  )  
+
+// collect and return a list of step-logs from a computation
+// this handler should also handle any exn effect, so the 
+// return is div (would be nice for it to be total, but there's
+// no stdlib for timeouts yet afaics)
+pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : div (either<string,v>, computation-log)
+  var steps: list<step-log> := []
+  var next-step: maybe<open-step> := Nothing
+  with return(v) (v, Computation-Log(computation-name, steps))
+  with handler
+    final ctl throw-exn(ex)
+      match next-step
+        Just(Open-step(name, input-str)) ->
+          steps := Cons(Step-Log(name, input-str, Left({"Unhandled Exception: " ++ ex.show})), steps)
+          Left("Unhandled Exception: " ++ ex.show)
+        Nothing -> Left("Unhandled Exception outside step:" ++ ex.show)
+  with handler
+    fun log-enter(name, input-ser)
+      next-step := Just(Open-Step(name, input-ser))
+    fun log-complete(output-ser)
+      match next-step
+        Just(Open-step(name, input-ser)) -> 
+          steps := Cons(Step-Log(name, input-ser, Right(output-ser)), steps)
+        Nothing ->
+          throw("Unexpected log-complete")
+    fun log-error(error-ser)
+      match next-step
+        Just(Open-step(name, input-ser)) ->
+          steps := Cons(Step-Log(name, input-ser, Left(error-ser)), steps)
+        Nothing ->
+          throw("Unexpected log-error")
+  Right(action())
+
+// test/example
+
+pub fun stuff(i: int)
+  log-enter("stuff", {i.show})
+  val o = i + i
+  log-complete({o.show})
+  o
+
+pub fun thingz(i: int)
+  log-enter("thingz", {i.show})
+  val o = i * i
+  throw("oops: " ++ o.show)
+  log-complete({o.show})
+  o
+
+pub fun collect-test-logs()
+  with log-collector("test")
+  val v = stuff(5)
+  val w = thingz(v)
+  w
+
+pub fun test-collect-logs()
+  match collect-test-logs()
+    (v, log) -> 
+      print-computation-log(log)
+      println("Result: " ++ v.show)
