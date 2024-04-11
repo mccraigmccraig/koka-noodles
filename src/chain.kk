@@ -19,14 +19,14 @@ pub struct pure-step<i,o>
   i-serde: serde<i>
   o-serde: serde<o>
 
-pub fun pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/serde: serde<i>, ?o/serde: serde<o>): pure-step<i,o>
-  Pure-step(name, step, ?i/serde, ?o/serde)
-
 pub struct effectful-step<i,o,e>
   name: string
   step: effectful-step-fn<i,o,e>
   i-serde: serde<i>
   o-serde: serde<o>
+
+pub fun pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/serde: serde<i>, ?o/serde: serde<o>): pure-step<i,o>
+  Pure-step(name, step, ?i/serde, ?o/serde)
 
 pub fun effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/serde: serde<i>, ?o/serde: serde<o>): effectful-step<i,o,e>
   Effectful-step(name, step, ?i/serde, ?o/serde)

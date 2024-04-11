@@ -3,15 +3,20 @@ module fcore
 import chain
 import logger
 
+// computations have a potentially effectful input-chain, a pure step, and
+// a potentially effectful output-chain. the input-chain gathers the
+// input to the pure step, and the output-chain processes the output
+// from the pure step
 pub struct computation<i,d,o,v,e>
   name: string // the name of the computation, and also the name of the pure step
   input-chain: chain<i,d,e>
   pure: pure-step<d,o>
   output-chain: chain<o,v,e>
 
-// allows control of input-gathering and output-performing actions - 
-// perhaps data is read directly from a serialized message, or written 
-// to a kafka topic rather than performed immediately
+// controls the input-gathering and output-performing phases - 
+// perhaps data is read directly from the serialized log of 
+// a previously failed computation, or maybe serialized output 
+// is written to a kafka topic rather than actioned immediately
 pub effect computation-io<i,d,o,v,e>
   ctl inputs-fx(c: computation<i,d,o,v,e>, i: i) : d
   ctl outputs-fx(c: computation<i,d,o,v,e>, o: o) : v
