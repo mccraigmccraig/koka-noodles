@@ -8,9 +8,6 @@ pub struct object-entry {
   value: value
 }
 
-fun object-entry/show(e: object-entry)
-  "\"" ++ e.key ++ "\": " ++ e.value.show
-
 pub rec type value
   String(s: string)
   Int(i: int)
@@ -19,11 +16,14 @@ pub rec type value
   Array(a: list<value>)
   Object(o: list<object-entry>)
 
+fun object-entry/show(e: object-entry)
+  "\"" ++ e.key ++ "\": " ++ e.value.show
+
 fun value/show(v: value)
   match v
     String(s) -> "\"" ++ s ++ "\""
     Int(i) -> i.show
-    Bool(b) -> b.show
+    Bool(b) -> if b then "true" else "false"
     Null -> "null"
     Array(a) -> "[" ++ a.map(show).join(", ") ++ "]"
     Object(o) -> "{" ++ o.map(show).join(", ") ++ "}"
@@ -34,7 +34,7 @@ fun hex-digit()
 fun four-hex-digits()
   count(4, hex-digit).string
 
-pub fun json-quoted-char()
+fun json-quoted-char()
   char('\\')
   choose([
     {char('"')},
@@ -77,74 +77,71 @@ pub fun is-json-whitespace-char(c)
 pub fun json-whitespace()
   optional([], {chars-are("whitespace-chars", is-json-whitespace-char)}).string
 
-pub fun json-int()
-  pint()
-
-pub fun json-true()
+pub fun bool-true()
   pstring("true")
   True
 
-pub fun json-false()
+pub fun bool-false()
   pstring("false")
   False
 
-pub fun json-bool()
+pub fun bool()
   choose([
-    {json-true()},
-    {json-false()}
+    {bool-true()},
+    {bool-false()}
   ])
 
-pub fun json-null()
+pub fun null()
   pstring("null")
 
-pub fun is-json-whitespace-comma-char(c)
+pub fun is-whitespace-comma-char(c)
   c == ','
   || c == ' '
   || c == '\n'
   || c == '\r'
   || c == '\t'
 
-pub fun json-whitespace-comma()
-  optional([], {chars-are("whitespace-comma-chars", is-json-whitespace-comma-char)}).string
+pub fun whitespace-comma()
+  optional([], {chars-are("whitespace-comma-chars", is-whitespace-comma-char)}).string
 
-pub fun json-array()
+pub fun array-values()
   char('[')
   json-whitespace()
   val values = many({
-    json-whitespace-comma() ;
-    val v = json-value()
-    json-whitespace-comma()
+    whitespace-comma() ;
+    val v = value()
+    whitespace-comma()
     v})
   json-whitespace()
   char(']')
   values
 
-pub fun json-object()
+pub fun object-entries()
   char('{')
   json-whitespace()
   val entries = many({
-    json-whitespace-comma() ;
-    val key = json-string()
+    whitespace-comma() ;
+    val k = json-string()
     json-whitespace()
     char(':')
     json-whitespace()
-    val value = json-value()
-    json-whitespace-comma()
-    Object-entry(key, value)
+    val v = value()
+    whitespace-comma()
+    Object-entry(k, v)
   })
   json-whitespace()
   char('}')
   entries
 
-pub fun json-value()
+pub fun value()
   choose([
     {json-string().String},
-    {json-int().Int},  
-    {json-bool().Bool},
-    {json-null() ; Null},
-    {json-array().Array},
-    {json-object().Object}
+    {pint().Int},  
+    {bool().Bool},
+    {null() ; Null},
+    {array-values().Array},
+    {object-entries().Object}
   ])
 
 pub fun test-parse()
-  "{\"foo\": 123}".slice.parse(json-value).maybe.show
+  "{\"foo\": [1,2,true]}".slice.parse(value).maybe.show
