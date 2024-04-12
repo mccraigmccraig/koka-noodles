@@ -55,7 +55,7 @@ fun is-json-string-char(c)
 
 fun json-string-chars()
   parse/(||)(
-    {chars-are("json-sring-chars", is-json-string-char).string}, 
+    {chars-are("json-string-chars", is-json-string-char).string}, 
     {quoted-char().string}
   )
 
@@ -75,7 +75,7 @@ fun is-json-whitespace-char(c)
   || c == '\t'
 
 fun json-whitespace()
-  optional([], {chars-are("whitespace-chars", is-json-whitespace-char)}).string
+  optional([], {chars-are("json-whitespace-chars", is-json-whitespace-char)}).string
 
 fun bool-true()
   pstring("true")
