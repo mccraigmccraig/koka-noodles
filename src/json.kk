@@ -148,13 +148,13 @@ pub fun parse(s: string)
   s.slice.parse(pvalue).either
 
 pub fun test-parse()
-  "{\"foo\": [1,2,true,{\"bar\": 200}]}".parse.show
+  "{\"foo\": [1,\"two\",true,{\"bar\": 200}]}".parse.show
 
 pub fun test-roundtrip()
   val obj = Object([
     Object-entry("foo", Array([
       Int(1),
-      Int(2),
+      String("two"),
       Bool(True),
       Object([
         Object-entry("bar", Int(200))
