@@ -1,7 +1,6 @@
 module json
 
 import std/text/parse 
-import std/num/decimal
 
 pub struct object-entry {
   key: string
