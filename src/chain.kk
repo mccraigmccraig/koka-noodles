@@ -7,8 +7,8 @@ import std/num/random
 import logger
 
 pub value struct serde<a>
-  ser: (a) -> string
-  deser: (string) -> either<string,a>
+  ser: (a) -> div string
+  deser: (string) -> div either<string,a>
 
 pub alias pure-step-fn<i,o> = (i) -> <pure,logger> o
 pub alias effectful-step-fn<i,o,e> = (i) -> <pure,logger|e> o

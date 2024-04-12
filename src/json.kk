@@ -15,10 +15,10 @@ pub rec type value
   Array(a: list<value>)
   Object(o: list<object-entry>)
 
-fun object-entry/show(e: object-entry)
+pub fun object-entry/show(e: object-entry)
   "\"" ++ e.key ++ "\": " ++ e.value.show
 
-fun value/show(v: value)
+pub fun value/show(v: value)
   match v
     String(s) -> "\"" ++ s ++ "\""
     Int(i) -> i.show

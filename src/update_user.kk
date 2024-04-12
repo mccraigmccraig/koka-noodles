@@ -3,6 +3,7 @@ module update_user
 import logger
 import chain
 import fcore
+import json
 
 // basic objects
 
@@ -11,10 +12,18 @@ struct user {
   name: string
   encryptedPassword: string
 }
-fun user/ser(u: user): string
-  "{id: \"" ++ u.user-id.show ++ "\", name: \"" ++ u.name ++ "\", password: \"" ++ u.encryptedPassword ++ "\"}"
-fun user/deser(s: string): either<string,user>
-  Left("not implemented")
+fun user/ser(u: user): div string
+  Object([Object-entry("id", Int(u.user-id)), 
+          Object-entry("name", String(u.name)), 
+          Object-entry("password", String(u.encryptedPassword))]).show
+fun user/deser(s: string): div either<string,user>
+  match json/parse(s)
+    Right(
+      Object([Object-entry("id", Int(id)), 
+              Object-entry("name", String(name)), 
+              Object-entry("password", String(password))])) -> 
+         Right(User(id, name, password))
+    _ -> Left("invalid json")
 val user/serde = Serde(user/ser, user/deser)
 
 struct update-user-command {
@@ -45,7 +54,7 @@ value struct command-with-user {
   command: update-user-command
   user: user
 }
-fun command-with-user/ser(cu: command-with-user): string
+fun command-with-user/ser(cu: command-with-user): div string
   "{command: " ++ update-user-command/ser(cu.command) ++ ", user: " ++ user/ser(cu.user) ++ "}"
 fun command-with-user/deser(s: string): either<string,command-with-user>
   Left("not implemented")
@@ -56,7 +65,7 @@ value struct command-with-user-and-output {
   user: user
   event: user-updated-event
 }
-fun command-with-user-and-output/ser(cu: command-with-user-and-output): string
+fun command-with-user-and-output/ser(cu: command-with-user-and-output): div string
   "{command: " ++ update-user-command/ser(cu.command) ++ ", user: " ++ user/ser(cu.user) ++ ", event: " ++ user-updated-event/ser(cu.event) ++ "}"
 fun command-with-user-and-output/deser(s: string): either<string,command-with-user-and-output>
   Left("not implemented")

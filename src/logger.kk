@@ -1,6 +1,6 @@
 module logger
 
-pub alias stringsrc = () -> string
+pub alias stringsrc = () -> div string
 
 pub effect logger
   // open a step-log
