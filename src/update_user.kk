@@ -24,10 +24,12 @@ fun user/puser(): <div,parse> user
   json/pvalue().user/pobject
 fun user/deser(s: string): div either<string,user>
   s.slice.parse(user/puser).either
-fun user/ser(u: user): div string
+fun user/object(u: user): div json/value
   Object([Object-entry("id", Int(u.user-id)), 
           Object-entry("name", String(u.name)), 
-          Object-entry("password", String(u.encryptedPassword))]).show
+          Object-entry("password", String(u.encryptedPassword))])
+fun user/ser(u: user): div string
+  user/object(u).show
 val user/serde = Serde(user/ser, user/deser)
 
 struct update-user-command {
@@ -46,10 +48,12 @@ fun update-user-command/p(): <div,parse> update-user-command
   json/pvalue().update-user-command/pobject
 fun update-user-command/deser(s: string): div either<string,update-user-command>
   s.slice.parse(update-user-command/p).either
-fun update-user-command/ser(cmd: update-user-command): div string
+fun update-user-command/object(cmd: update-user-command): div json/value
   Object([Object-entry("id", Int(cmd.user-id)), 
           Object-entry("name", String(cmd.name)), 
-          Object-entry("password", String(cmd.password))]).show
+          Object-entry("password", String(cmd.password))])
+fun update-user-command/ser(cmd: update-user-command): div string
+  update-user-command/object(cmd).show
 val update-user-command/serde = Serde(update-user-command/ser, update-user-command/deser)
 
 struct user-updated-event {
@@ -68,10 +72,12 @@ fun puser-updated-event(): <div,parse> user-updated-event
   json/pvalue().user-updated-event/pobject
 fun user-updated-event/deser(s: string): div either<string,user-updated-event>
   s.slice.parse(puser-updated-event).either
-fun user-updated-event/ser(e: user-updated-event): div string
+fun user-updated-event/object(e: user-updated-event): div json/value
   Object([Object-entry("id", Int(e.user-id)), 
           Object-entry("name", String(e.name)), 
-          Object-entry("encryptedPassword", String(e.encryptedPassword))]).show
+          Object-entry("encryptedPassword", String(e.encryptedPassword))])
+fun user-updated-event/ser(e: user-updated-event): div string
+  user-updated-event/object(e).show
 val user-updated-event/serde = Serde(user-updated-event/ser, user-updated-event/deser)
 
 // chain objects
@@ -90,8 +96,11 @@ fun pcommand-with-user(): <div,parse> command-with-user
     _ -> fail("invalid json")
 fun command-with-user/deser(s: string): div either<string,command-with-user>
   s.slice.parse(pcommand-with-user).either
+fun command-with-user/object(cu: command-with-user): div json/value
+  Object([Object-entry("command", update-user-command/object(cu.command)),
+          Object-entry("user", user/object(cu.user))])
 fun command-with-user/ser(cu: command-with-user): div string
-  "{command: " ++ update-user-command/ser(cu.command) ++ ", user: " ++ user/ser(cu.user) ++ "}"
+  command-with-user/object(cu).show
 val command-with-user/serde = Serde(command-with-user/ser, command-with-user/deser)
 
 value struct command-with-user-and-output {
@@ -111,8 +120,12 @@ fun pcommand-with-user-and-output(): <div,parse> command-with-user-and-output
     _ -> fail("invalid json")    
 fun command-with-user-and-output/deser(s: string): div either<string,command-with-user-and-output>
   s.slice.parse(pcommand-with-user-and-output).either
+fun command-with-user-and-output/object(cu: command-with-user-and-output): div json/value
+  Object([Object-entry("command", update-user-command/object(cu.command)),
+          Object-entry("user", user/object(cu.user)),
+          Object-entry("event", user-updated-event/object(cu.event))])
 fun command-with-user-and-output/ser(cu: command-with-user-and-output): div string
-  "{command: " ++ update-user-command/ser(cu.command) ++ ", user: " ++ user/ser(cu.user) ++ ", event: " ++ user-updated-event/ser(cu.event) ++ "}"
+  command-with-user-and-output/object(cu).show
 val command-with-user-and-output/serde = Serde(command-with-user-and-output/ser, command-with-user-and-output/deser)
 
 // chain functions
