@@ -37,7 +37,6 @@ pub fun print-computation-log(log: computation-log)
     println("--")
   )  
 
-
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
 // return is div (would be nice for it to be total, but there's

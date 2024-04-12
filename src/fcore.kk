@@ -1,7 +1,7 @@
 module fcore
 
-import chain
 import logger
+import chain
 
 // computations have a potentially effectful input-chain, a pure step, and
 // a potentially effectful output-chain. the input-chain gathers the

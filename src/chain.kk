@@ -92,7 +92,9 @@ pub fun simple-chain()
   val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
   val s2 = Effectful(effectful-step("tostr", fn (x: int) x.show))
   val s3 = Effectful(effectful-step("concat", fn (x: string) {throw("error") ; x ++ x}))
+
   val c = First(s1).add-step(s2).add-step(s3)
+  
   run-chain(c, 1)
 
 pub fun log-simple-chain()
