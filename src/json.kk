@@ -163,3 +163,33 @@ pub fun test-roundtrip()
   val reparsed = json.parse
 
   reparsed.show
+
+value struct stuff {
+  foo: int
+  bar: string
+}
+
+fun stuff/show(s: stuff)
+  Object([
+    Object-entry("foo", Int(s.foo)),
+    Object-entry("bar", String(s.bar))
+  ]).show
+
+pub fun pstuff(): <div,parse> stuff
+  match json/pvalue()
+    Object([
+      Object-entry("foo", Int(foo)),
+      Object-entry("bar", String(bar))]) ->
+      Stuff(foo, bar)
+    _ -> fail("bad match")
+
+pub fun parse-stuff(s)  
+  s.slice.parse(pstuff).either
+
+
+pub fun test-parse-stuff()
+  val s = Stuff(10, "blah")
+  val json = s.show
+  val reparsed = json.parse-stuff
+
+  reparsed.show
