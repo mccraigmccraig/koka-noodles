@@ -34,7 +34,7 @@ fun hex-digit()
 fun four-hex-digits()
   count(4, hex-digit).string
 
-fun json-quoted-char()
+fun quoted-char()
   char('\\')
   choose([
     {char('"')},
@@ -48,75 +48,75 @@ fun json-quoted-char()
     // {char('u')}
   ])
 
-pub fun is-json-string-char(c)
+fun is-json-string-char(c)
   c != '"'
   && c != '\\'
   && !is-control(c)
 
-pub fun json-string-chars()
+fun json-string-chars()
   parse/(||)(
     {chars-are("json-sring-chars", is-json-string-char).string}, 
-    {json-quoted-char().string}
+    {quoted-char().string}
   )
 
-pub fun double-quote()
+fun double-quote()
   char('"')
 
-pub fun json-string()
+fun json-string()
   double-quote()
   val str = many(json-string-chars).join
   double-quote()
   str
 
-pub fun is-json-whitespace-char(c)
+fun is-json-whitespace-char(c)
   c == ' '
   || c == '\n'
   || c == '\r'
   || c == '\t'
 
-pub fun json-whitespace()
+fun json-whitespace()
   optional([], {chars-are("whitespace-chars", is-json-whitespace-char)}).string
 
-pub fun bool-true()
+fun bool-true()
   pstring("true")
   True
 
-pub fun bool-false()
+fun bool-false()
   pstring("false")
   False
 
-pub fun bool()
+fun bool()
   choose([
     {bool-true()},
     {bool-false()}
   ])
 
-pub fun null()
+fun null()
   pstring("null")
 
-pub fun is-whitespace-comma-char(c)
+fun is-whitespace-comma-char(c)
   c == ','
   || c == ' '
   || c == '\n'
   || c == '\r'
   || c == '\t'
 
-pub fun whitespace-comma()
+fun whitespace-comma()
   optional([], {chars-are("whitespace-comma-chars", is-whitespace-comma-char)}).string
 
-pub fun array-values()
+fun array-values()
   char('[')
   json-whitespace()
   val values = many({
-    whitespace-comma() ;
-    val v = value()
+    whitespace-comma()
+    val v = pvalue()
     whitespace-comma()
     v})
   json-whitespace()
   char(']')
   values
 
-pub fun object-entries()
+fun object-entries()
   char('{')
   json-whitespace()
   val entries = many({
@@ -125,7 +125,7 @@ pub fun object-entries()
     json-whitespace()
     char(':')
     json-whitespace()
-    val v = value()
+    val v = pvalue()
     whitespace-comma()
     Object-entry(k, v)
   })
@@ -133,7 +133,7 @@ pub fun object-entries()
   char('}')
   entries
 
-pub fun value()
+pub fun pvalue()
   choose([
     {json-string().String},
     {pint().Int},  
@@ -143,5 +143,25 @@ pub fun value()
     {object-entries().Object}
   ])
 
+// parse 
+pub fun parse(s: string)
+  s.slice.parse(pvalue).either
+
 pub fun test-parse()
-  "{\"foo\": [1,2,true]}".slice.parse(value).maybe.show
+  "{\"foo\": [1,2,true,{\"bar\": 200}]}".parse.show
+
+pub fun test-roundtrip()
+  val obj = Object([
+    Object-entry("foo", Array([
+      Int(1),
+      Int(2),
+      Bool(True),
+      Object([
+        Object-entry("bar", Int(200))
+      ])
+    ]))
+  ])
+  val json = obj.show
+  val reparsed = json.parse
+
+  reparsed.show
