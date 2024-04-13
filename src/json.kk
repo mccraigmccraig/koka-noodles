@@ -179,14 +179,14 @@ value struct stuff {
   bar: string
 }
 
+// a stuff/value and a stuff/pvalue are required for JSON
+// generation and parsing respectively
+
 fun stuff/value(s: stuff)
   Object([
     Object-entry("foo", Int(s.foo)),
     Object-entry("bar", String(s.bar))
   ])
-
-fun stuff/show(s: stuff)
-  json(s).show
 
 pub fun stuff/pvalue(v: value)
   match v
@@ -195,6 +195,9 @@ pub fun stuff/pvalue(v: value)
       Object-entry("bar", String(bar))]) ->
       Stuff(foo, bar)
     _ -> fail("bad match")
+
+fun stuff/show(s: stuff)
+  json(s).show
 
 pub fun test-parse-stuff()
   val s = Stuff(10, "blah")
