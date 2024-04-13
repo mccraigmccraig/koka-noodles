@@ -199,7 +199,12 @@ pub fun stuff/pvalue(v: value)
 fun stuff/show(s: stuff)
   json(s).show
 
-pub fun test-parse-stuff()
+pub fun test-stuff-parse()
+  val json = "{\"foo\": 10, \"bar\": \"blah\"}"
+  val parsed = json.dejson
+  parsed.show
+
+pub fun test-stuff-roundtrip()
   val s = Stuff(10, "blah")
   val json = s.json
 
