@@ -126,7 +126,7 @@ pub fun update-user(cu: command-with-user): <pure,logger> command-with-user-and-
 pub fun process-user-updated-event(cuo: command-with-user-and-output): <pure,logger> command-with-user-and-output
   cuo
 
-pub fun test-computation()
+pub fun make-update-user-computation()
   val in1 = Effectful(effectful-step("fetch-user", fetch-user, ?i/serde = update-user-command/serde, ?o/serde = command-with-user/serde))
   val input-chain = First(in1)
 
@@ -135,8 +135,11 @@ pub fun test-computation()
   val out1 = Effectful(effectful-step("process-user-updated-event", process-user-updated-event))
   val output-chain = First(out1)
 
-  val computation = Computation("update-user", input-chain, core, output-chain)
+  Computation("update-user", input-chain, core, output-chain)
 
+pub fun test-computation()
+  val computation = make-update-user-computation()
+  
   val r = run-computation(
     run-chain-io-handler(fn (action) {action()}), 
     computation, 
