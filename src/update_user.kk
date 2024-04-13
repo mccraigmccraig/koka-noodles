@@ -115,7 +115,13 @@ pub fun fetch-user(cmd: update-user-command): <pure,logger> command-with-user
 pub fun update-user(cu: command-with-user): <pure,logger> command-with-user-and-output
   match cu
     Command-with-user(cmd, user) -> 
-      Command-with-user-and-output(cmd, user, User-updated-event(user.user-id, cmd.name, cmd.password))
+      Command-with-user-and-output(
+        cmd, 
+        user, 
+        User-updated-event(
+          user.user-id, 
+          cmd.name, 
+          cmd.password.map(fn (p) -> (p.int + 1).char)))
 
 pub fun process-user-updated-event(cuo: command-with-user-and-output): <pure,logger> command-with-user-and-output
   cuo
