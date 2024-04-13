@@ -25,9 +25,7 @@ pub effect computation-io<i,d,o,v,e>
 // and perform outputs
 pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
   val d = c.inputs-fx(i)
-  log-enter(c.name, {c.pure.i-serde.ser()(d)})
-  val o = c.pure.step()(d)
-  log-complete({c.pure.o-serde.ser()(o)})
+  val o = c.pure.run-pure-step(d)
   val v = c.outputs-fx(o)
   v
 
@@ -71,3 +69,4 @@ pub fun run-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-ha
 // resume a computation with a log from a completely different computation
 
 // pub fun resume-io-handler<i,d,o,v,e>(log: computation-log, hdl: fx-handler<v,e>): computation-io-handler<i,d,o,v,e>
+
