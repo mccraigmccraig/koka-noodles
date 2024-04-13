@@ -142,11 +142,21 @@ pub fun pvalue()
     {object-entries().Object}
   ])
 
-pub fun parse(s: string)
+pub fun parse-value(s: string)
   s.slice.parse(pvalue).either
 
+pub alias pvaluefn<t> = (json/value) -> <div,parse> t
+pub alias valuefn<t> = (t) -> div json/value
+
+pub fun dejson<t>(s: string, ?pvalue: pvaluefn<t>): div either<string,t>
+  s.slice.parse({json/pvalue().?pvalue}).either
+
+pub fun json<t>(t: t, ?value: valuefn<t>): div string
+  ?value(t).show
+
+
 pub fun test-parse()
-  "{\"foo\": [1,\"two\",true,{\"bar\": 200}]}".parse.show
+  "{\"foo\": [1,\"two\",true,{\"bar\": 200}]}".parse-value.show
 
 pub fun test-roundtrip()
   val obj = Object([
@@ -160,7 +170,7 @@ pub fun test-roundtrip()
     ]))
   ])
   val json = obj.show
-  val reparsed = json.parse
+  val reparsed = json.parse-value
 
   reparsed.show
 
@@ -169,27 +179,27 @@ value struct stuff {
   bar: string
 }
 
-fun stuff/show(s: stuff)
+fun stuff/value(s: stuff)
   Object([
     Object-entry("foo", Int(s.foo)),
     Object-entry("bar", String(s.bar))
-  ]).show
+  ])
 
-pub fun pstuff(): <div,parse> stuff
-  match json/pvalue()
+fun stuff/show(s: stuff)
+  json(s).show
+
+pub fun stuff/pvalue(v: value)
+  match v
     Object([
       Object-entry("foo", Int(foo)),
       Object-entry("bar", String(bar))]) ->
       Stuff(foo, bar)
     _ -> fail("bad match")
 
-pub fun parse-stuff(s)  
-  s.slice.parse(pstuff).either
-
-
 pub fun test-parse-stuff()
   val s = Stuff(10, "blah")
-  val json = s.show
-  val reparsed = json.parse-stuff
+  val json = s.json
+
+  val reparsed = json.dejson
 
   reparsed.show
