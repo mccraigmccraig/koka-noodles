@@ -13,24 +13,21 @@ struct user {
   name: string
   encryptedPassword: string
 }
-fun user/pobject(v: json/value): <div,parse> user 
+
+fun user/pvalue(v: json/value): <div,parse> user 
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
             Object-entry("password", String(password))]) -> 
       User(id, name, password)
     _ -> fail("invalid json")
-fun user/puser(): <div,parse> user
-  json/pvalue().user/pobject
-fun user/deser(s: string): div either<string,user>
-  s.slice.parse(user/puser).either
-fun user/object(u: user): div json/value
+
+fun user/value(u: user): div json/value
   Object([Object-entry("id", Int(u.user-id)), 
           Object-entry("name", String(u.name)), 
           Object-entry("password", String(u.encryptedPassword))])
-fun user/ser(u: user): div string
-  user/object(u).show
-val user/serde = Serde(user/ser, user/deser)
+
+val user/serde = Serde(fn (u: user) -> json(u), fn (s: string) -> dejson(s))
 
 struct update-user-command {
   user-id: int
@@ -91,14 +88,14 @@ fun pcommand-with-user(): <div,parse> command-with-user
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object)]) ->
       val cmd = update-user-command/pobject(cmd-object)
-      val user = user/pobject(user-object)
+      val user = user/pvalue(user-object)
       Command-with-user(cmd, user)
     _ -> fail("invalid json")
 fun command-with-user/deser(s: string): div either<string,command-with-user>
   s.slice.parse(pcommand-with-user).either
 fun command-with-user/object(cu: command-with-user): div json/value
   Object([Object-entry("command", update-user-command/object(cu.command)),
-          Object-entry("user", user/object(cu.user))])
+          Object-entry("user", user/value(cu.user))])
 fun command-with-user/ser(cu: command-with-user): div string
   command-with-user/object(cu).show
 val command-with-user/serde = Serde(command-with-user/ser, command-with-user/deser)
@@ -114,7 +111,7 @@ fun pcommand-with-user-and-output(): <div,parse> command-with-user-and-output
             Object-entry("user", user-object),
             Object-entry("event", event-object)]) ->
       val cmd = update-user-command/pobject(cmd-object)
-      val user = user/pobject(user-object)
+      val user = user/pvalue(user-object)
       val event = user-updated-event/pobject(event-object)
       Command-with-user-and-output(cmd, user, event)
     _ -> fail("invalid json")    
@@ -122,7 +119,7 @@ fun command-with-user-and-output/deser(s: string): div either<string,command-wit
   s.slice.parse(pcommand-with-user-and-output).either
 fun command-with-user-and-output/object(cu: command-with-user-and-output): div json/value
   Object([Object-entry("command", update-user-command/object(cu.command)),
-          Object-entry("user", user/object(cu.user)),
+          Object-entry("user", user/value(cu.user)),
           Object-entry("event", user-updated-event/object(cu.event))])
 fun command-with-user-and-output/ser(cu: command-with-user-and-output): div string
   command-with-user-and-output/object(cu).show
