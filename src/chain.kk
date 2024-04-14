@@ -1,5 +1,6 @@
 module chain
 
+import std/core/either
 import std/core/exn
 import std/core/int
 import std/core/list
@@ -41,16 +42,37 @@ pub fun run-pure-step<i,o>(s: pure-step<i,o>, i: i): <pure,logger> o
   log-complete({s.o-serde.ser()(o)})
   o
 
+pub fun resume-pure-step<i,o>(step-log: step-log, s: pure-step<i,o>, i: i): <pure,logger> o
+  match step-log.output
+    Right(result-src) -> 
+      match s.o-serde.serde/deser()(result-src())
+        Right(result) -> result
+        Left(_) -> throw("Result desrialization failed: " ++ result-src())
+    Left(_) -> run-pure-step(s, i)
+
 pub fun run-effectful-step<i,o,e>(s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
   log-enter(s.name, {s.i-serde.ser()(i)})
   val o = s.step()(i)
   log-complete({s.o-serde.ser()(o)})
   o
 
+pub fun resume-effectful-step<i,o>(step-log: step-log, s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
+  match step-log.output
+    Right(result-src) -> 
+      match s.o-serde.serde/deser()(result-src())
+        Right(result) -> result
+        Left(_) -> throw("Result desrialization failed: " ++ result-src())
+    Left(_) -> run-effectful-step(s, i)
+
 pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
   match s
     Pure(step) -> run-pure-step(step, i)
     Effectful(step) -> run-effectful-step(step, i)
+
+pub fun resume-step<i,o,e>(log: step-log, s: step<i,o,e>, i: i): <pure,logger|e> o
+  match s
+    Pure(step) -> resume-pure-step(log, step, i)
+    Effectful(step) -> resume-effectful-step(log, step, i)
 
 fun int/ser(i: int): string
  i.show
@@ -69,7 +91,7 @@ fun string/deser(s: string): either<string,string>
 val string/serde = Serde(string/ser, string/deser)
 
 // it's a backwards cons of steps - last step first... 
-pub type chain<i,o,e>
+pub rec type chain<i,o,e>
   First(first: step<i,o,e>)
   Link(last: some <j> step<j,o,e>, front: some <j> chain<i,j,e>)
 
@@ -78,13 +100,34 @@ pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
     First(fst) -> Link(s, First(fst))
     Link(lst, fr) -> Link(s, Link(lst, fr))
 
+// append another chain to the end of c
+// TODO can't make the types line up
+// pub fun append-chain(c: chain<i,o,e>, d: chain<o,p,e>): exn chain<i,p,e>
+//   match d
+//     First(fst) -> Link(fst, c)
+//     Link(lst, fr) -> Link(lst, append-chain(fr, c))
+
 // run a chain of steps. blows up stack if chain too long
+// TODO foldr
 pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
   match c
     First(fst) -> run-step(fst, i)
     Link(lst, fr) -> 
       val r = run-chain(fr, i)
       run-step(lst,r)
+
+pub fun resume-chain(step-logs: list<step-log>, c: chain<i,o,e>, i: i): <pure,logger|e> o
+  match c
+    First(fst) -> 
+      match step-logs
+        Cons(sl,Nil) -> resume-step(sl, fst, i)
+        _ -> throw("log does not match chain")
+    Link(lst, fr) -> 
+      match step-logs
+        Cons(sl,rsl) -> 
+          val r = resume-chain(rsl, fr, i)
+          resume-step(sl, lst, r)
+        _ -> throw("log does not match chain")
 
 // test/example
 

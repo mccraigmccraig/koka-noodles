@@ -15,13 +15,14 @@ pub effect logger
 // since chain position is the true unique identifier
 value struct open-step
   name: string
-  input-str: stringsrc 
+  input: stringsrc 
 
 pub struct step-log
   name: string
-  input-str: stringsrc
-  output-str: either<stringsrc,stringsrc>
+  input: stringsrc
+  output: either<stringsrc,stringsrc>
 
+// NB: step-logs are a reversed list, to match chain steps
 pub value struct computation-log
   name: string
   step-logs: list<step-log>
@@ -30,8 +31,8 @@ pub fun print-computation-log(log: computation-log)
   println("computation: " ++ log.name ++ "\n--")
   log.step-logs.reverse.foreach( fn (step-log)
     println("  step: " ++ step-log.name)
-    println("  input: " ++ step-log.input-str()())
-    match step-log.output-str
+    println("  input: " ++ step-log.input()())
+    match step-log.output
       Left(err) -> println("  error: " ++ err())
       Right(out) -> println("  output: " ++ out())
     println("--")
