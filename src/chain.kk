@@ -43,12 +43,15 @@ pub fun run-pure-step<i,o>(s: pure-step<i,o>, i: i): <pure,logger> o
   o
 
 pub fun resume-pure-step<i,o>(step-log: step-log, s: pure-step<i,o>, i: i): <pure,logger> o
-  match step-log.output
+  log-enter(s.name, {s.i-serde.ser()(i)})
+  val o = match step-log.output
     Right(result-src) -> 
       match s.o-serde.serde/deser()(result-src())
         Right(result) -> result
         Left(_) -> throw("Result desrialization failed: " ++ result-src())
     Left(_) -> run-pure-step(s, i)
+  log-complete({s.o-serde.ser()(o)})
+  o
 
 pub fun run-effectful-step<i,o,e>(s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
   log-enter(s.name, {s.i-serde.ser()(i)})
@@ -57,12 +60,15 @@ pub fun run-effectful-step<i,o,e>(s: effectful-step<i,o,e>, i: i): <pure,logger|
   o
 
 pub fun resume-effectful-step<i,o>(step-log: step-log, s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
-  match step-log.output
+  log-enter(s.name, {s.i-serde.ser()(i)})
+  val o = match step-log.output
     Right(result-src) -> 
       match s.o-serde.serde/deser()(result-src())
         Right(result) -> result
         Left(_) -> throw("Result desrialization failed: " ++ result-src())
     Left(_) -> run-effectful-step(s, i)
+  log-complete({s.o-serde.ser()(o)})
+  o
 
 pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
   match s
@@ -116,6 +122,11 @@ pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
       val r = run-chain(fr, i)
       run-step(lst,r)
 
+// given a log of a previous computation run, and a chain of steps,
+// resume the computation
+// - steps with a successful output are not re-run - but the result will 
+//     be deserialized and reserialized into the new log
+// - once failure is encountered, steps start to be re-run
 pub fun resume-chain(step-logs: list<step-log>, c: chain<i,o,e>, i: i): <pure,logger|e> o
   match c
     First(fst) -> 
