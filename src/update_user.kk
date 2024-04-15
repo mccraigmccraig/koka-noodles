@@ -186,3 +186,11 @@ pub fun test-resume-computation()
         (_,log2) -> 
           println("fixed-update-user-computation")
           print-computation-log(log2)
+
+pub fun test-deserialize()
+  val str = "{\"command\": {\"id\": 1, \"name\": \"new-name\", \"password\": \"new-password\"}, \"user\": {\"id\": 1, \"name\": \"name\", \"password\": \"password\"}}"
+  val json-value = parse-value(str)
+  json-value.show()
+  match command-with-user/serde.deser()(str)
+    Left(err) -> println("parse error: " ++ err)
+    Right(cu) -> println("parsed ok: " ++ cu.json())
