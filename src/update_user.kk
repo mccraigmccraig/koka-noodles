@@ -123,6 +123,9 @@ pub fun update-user(cu: command-with-user): <pure,logger> command-with-user-and-
           cmd.name, 
           cmd.password.map(fn (p) -> (p.int + 1).char)))
 
+pub fun broken-update-user(cu: command-with-user): <pure,logger> command-with-user-and-output
+  throw("boo")
+
 pub fun process-user-updated-event(cuo: command-with-user-and-output): <pure,logger> command-with-user-and-output
   cuo
 
@@ -137,6 +140,18 @@ pub fun make-update-user-computation()
 
   Computation("update-user", input-chain, core, output-chain)
 
+pub fun make-broken-update-user-computation()
+  val in1 = Effectful(effectful-step("fetch-user", fetch-user, ?i/serde = update-user-command/serde, ?o/serde = command-with-user/serde))
+  val input-chain = First(in1)
+
+  val core = pure-step("update-user", broken-update-user)
+
+  val out1 = Effectful(effectful-step("process-user-updated-event", process-user-updated-event))
+  val output-chain = First(out1)
+
+  Computation("update-user", input-chain, core, output-chain)
+
+
 pub fun test-computation()
   val computation = make-update-user-computation()
   
@@ -148,3 +163,26 @@ pub fun test-computation()
   match r 
     (_,log) -> print-computation-log(log)
   
+pub fun test-resume-computation()
+  val computation = make-broken-update-user-computation()
+  
+  val r = run-computation(
+    resume-chain-io-handler(fn (action) {action()}), 
+    computation, 
+    Update-user-command(1, "new-name", "new-password"))
+
+  match r 
+    (_,log) -> 
+      println("broken-update-user-computation")
+      print-computation-log(log)
+      val computation2 = make-update-user-computation()
+      val r2 = resume-computation(
+        log,
+        resume-chain-io-handler(fn (action) {action()}),
+        computation2,
+        Update-user-command(1, "new-name", "new-password"))
+      
+      match r2
+        (_,log2) -> 
+          println("fixed-update-user-computation")
+          print-computation-log(log2)

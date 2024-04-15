@@ -28,7 +28,6 @@ pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,
 // handle computation-specific effects
 pub alias fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
 
-
 // the core business of running a computation - using an effect to gather inputs
 // and perform outputs
 pub fun resume-computation-steps<i,d,o,v,e>(step-logs: list<step-log>, c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
