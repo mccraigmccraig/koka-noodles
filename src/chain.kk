@@ -150,10 +150,10 @@ pub fun simple-chain()
 
 pub fun broken-simple-chain()
   val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
-  val s2 = Effectful(effectful-step("tostr", fn (x: int) x.show))
-  val s3 = Effectful(effectful-step("concat", fn (x: string) 
+  val s2 = Effectful(effectful-step("tostr", fn (x: int) {
     throw("error")
-    x ++ x}))
+    x.show}))
+  val s3 = Effectful(effectful-step("concat", fn (x: string) x ++ x))
 
   First(s1).add-step(s2).add-step(s3)
 
