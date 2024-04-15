@@ -10,13 +10,6 @@ pub effect logger
   // close a step log with an error and immediately terminate
   ctl log-error(error-ser: stringsrc) : ()
 
-// a de/serializable log of a single step
-// names should be unique, but it won't matter if not,
-// since chain position is the true unique identifier
-value struct open-step
-  name: string
-  input: stringsrc 
-
 pub struct step-log
   name: string
   input: stringsrc
@@ -37,6 +30,13 @@ pub fun print-computation-log(log: computation-log)
       Right(out) -> println("  output: " ++ out())
     println("--")
   )  
+
+// a de/serializable log of a single step
+// names should be unique, but it won't matter if not,
+// since chain position is the true unique identifier
+value struct open-step
+  name: string
+  input: stringsrc 
 
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
