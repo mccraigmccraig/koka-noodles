@@ -22,16 +22,8 @@ pub effect computation-io<i,d,o,v,e>
   ctl inputs-fx(log-steps: list<step-log>, c: computation<i,d,o,v,e>, i: i) : d
   ctl outputs-fx(log-steps: list<step-log>, c: computation<i,d,o,v,e>, o: o) : v
 
-// the core business of running a computation - using effects to gather inputs
+// the core business of running a computation - using an effect to gather inputs
 // and perform outputs
-pub fun run-computation-steps<i,d,o,v,e>(c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
-  val d = inputs-fx([], c, i)
-  val o = c.pure.run-pure-step(d)
-  val v = outputs-fx([], c, o)
-  v
-
-// TODO work out how resumed computations interact with the computation-io-handler effects... maybe pass the 
-// logs along to all chain and io fns, so that we can then send empty/None logs if we always want to execute
 pub fun resume-computation-steps<i,d,o,v,e>(step-logs: list<step-log>, c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
   val input-step-logs = step-logs.take(c.input-chain.length)
   val pure-step-logs = step-logs.take(input-step-logs.length + 1).drop(input-step-logs.length)
@@ -61,7 +53,7 @@ pub fun run-computation<i,d,o,v,e>(
     
   with log-collector(c.name)
   with io-handler
-  run-computation-steps(c, i)
+  resume-computation-steps([], c, i)
 
 // handle computation-specific effects
 pub alias fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
