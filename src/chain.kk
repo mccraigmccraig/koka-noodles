@@ -183,8 +183,11 @@ pub fun test-resume()
   val ch = broken-simple-chain()
   match collect-simple-chain([], ch, 1)
     (_v, log) ->
+      println("broken-simple-chain")
+      print-computation-log(log)
       val ch2 = simple-chain()
       match collect-simple-chain(log.step-logs, ch2, 1)
         (v2, log2) ->
+          println("fixed-simple-chain")
           print-computation-log(log2)
           println("result2: " ++ v2.show())
