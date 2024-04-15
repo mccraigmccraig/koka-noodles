@@ -95,10 +95,7 @@ fun null()
 
 fun is-whitespace-comma-char(c)
   c == ','
-  || c == ' '
-  || c == '\n'
-  || c == '\r'
-  || c == '\t'
+  || c.is-json-whitespace-char
 
 fun whitespace-comma()
   optional([], {chars-are("whitespace-comma-chars", is-whitespace-comma-char)}).string
