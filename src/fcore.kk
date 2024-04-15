@@ -59,23 +59,6 @@ pub fun run-computation<i,d,o,v,e>(
 pub alias fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
 
 // basic case - handle computation io by running effectful input/output chains
-pub fun run-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-handler<i,d,o,v,e>
-  fn (action)
-    with hdl
-    with handler 
-      ctl inputs-fx(step-logs, c, i)
-        resume(resume-chain([], c.input-chain, i))
-      ctl outputs-fx(step-logs, c, o)
-        resume(resume-chain([], c.output-chain, o))
-    action()
-
-// next up - a resume handler which will take a computation-log, presumably 
-// from a failed computation, and resume it from the point of failure
-// need proper deserialization to make this work... and probably also want 
-// to tie the computation-log to the computation itself so that you can't 
-// resume a computation with a log from a completely different computation
-
-// TODO should only pass the relevant portion of the logs to the input/output chains
 pub fun resume-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-handler<i,d,o,v,e>
   fn (action)
     with hdl

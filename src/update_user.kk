@@ -141,7 +141,7 @@ pub fun test-computation()
   val computation = make-update-user-computation()
   
   val r = run-computation(
-    run-chain-io-handler(fn (action) {action()}), 
+    resume-chain-io-handler(fn (action) {action()}), 
     computation, 
     Update-user-command(1, "new-name", "new-password"))
 
