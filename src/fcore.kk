@@ -31,9 +31,11 @@ pub alias fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
 // the core business of running a computation - using an effect to gather inputs
 // and perform outputs
 pub fun resume-computation-steps<i,d,o,v,e>(step-logs: list<step-log>, c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
-  val input-step-logs = step-logs.take(c.input-chain.length)
-  val pure-step-logs = step-logs.take(input-step-logs.length + 1).drop(input-step-logs.length)
-  val output-step-logs = step-logs.drop(pure-step-logs.length)
+  // log is backwards!
+  val fwd-step-logs = step-logs.reverse
+  val input-step-logs = fwd-step-logs.take(c.input-chain.length).reverse
+  val pure-step-logs = fwd-step-logs.take(c.input-chain.length + 1).drop(c.input-chain.length).reverse
+  val output-step-logs = fwd-step-logs.drop(c.input-chain.length + 1).reverse
 
   val d = inputs-fx(input-step-logs, c, i)
   val o = match pure-step-logs
