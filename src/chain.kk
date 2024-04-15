@@ -26,36 +26,30 @@ pub struct effectful-step<i,o,e>
   i-serde: serde<i>
   o-serde: serde<o>
 
+// A computation step
+// TODO extend with choice steps ? which can choose from 
+// a set of continuation chains ?
+pub value type step<i,o,e>
+  Pure(step: pure-step<i,o>)
+  Effectful(step: effectful-step<i,o,e>)
+
+pub value type resume-step-log
+  StepLog(step-log: step-log)
+  None
+
+// it's a backwards cons of steps - last step first... 
+// as steps are added to the chain, the interior step
+// output types represented by the existential j
+// become invisible
+pub rec type chain<i,o,e>
+  First(first: step<i,o,e>)
+  Link(last: some <j> step<j,o,e>, front: some <j> chain<i,j,e>)
+
 pub fun pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/serde: serde<i>, ?o/serde: serde<o>): pure-step<i,o>
   Pure-step(name, step, ?i/serde, ?o/serde)
 
 pub fun effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/serde: serde<i>, ?o/serde: serde<o>): effectful-step<i,o,e>
   Effectful-step(name, step, ?i/serde, ?o/serde)
-
-pub value type step<i,o,e>
-  Pure(step: pure-step<i,o>)
-  Effectful(step: effectful-step<i,o,e>)
-
-pub fun run-pure-step<i,o>(s: pure-step<i,o>, i: i): <pure,logger> o
-  log-enter(s.name, {s.i-serde.ser()(i)})
-  val o = s.step()(i)
-  log-complete({s.o-serde.ser()(o)})
-  o
-
-pub fun run-effectful-step<i,o,e>(s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
-  log-enter(s.name, {s.i-serde.ser()(i)})
-  val o = s.step()(i)
-  log-complete({s.o-serde.ser()(o)})
-  o
-
-pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
-  match s
-    Pure(step) -> run-pure-step(step, i)
-    Effectful(step) -> run-effectful-step(step, i)
-
-pub value type resume-step-log
-  StepLog(step-log: step-log)
-  None
 
 pub fun resume-pure-step<i,o>(resume-step-log: resume-step-log, s: pure-step<i,o>, i: i): <pure,logger> o
   log-enter(s.name, {s.i-serde.ser()(i)})
@@ -105,11 +99,6 @@ fun string/ser(s: string): string
 fun string/deser(s: string): either<string,string>
   Right(s)
 val string/serde = Serde(string/ser, string/deser)
-
-// it's a backwards cons of steps - last step first... 
-pub rec type chain<i,o,e>
-  First(first: step<i,o,e>)
-  Link(last: some <j> step<j,o,e>, front: some <j> chain<i,j,e>)
 
 pub fun length(c: chain<i,o,e>): div int
   match c
