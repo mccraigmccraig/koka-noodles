@@ -104,3 +104,9 @@ pub fun resume-computation<i,d,o,v,e>(
   with log-collector(c.name)
   with io-handler
   resume-computation-steps(log.step-logs, c, i)
+
+// TODO step-logs could record a computation-decision, 
+// such as branching, so that we can support 
+// DAGs of computation, not just lists...
+// this seems more general purpose than
+// previous idea of multiple chains...
