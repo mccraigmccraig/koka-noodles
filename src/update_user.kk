@@ -75,9 +75,7 @@ fun command-with-user/pvalue(v: json/value): <div,parse> command-with-user
   match v
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object)]) ->
-      val cmd = update-user-command/pvalue(cmd-object)
-      val user = user/pvalue(user-object)
-      Command-with-user(cmd, user)
+      Command-with-user(update-user-command/pvalue(cmd-object), user/pvalue(user-object))
     _ -> fail("invalid json")
 fun command-with-user/value(cu: command-with-user): div json/value
   Object([Object-entry("command", update-user-command/value(cu.command)),
@@ -94,10 +92,9 @@ fun command-with-user-and-output/pvalue(v: json/value): <div,parse> command-with
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object),
             Object-entry("event", event-object)]) ->
-      val cmd = update-user-command/pvalue(cmd-object)
-      val user = user/pvalue(user-object)
-      val event = user-updated-event/pvalue(event-object)
-      Command-with-user-and-output(cmd, user, event)
+      Command-with-user-and-output(update-user-command/pvalue(cmd-object), 
+        user/pvalue(user-object), 
+        user-updated-event/pvalue(event-object))
     _ -> fail("invalid json")    
 fun command-with-user-and-output/value(cu: command-with-user-and-output): div json/value
   Object([Object-entry("command", update-user-command/value(cu.command)),
