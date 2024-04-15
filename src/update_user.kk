@@ -20,7 +20,7 @@ fun user/pvalue(v: json/value): <div,parse> user
             Object-entry("name", String(name)), 
             Object-entry("password", String(password))]) -> 
       User(id, name, password)
-    _ -> fail("invalid json")
+    _ -> fail("invalid json: user/pvalue")
 
 fun user/value(u: user): div json/value
   Object([Object-entry("id", Int(u.user-id)), 
@@ -40,7 +40,7 @@ fun update-user-command/pvalue(v: json/value): <div,parse> update-user-command
             Object-entry("name", String(name)), 
             Object-entry("password", String(password))]) -> 
         Update-user-command(id, name, password)
-    _ -> fail("invalid json")
+    _ -> fail("invalid json: update-user-command/pvalue")
 fun update-user-command/value(cmd: update-user-command): div json/value
   Object([Object-entry("id", Int(cmd.user-id)), 
           Object-entry("name", String(cmd.name)), 
@@ -58,7 +58,7 @@ fun user-updated-event/pvalue(v: json/value): <div,parse> user-updated-event
             Object-entry("name", String(name)), 
             Object-entry("encryptedPassword", String(password))]) -> 
         User-updated-event(id, name, password)
-    _ -> fail("invalid json")
+    _ -> fail("invalid json: user-updated-event/pvalue")
 fun user-updated-event/value(e: user-updated-event): div json/value
   Object([Object-entry("id", Int(e.user-id)), 
           Object-entry("name", String(e.name)), 
@@ -76,7 +76,7 @@ fun command-with-user/pvalue(v: json/value): <div,parse> command-with-user
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object)]) ->
       Command-with-user(update-user-command/pvalue(cmd-object), user/pvalue(user-object))
-    _ -> fail("invalid json")
+    _ -> fail("invalid json: command-with-user/pvalue")
 fun command-with-user/value(cu: command-with-user): div json/value
   Object([Object-entry("command", update-user-command/value(cu.command)),
           Object-entry("user", user/value(cu.user))])
@@ -95,7 +95,7 @@ fun command-with-user-and-output/pvalue(v: json/value): <div,parse> command-with
       Command-with-user-and-output(update-user-command/pvalue(cmd-object), 
         user/pvalue(user-object), 
         user-updated-event/pvalue(event-object))
-    _ -> fail("invalid json")    
+    _ -> fail("invalid json: command-with-user-and-output/pvalue")    
 fun command-with-user-and-output/value(cu: command-with-user-and-output): div json/value
   Object([Object-entry("command", update-user-command/value(cu.command)),
           Object-entry("user", user/value(cu.user)),

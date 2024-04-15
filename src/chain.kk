@@ -59,7 +59,7 @@ pub fun resume-pure-step<i,o>(resume-step-log: resume-step-log, s: pure-step<i,o
         Right(result-src) -> 
           match s.o-serde.serde/deser()(result-src())
             Right(result) -> result
-            Left(_) -> throw("Result desrialization failed: " ++ result-src())
+            Left(err) -> throw("Result desrialization failed: " ++ err ++ " -- " ++ result-src())
         Left(_) -> s.step()(i)
     None -> s.step()(i)
   log-complete({s.o-serde.ser()(o)})
@@ -73,7 +73,7 @@ pub fun resume-effectful-step<i,o>(resume-step-log: resume-step-log, s: effectfu
         Right(result-src) -> 
           match s.o-serde.serde/deser()(result-src())
             Right(result) -> result
-            Left(_) -> throw("Result desrialization failed: " ++ result-src())
+            Left(err) -> throw("Result desrialization failed: "  ++ err ++ " -- "++ result-src())
         Left(_) -> s.step()(i)
     None -> s.step()(i)
   log-complete({s.o-serde.ser()(o)})
