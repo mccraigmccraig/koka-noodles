@@ -42,31 +42,9 @@ pub fun run-pure-step<i,o>(s: pure-step<i,o>, i: i): <pure,logger> o
   log-complete({s.o-serde.ser()(o)})
   o
 
-pub fun resume-pure-step<i,o>(step-log: step-log, s: pure-step<i,o>, i: i): <pure,logger> o
-  log-enter(s.name, {s.i-serde.ser()(i)})
-  val o = match step-log.output
-    Right(result-src) -> 
-      match s.o-serde.serde/deser()(result-src())
-        Right(result) -> result
-        Left(_) -> throw("Result desrialization failed: " ++ result-src())
-    Left(_) -> run-pure-step(s, i)
-  log-complete({s.o-serde.ser()(o)})
-  o
-
 pub fun run-effectful-step<i,o,e>(s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
   log-enter(s.name, {s.i-serde.ser()(i)})
   val o = s.step()(i)
-  log-complete({s.o-serde.ser()(o)})
-  o
-
-pub fun resume-effectful-step<i,o>(step-log: step-log, s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
-  log-enter(s.name, {s.i-serde.ser()(i)})
-  val o = match step-log.output
-    Right(result-src) -> 
-      match s.o-serde.serde/deser()(result-src())
-        Right(result) -> result
-        Left(_) -> throw("Result desrialization failed: " ++ result-src())
-    Left(_) -> run-effectful-step(s, i)
   log-complete({s.o-serde.ser()(o)})
   o
 
@@ -75,10 +53,42 @@ pub fun run-step<i,o,e>(s: step<i,o,e>, i: i): <pure,logger|e> o
     Pure(step) -> run-pure-step(step, i)
     Effectful(step) -> run-effectful-step(step, i)
 
-pub fun resume-step<i,o,e>(log: step-log, s: step<i,o,e>, i: i): <pure,logger|e> o
+pub value type resume-step-log
+  StepLog(step-log: step-log)
+  None
+
+pub fun resume-pure-step<i,o>(resume-step-log: resume-step-log, s: pure-step<i,o>, i: i): <pure,logger> o
+  log-enter(s.name, {s.i-serde.ser()(i)})
+  val o = match resume-step-log
+    StepLog(step-log) -> 
+      match step-log.output
+        Right(result-src) -> 
+          match s.o-serde.serde/deser()(result-src())
+            Right(result) -> result
+            Left(_) -> throw("Result desrialization failed: " ++ result-src())
+        Left(_) -> run-pure-step(s, i)
+    None -> run-pure-step(s, i)
+  log-complete({s.o-serde.ser()(o)})
+  o
+
+pub fun resume-effectful-step<i,o>(resume-step-log: resume-step-log, s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
+  log-enter(s.name, {s.i-serde.ser()(i)})
+  val o = match resume-step-log 
+    StepLog(step-log) ->
+      match step-log.output
+        Right(result-src) -> 
+          match s.o-serde.serde/deser()(result-src())
+            Right(result) -> result
+            Left(_) -> throw("Result desrialization failed: " ++ result-src())
+        Left(_) -> run-effectful-step(s, i)
+    None -> run-effectful-step(s, i)
+  log-complete({s.o-serde.ser()(o)})
+  o
+
+pub fun resume-step<i,o,e>(resume-step-log: resume-step-log, s: step<i,o,e>, i: i): <pure,logger|e> o
   match s
-    Pure(step) -> resume-pure-step(log, step, i)
-    Effectful(step) -> resume-effectful-step(log, step, i)
+    Pure(step) -> resume-pure-step(resume-step-log, step, i)
+    Effectful(step) -> resume-effectful-step(resume-step-log, step, i)
 
 fun int/ser(i: int): string
  i.show
@@ -100,6 +110,11 @@ val string/serde = Serde(string/ser, string/deser)
 pub rec type chain<i,o,e>
   First(first: step<i,o,e>)
   Link(last: some <j> step<j,o,e>, front: some <j> chain<i,j,e>)
+
+pub fun length(c: chain<i,o,e>): div int
+  match c
+    First(_) -> 1
+    Link(_, fr) -> 1 + length(fr)
 
 pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
   match c
@@ -131,14 +146,16 @@ pub fun resume-chain(step-logs: list<step-log>, c: chain<i,o,e>, i: i): <pure,lo
   match c
     First(fst) -> 
       match step-logs
-        Cons(sl,Nil) -> resume-step(sl, fst, i)
-        _ -> throw("log does not match chain")
+        Cons(sl,_) -> resume-step(StepLog(sl), fst, i)
+        Nil -> resume-step(None, fst, i)
     Link(lst, fr) -> 
       match step-logs
         Cons(sl,rsl) -> 
           val r = resume-chain(rsl, fr, i)
-          resume-step(sl, lst, r)
-        _ -> throw("log does not match chain")
+          resume-step(StepLog(sl), lst, r)
+        Nil -> 
+          val r = resume-chain([], fr, i)
+          resume-step(None, lst, r)
 
 // test/example
 
