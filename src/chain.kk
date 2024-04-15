@@ -66,8 +66,8 @@ pub fun resume-pure-step<i,o>(resume-step-log: resume-step-log, s: pure-step<i,o
           match s.o-serde.serde/deser()(result-src())
             Right(result) -> result
             Left(_) -> throw("Result desrialization failed: " ++ result-src())
-        Left(_) -> run-pure-step(s, i)
-    None -> run-pure-step(s, i)
+        Left(_) -> s.step()(i)
+    None -> s.step()(i)
   log-complete({s.o-serde.ser()(o)})
   o
 
@@ -80,8 +80,8 @@ pub fun resume-effectful-step<i,o>(resume-step-log: resume-step-log, s: effectfu
           match s.o-serde.serde/deser()(result-src())
             Right(result) -> result
             Left(_) -> throw("Result desrialization failed: " ++ result-src())
-        Left(_) -> run-effectful-step(s, i)
-    None -> run-effectful-step(s, i)
+        Left(_) -> s.step()(i)
+    None -> s.step()(i)
   log-complete({s.o-serde.ser()(o)})
   o
 
@@ -128,20 +128,12 @@ pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
 //     First(fst) -> Link(fst, c)
 //     Link(lst, fr) -> Link(lst, append-chain(fr, c))
 
-// run a chain of steps. blows up stack if chain too long
-// TODO foldr
-pub fun run-chain(c: chain<i,o,e>, i: i): <pure,logger|e> o
-  match c
-    First(fst) -> run-step(fst, i)
-    Link(lst, fr) -> 
-      val r = run-chain(fr, i)
-      run-step(lst,r)
-
 // given a log of a previous computation run, and a chain of steps,
 // resume the computation
 // - steps with a successful output are not re-run - but the result will 
 //     be deserialized and reserialized into the new log
 // - once failure is encountered, steps start to be re-run
+// TODO foldr ?
 pub fun resume-chain(step-logs: list<step-log>, c: chain<i,o,e>, i: i): <pure,logger|e> o
   match c
     First(fst) -> 
@@ -166,7 +158,7 @@ pub fun simple-chain()
 
   val c = First(s1).add-step(s2).add-step(s3)
   
-  run-chain(c, 1)
+  resume-chain([], c, 1)
 
 pub fun log-simple-chain()
   with log-collector("simple-chain")

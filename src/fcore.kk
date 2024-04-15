@@ -72,9 +72,9 @@ pub fun run-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-ha
     with hdl
     with handler 
       ctl inputs-fx(step-logs, c, i)
-        resume(run-chain(c.input-chain, i))
+        resume(resume-chain([], c.input-chain, i))
       ctl outputs-fx(step-logs, c, o)
-        resume(run-chain(c.output-chain, o))
+        resume(resume-chain([], c.output-chain, o))
     action()
 
 // next up - a resume handler which will take a computation-log, presumably 
