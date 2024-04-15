@@ -71,8 +71,8 @@ pub fun resume-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io
 
 
 pub fun resume-computation<i,d,o,v,e>(
-    io-handler: computation-io-handler<i,d,o,v,e>, 
     log: computation-log,
+    io-handler: computation-io-handler<i,d,o,v,e>, 
     c: computation<i,d,o,v,e>,
     i: i) : div (either<string,v>, computation-log)
     
