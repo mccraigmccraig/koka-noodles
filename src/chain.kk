@@ -155,31 +155,36 @@ pub fun simple-chain()
   val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
   val s2 = Effectful(effectful-step("tostr", fn (x: int) x.show))
   val s3 = Effectful(effectful-step("concat", fn (x: string) 
-    // {throw("error")
     x ++ x}))
 
   First(s1).add-step(s2).add-step(s3)
 
-pub fun run-simple-chain(i)
-  with log-collector("simple-chain")
-  val ch = simple-chain()
-  resume-chain([], simple-chain(), i)
+pub fun broken-simple-chain()
+  val s1 = Pure(pure-step("inc", fn (x: int) {x + 1}))
+  val s2 = Effectful(effectful-step("tostr", fn (x: int) x.show))
+  val s3 = Effectful(effectful-step("concat", fn (x: string) 
+    throw("error")
+    x ++ x}))
 
-pub fun resume-simple-chain(log, i)
-  with log-collector("simple-chain")
-  val ch = simple-chain()
-  resume-chain(log.step-logs, simple-chain(), i)
+  First(s1).add-step(s2).add-step(s3)
+
+pub fun collect-simple-chain(step-logs, ch, i)
+  with log-collector("run-simple-chain")
+  resume-chain(step-logs, ch, i)
 
 pub fun test-simple-chain()
-  match run-simple-chain(1)
+  val ch = simple-chain()
+  match collect-simple-chain([], ch, 1)
     (v, log) ->
       print-computation-log(log)
       println("result: " ++ v.show())
   
 pub fun test-resume()
-  match run-simple-chain(1)
+  val ch = broken-simple-chain()
+  match collect-simple-chain([], ch, 1)
     (_v, log) ->
-      match resume-simple-chain(log, 1)
+      val ch2 = simple-chain()
+      match collect-simple-chain(log.step-logs, ch2, 1)
         (v2, log2) ->
           print-computation-log(log2)
           println("result2: " ++ v2.show())
