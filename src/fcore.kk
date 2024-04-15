@@ -22,6 +22,13 @@ pub effect computation-io<i,d,o,v,e>
   ctl inputs-fx(log-steps: list<step-log>, c: computation<i,d,o,v,e>, i: i) : d
   ctl outputs-fx(log-steps: list<step-log>, c: computation<i,d,o,v,e>, o: o) : v
 
+// a handler for the computation io operations
+pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger> v
+
+// handle computation-specific effects
+pub alias fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
+
+
 // the core business of running a computation - using an effect to gather inputs
 // and perform outputs
 pub fun resume-computation-steps<i,d,o,v,e>(step-logs: list<step-log>, c: computation<i,d,o,v,e>, i: i) : <computation-io<i,d,o,v,e>,pure,logger|e> v
@@ -36,8 +43,16 @@ pub fun resume-computation-steps<i,d,o,v,e>(step-logs: list<step-log>, c: comput
   val v = outputs-fx(output-step-logs, c, o)
   v
 
-// a handler for the computation io operations
-pub alias computation-io-handler<i,d,o,v,e> = (() -> <computation-io<i,d,o,v,e>,pure,logger|e> v) -> <pure,logger> v
+// basic case - handle computation io by running effectful input/output chains
+pub fun resume-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-handler<i,d,o,v,e>
+  fn (action)
+    with hdl
+    with handler 
+      ctl inputs-fx(step-logs, c, i)
+        resume(resume-chain(step-logs, c.input-chain, i))
+      ctl outputs-fx(step-logs, c, o)
+        resume(resume-chain(step-logs, c.output-chain, o))
+    action()
 
 // run a computation, handling input and output effects, and returning final
 // output, and a log of the computation. the log can be used for 
@@ -54,21 +69,6 @@ pub fun run-computation<i,d,o,v,e>(
   with log-collector(c.name)
   with io-handler
   resume-computation-steps([], c, i)
-
-// handle computation-specific effects
-pub alias fx-handler<v,e> = (() -> <pure,logger|e> v) -> <pure,logger> v
-
-// basic case - handle computation io by running effectful input/output chains
-pub fun resume-chain-io-handler<i,d,o,v,e>(hdl: fx-handler<v,e>): computation-io-handler<i,d,o,v,e>
-  fn (action)
-    with hdl
-    with handler 
-      ctl inputs-fx(step-logs, c, i)
-        resume(resume-chain(step-logs, c.input-chain, i))
-      ctl outputs-fx(step-logs, c, o)
-        resume(resume-chain(step-logs, c.output-chain, o))
-    action()
-
 
 pub fun resume-computation<i,d,o,v,e>(
     log: computation-log,
