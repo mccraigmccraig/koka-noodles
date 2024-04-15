@@ -27,6 +27,9 @@ pub fun value/show(v: value)
     Array(a) -> "[" ++ a.map(show).join(", ") ++ "]"
     Object(o) -> "{" ++ o.map(show).join(", ") ++ "}"
 
+pub alias pvaluefn<t> = (json/value) -> <div,parse> t
+pub alias valuefn<t> = (t) -> div json/value
+
 fun hex-digit()
   char-is("hex-digit", is-hex-digit)
 
@@ -141,9 +144,6 @@ pub fun pvalue()
 
 pub fun parse-value(s: string)
   s.slice.parse(pvalue).either
-
-pub alias pvaluefn<t> = (json/value) -> <div,parse> t
-pub alias valuefn<t> = (t) -> div json/value
 
 pub fun dejson<t>(s: string, ?pvalue: pvaluefn<t>): div either<string,t>
   s.slice.parse({json/pvalue().?pvalue}).either
