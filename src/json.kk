@@ -132,7 +132,7 @@ fun object-entries()
   char('}')
   entries
 
-pub fun pvalue()
+pub fun json/pvalue()
   choose([
     {json-string().String},
     {pint().Int},  
@@ -143,7 +143,7 @@ pub fun pvalue()
   ])
 
 pub fun parse-value(s: string)
-  s.slice.parse(pvalue).either
+  s.slice.parse(json/pvalue).either
 
 pub fun dejson<t>(s: string, ?pvalue: pvaluefn<t>): div either<string,t>
   s.slice.parse({json/pvalue().?pvalue}).either
@@ -171,40 +171,60 @@ pub fun test-roundtrip()
 
   reparsed.show
 
-value struct stuff {
+struct thing {
+  name: string
+}
+
+struct stuff {
   foo: int
   bar: string
+  thing: thing
 }
 
 // a stuff/value and a stuff/pvalue are required for JSON
 // generation and parsing respectively
 
+fun thing/value(t: thing)
+  Object([
+    Object-entry("name", String(t.name))
+  ])
+
+fun thing/pvalue(v: value)
+  match v
+    Object([
+      Object-entry("name", String(name))]) ->
+        Thing(name)
+    _ -> fail("thing: bad json")
+
 fun stuff/value(s: stuff)
   Object([
     Object-entry("foo", Int(s.foo)),
-    Object-entry("bar", String(s.bar))
+    Object-entry("bar", String(s.bar)),
+    Object-entry("thing", thing/value(s.thing))
   ])
 
 pub fun stuff/pvalue(v: value)
   match v
     Object([
       Object-entry("foo", Int(foo)),
-      Object-entry("bar", String(bar))]) ->
-      Stuff(foo, bar)
-    _ -> fail("bad match")
+      Object-entry("bar", String(bar)),
+      Object-entry("thing", tv)]) ->
+        val t = thing/pvalue(tv)
+        Stuff(foo, bar, t)
+    _ -> fail("stuff: bad json")
 
 fun stuff/show(s: stuff)
   json(s).show
 
 pub fun test-stuff-parse()
-  val json = "{\"foo\": 10, \"bar\": \"blah\"}"
-  val parsed = json.dejson
+  val json = "{\"foo\": 10, \"bar\": \"blah\", \"thing\": {\"name\": \"graagh\"}}"
+  val parsed: either<string,stuff> = json.dejson()
   parsed.show
 
 pub fun test-stuff-roundtrip()
-  val s = Stuff(10, "blah")
+  val s = Stuff(10, "blah", Thing("graagh"))
   val json = s.json
 
-  val reparsed = json.dejson
+  val reparsed: either<string,stuff> = json.dejson()
 
   reparsed.show
