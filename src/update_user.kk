@@ -14,15 +14,15 @@ struct user {
   encryptedPassword: string
 }
 
-fun user/pvalue(v: json/value): <div,parse> user 
+fun user/pfn(v: json/value): <div,parse> user 
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
             Object-entry("password", String(password))]) -> 
       User(id, name, password)
-    _ -> fail("invalid json: user/pvalue")
+    _ -> fail("invalid json: user/pfn")
 
-fun user/value(u: user): div json/value
+fun user/valuefn(u: user): div json/value
   Object([Object-entry("id", Int(u.user-id)), 
           Object-entry("name", String(u.name)), 
           Object-entry("password", String(u.encryptedPassword))])
@@ -34,32 +34,32 @@ struct update-user-command {
   name: string
   password: string
 }
-fun update-user-command/pvalue(v: json/value): <div,parse> update-user-command
+fun update-user-command/pfn(v: json/value): <div,parse> update-user-command
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
             Object-entry("password", String(password))]) -> 
         Update-user-command(id, name, password)
-    _ -> fail("invalid json: update-user-command/pvalue")
-fun update-user-command/value(cmd: update-user-command): div json/value
+    _ -> fail("invalid json: update-user-command/pfn")
+fun update-user-command/valuefn(cmd: update-user-command): div json/value
   Object([Object-entry("id", Int(cmd.user-id)), 
           Object-entry("name", String(cmd.name)), 
           Object-entry("password", String(cmd.password))])
-val update-user-command/serde = Serde(fn (cmd: update-user-command) -> json(cmd), fn (s: string) -> dejson(s, ?pvalue = update-user-command/pvalue))
+val update-user-command/serde = Serde(fn (cmd: update-user-command) -> json(cmd), fn (s: string) -> dejson(s, ?pfn=update-user-command/pfn))
 
 struct user-updated-event {
   user-id: int
   name: string
   encryptedPassword: string
 }
-fun user-updated-event/pvalue(v: json/value): <div,parse> user-updated-event
+fun user-updated-event/pfn(v: json/value): <div,parse> user-updated-event
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
             Object-entry("encryptedPassword", String(password))]) -> 
         User-updated-event(id, name, password)
-    _ -> fail("invalid json: user-updated-event/pvalue")
-fun user-updated-event/value(e: user-updated-event): div json/value
+    _ -> fail("invalid json: user-updated-event/pfn")
+fun user-updated-event/valuefn(e: user-updated-event): div json/value
   Object([Object-entry("id", Int(e.user-id)), 
           Object-entry("name", String(e.name)), 
           Object-entry("encryptedPassword", String(e.encryptedPassword))])
@@ -71,36 +71,36 @@ value struct command-with-user {
   command: update-user-command
   user: user
 }
-fun command-with-user/pvalue(v: json/value): <div,parse> command-with-user
+fun command-with-user/pfn(v: json/value): <div,parse> command-with-user
   match v
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object)]) ->
-      Command-with-user(update-user-command/pvalue(cmd-object), user/pvalue(user-object))
-    _ -> fail("invalid json: command-with-user/pvalue")
-fun command-with-user/value(cu: command-with-user): div json/value
-  Object([Object-entry("command", update-user-command/value(cu.command)),
-          Object-entry("user", user/value(cu.user))])
-val command-with-user/serde = Serde(fn (cu: command-with-user) -> json(cu, ?value = command-with-user/value), fn (s: string) -> dejson(s, ?pvalue = command-with-user/pvalue))
+      Command-with-user(update-user-command/pfn(cmd-object), user/pfn(user-object))
+    _ -> fail("invalid json: command-with-user/pfn")
+fun command-with-user/valuefn(cu: command-with-user): div json/value
+  Object([Object-entry("command", update-user-command/valuefn(cu.command)),
+          Object-entry("user", user/valuefn(cu.user))])
+val command-with-user/serde = Serde(fn (cu: command-with-user) -> json(cu, ?valuefn=command-with-user/valuefn), fn (s: string) -> dejson(s, ?pfn=command-with-user/pfn))
 
 value struct command-with-user-and-output {
   command: update-user-command
   user: user
   event: user-updated-event
 }
-fun command-with-user-and-output/pvalue(v: json/value): <div,parse> command-with-user-and-output
+fun command-with-user-and-output/pfn(v: json/value): <div,parse> command-with-user-and-output
   match v
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object),
             Object-entry("event", event-object)]) ->
-      Command-with-user-and-output(update-user-command/pvalue(cmd-object), 
-        user/pvalue(user-object), 
-        user-updated-event/pvalue(event-object))
-    _ -> fail("invalid json: command-with-user-and-output/pvalue")    
-fun command-with-user-and-output/value(cu: command-with-user-and-output): div json/value
-  Object([Object-entry("command", update-user-command/value(cu.command)),
-          Object-entry("user", user/value(cu.user)),
-          Object-entry("event", user-updated-event/value(cu.event))])
-val command-with-user-and-output/serde = Serde(fn (cu: command-with-user-and-output) -> json(cu, ?value=command-with-user-and-output/value), fn (s: string) -> dejson(s))
+      Command-with-user-and-output(update-user-command/pfn(cmd-object), 
+        user/pfn(user-object), 
+        user-updated-event/pfn(event-object))
+    _ -> fail("invalid json: command-with-user-and-output/pfn")    
+fun command-with-user-and-output/valuefn(cu: command-with-user-and-output): div json/value
+  Object([Object-entry("command", update-user-command/valuefn(cu.command)),
+          Object-entry("user", user/valuefn(cu.user)),
+          Object-entry("event", user-updated-event/valuefn(cu.event))])
+val command-with-user-and-output/serde = Serde(fn (cu: command-with-user-and-output) -> json(cu, ?valuefn=command-with-user-and-output/valuefn), fn (s: string) -> dejson(s))
 
 // chain functions
 
@@ -127,7 +127,7 @@ pub fun process-user-updated-event(cuo: command-with-user-and-output): <pure,log
   cuo
 
 pub fun make-update-user-computation()
-  val in1 = Effectful(effectful-step("fetch-user", fetch-user, ?i/serde = update-user-command/serde, ?o/serde = command-with-user/serde))
+  val in1 = Effectful(effectful-step("fetch-user", fetch-user))
   val input-chain = First(in1)
 
   val core = pure-step("update-user", update-user)
@@ -138,7 +138,7 @@ pub fun make-update-user-computation()
   Computation("update-user", input-chain, core, output-chain)
 
 pub fun make-broken-update-user-computation()
-  val in1 = Effectful(effectful-step("fetch-user", fetch-user, ?i/serde = update-user-command/serde, ?o/serde = command-with-user/serde))
+  val in1 = Effectful(effectful-step("fetch-user", fetch-user, ?i/serde=update-user-command/serde))
   val input-chain = First(in1)
 
   val core = pure-step("update-user", broken-update-user)

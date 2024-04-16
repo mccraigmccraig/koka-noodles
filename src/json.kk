@@ -27,7 +27,7 @@ pub fun value/show(v: value)
     Array(a) -> "[" ++ a.map(show).join(", ") ++ "]"
     Object(o) -> "{" ++ o.map(show).join(", ") ++ "}"
 
-pub alias pvaluefn<t> = (json/value) -> <div,parse> t
+pub alias pfn<t> = (json/value) -> <div,parse> t
 pub alias valuefn<t> = (t) -> div json/value
 
 fun hex-digit()
@@ -145,11 +145,11 @@ pub fun json/pvalue()
 pub fun parse-value(s: string)
   s.slice.parse(json/pvalue).either
 
-pub fun dejson<t>(s: string, ?pvalue: pvaluefn<t>): div either<string,t>
-  s.slice.parse({json/pvalue().?pvalue}).either
+pub fun dejson<t>(s: string, ?pfn: pfn<t>): div either<string,t>
+  s.slice.parse({json/pvalue().?pfn}).either
 
-pub fun json<t>(t: t, ?value: valuefn<t>): div string
-  ?value(t).show
+pub fun json<t>(t: t, ?valuefn: valuefn<t>): div string
+  ?valuefn(t).show
 
 
 pub fun example-parse()
@@ -184,32 +184,32 @@ struct stuff {
 // a stuff/value and a stuff/pvalue are required for JSON
 // generation and parsing respectively
 
-fun thing/value(t: thing)
+fun thing/valuefn(t: thing)
   Object([
     Object-entry("name", String(t.name))
   ])
 
-fun thing/pvalue(v: value)
+fun thing/pfn(v: value)
   match v
     Object([
       Object-entry("name", String(name))]) ->
         Thing(name)
     _ -> fail("thing: bad json")
 
-fun stuff/value(s: stuff)
+fun stuff/valuefn(s: stuff)
   Object([
     Object-entry("foo", Int(s.foo)),
     Object-entry("bar", String(s.bar)),
-    Object-entry("thing", thing/value(s.thing))
+    Object-entry("thing", thing/valuefn(s.thing))
   ])
 
-pub fun stuff/pvalue(v: value)
+pub fun stuff/pfn(v: value)
   match v
     Object([
       Object-entry("foo", Int(foo)),
       Object-entry("bar", String(bar)),
       Object-entry("thing", tv)]) ->
-        val t = thing/pvalue(tv)
+        val t = thing/pfn(tv)
         Stuff(foo, bar, t)
     _ -> fail("stuff: bad json")
 
