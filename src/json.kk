@@ -152,10 +152,10 @@ pub fun json<t>(t: t, ?value: valuefn<t>): div string
   ?value(t).show
 
 
-pub fun test-parse()
+pub fun example-parse()
   "{\"foo\": [1,\"two\",true,{\"bar\": 200}]}".parse-value.show
 
-pub fun test-roundtrip()
+pub fun example-roundtrip()
   val obj = Object([
     Object-entry("foo", Array([
       Int(1),
@@ -216,12 +216,12 @@ pub fun stuff/pvalue(v: value)
 fun stuff/show(s: stuff)
   json(s).show
 
-pub fun test-stuff-parse()
+pub fun example-stuff-parse()
   val json = "{\"foo\": 10, \"bar\": \"blah\", \"thing\": {\"name\": \"graagh\"}}"
   val parsed: either<string,stuff> = json.dejson()
   parsed.show
 
-pub fun test-stuff-roundtrip()
+pub fun example-stuff-roundtrip()
   val s = Stuff(10, "blah", Thing("graagh"))
   val json = s.json
 
