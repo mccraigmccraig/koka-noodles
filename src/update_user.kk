@@ -4,7 +4,7 @@ import std/text/parse
 import logger
 import chain
 import fcore
-import serjson
+import parsing/serjson/serjson
 
 // basic objects
 
