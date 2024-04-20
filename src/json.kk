@@ -56,6 +56,12 @@ pub fun value/(==)(a: value, b: value): bool
           value/(==)(pretend-decreasing(Object(xs)),Object(ys))
     _ -> False
 
+pub fun either/(==)(a: either<l,r>, b: either<l,r>, ?(l==): (l,l)->bool, ?(r==): (r,r)->bool ): bool
+  match (a,b)
+    (Left(aa),Left(bb)) -> ?(l==)(aa, bb)
+    (Right(aa),Right(bb)) -> ?(r==)(aa,bb)
+    _ -> False
+
 pub fun eithervalue/(==)(a: either<string,value>, b: either<string,value>): bool
   match (a,b)
     (Left(_aa),Left(_bb)) -> False
@@ -186,15 +192,19 @@ pub fun dejson<t>(s: string, ?pfn: pfn<t>): div either<string,t>
 pub fun json<t>(t: t, ?valuefn: valuefn<t>): div string
   ?valuefn(t).show
 
-pub fun test-equals()
+pub fun test-value-equals()
   basic/test("string-equals")
-    expect-fail(String("foo"), fn () String("foo"), ?(==)=value/(==))
+    expect-fail(String("foo"), fn () String("foo"))
   basic/test("int-equals")
-    expect-fail(Int(1), fn () Int(1), ?(==)=value/(==))
+    expect-fail(Int(1), fn () Int(1))
+  basic/test("bool-equals")
+    expect-fail(Bool(True), fn () Bool(True))
+  basic/test("null-equals")
+    expect-fail(Null, fn () Null)
   basic/test("array-test")
-    expect-fail(Array([Int(1), Int(2)]), fn () Array([Int(1), Int(2)]), ?(==)=value/(==))
+    expect-fail(Array([Int(1), Int(2)]), fn () Array([Int(1), Int(2)]))
   basic/test("object-test")
-    expect-fail(Object([Object-entry("foo", Int(1))]), fn () Object([Object-entry("foo", Int(1))]), ?(==)=value/(==))
+    expect-fail(Object([Object-entry("foo", Int(1))]), fn () Object([Object-entry("foo", Int(1))]))
 
 pub fun test-parse()
   basic/test("simple-parse")
@@ -206,7 +216,21 @@ pub fun test-parse()
         Bool(True),
         Object([
           Object-entry("bar", Int(200))])]))]))
-    expect-fail(expectation, fn () res.parse-value, ?(==)=eithervalue/(==))
+    expect-fail(expectation, fn () res.parse-value, ?(==) = eithervalue/(==))
+
+pub fun test-roundtrip()
+  basic/test("simple-roundtrip")
+    val obj = Object([
+      Object-entry("foo", Array([
+        Int(1),
+        String("two"),
+        Bool(True),
+        Object([
+          Object-entry("bar", Int(200))])]))])
+    val json = obj.show
+    val reparsed = json.parse-value
+    val expectation = Right(obj)
+    expect-fail(expectation, fn () reparsed, ?(==)=eithervalue/(==))
 
 pub fun example-parse()
   "{\"foo\": [1,\"two\",true,{\"bar\": 200}]}".parse-value.show
@@ -236,6 +260,20 @@ struct stuff {
   bar: string
   thing: thing
 }
+
+fun thing/(==)(a: thing, b: thing): bool
+  a.name == b.name
+
+fun stuff/(==)(a: stuff, b: stuff): bool
+  a.foo == b.foo
+  && a.bar == b.bar
+  && a.thing == b.thing
+
+fun eitherstuff/(==)(a: either<string,stuff>, b: either<string,stuff>): bool
+  match (a,b)
+    (Left(_aa),Left(_bb)) -> False
+    (Right(aa),Right(bb)) -> aa == bb
+    _ -> False
 
 // a stuff/value and a stuff/pvalue are required for JSON
 // generation and parsing respectively
@@ -272,15 +310,32 @@ pub fun stuff/pfn(v: value)
 fun stuff/show(s: stuff)
   json(s).show
 
+pub fun test-stuff-parse()
+  basic/test("stuff-parse")
+    val json = "{\"foo\": 10, \"bar\": \"blah\", \"thing\": {\"name\": \"graagh\"}}"
+    val parsed: either<string,stuff> = json.dejson
+    val expectation = Right(Stuff(10, "blah", Thing("graagh")))
+    expect-fail(expectation, fn () parsed)
+
+pub fun test-stuff-roundtrip()
+  basic/test("stuff-roundtrip")
+    val s = Stuff(10, "blah", Thing("graagh"))
+    val json = s.json
+
+    val reparsed: either<string,stuff> = json.dejson
+
+    val expectation = Right(s)
+    expect-fail(expectation, fn () reparsed)
+
 pub fun example-stuff-parse()
   val json = "{\"foo\": 10, \"bar\": \"blah\", \"thing\": {\"name\": \"graagh\"}}"
-  val parsed: either<string,stuff> = json.dejson()
+  val parsed: either<string,stuff> = json.dejson
   parsed.show
 
 pub fun example-stuff-roundtrip()
   val s = Stuff(10, "blah", Thing("graagh"))
   val json = s.json
 
-  val reparsed: either<string,stuff> = json.dejson()
+  val reparsed: either<string,stuff> = json.dejson
 
   reparsed.show
