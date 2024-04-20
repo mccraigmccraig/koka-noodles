@@ -11,7 +11,7 @@ pub struct object-entry {
   value: value
 }
 
-pub rec type value
+pub type value
   String(s: string)
   Int(i: int)
   Bool(b: bool)
