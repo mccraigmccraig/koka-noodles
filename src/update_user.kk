@@ -4,7 +4,7 @@ import std/text/parse
 import logger
 import chain
 import fcore
-import json
+import serjson
 
 // basic objects
 
@@ -14,7 +14,7 @@ struct user {
   encryptedPassword: string
 }
 
-fun user/pfn(v: json/value): <div,parse> user 
+fun user/pfn(v: serjson/value): <div,parse> user 
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
@@ -22,7 +22,7 @@ fun user/pfn(v: json/value): <div,parse> user
       User(id, name, password)
     _ -> fail("invalid json: user/pfn")
 
-fun user/valuefn(u: user): div json/value
+fun user/valuefn(u: user): div serjson/value
   Object([Object-entry("id", Int(u.user-id)), 
           Object-entry("name", String(u.name)), 
           Object-entry("password", String(u.encryptedPassword))])
@@ -34,14 +34,14 @@ struct update-user-command {
   name: string
   password: string
 }
-fun update-user-command/pfn(v: json/value): <div,parse> update-user-command
+fun update-user-command/pfn(v: serjson/value): <div,parse> update-user-command
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
             Object-entry("password", String(password))]) -> 
         Update-user-command(id, name, password)
     _ -> fail("invalid json: update-user-command/pfn")
-fun update-user-command/valuefn(cmd: update-user-command): div json/value
+fun update-user-command/valuefn(cmd: update-user-command): div serjson/value
   Object([Object-entry("id", Int(cmd.user-id)), 
           Object-entry("name", String(cmd.name)), 
           Object-entry("password", String(cmd.password))])
@@ -52,14 +52,14 @@ struct user-updated-event {
   name: string
   encryptedPassword: string
 }
-fun user-updated-event/pfn(v: json/value): <div,parse> user-updated-event
+fun user-updated-event/pfn(v: serjson/value): <div,parse> user-updated-event
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
             Object-entry("encryptedPassword", String(password))]) -> 
         User-updated-event(id, name, password)
     _ -> fail("invalid json: user-updated-event/pfn")
-fun user-updated-event/valuefn(e: user-updated-event): div json/value
+fun user-updated-event/valuefn(e: user-updated-event): div serjson/value
   Object([Object-entry("id", Int(e.user-id)), 
           Object-entry("name", String(e.name)), 
           Object-entry("encryptedPassword", String(e.encryptedPassword))])
@@ -71,13 +71,13 @@ value struct command-with-user {
   command: update-user-command
   user: user
 }
-fun command-with-user/pfn(v: json/value): <div,parse> command-with-user
+fun command-with-user/pfn(v: serjson/value): <div,parse> command-with-user
   match v
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object)]) ->
       Command-with-user(update-user-command/pfn(cmd-object), user/pfn(user-object))
     _ -> fail("invalid json: command-with-user/pfn")
-fun command-with-user/valuefn(cu: command-with-user): div json/value
+fun command-with-user/valuefn(cu: command-with-user): div serjson/value
   Object([Object-entry("command", update-user-command/valuefn(cu.command)),
           Object-entry("user", user/valuefn(cu.user))])
 val command-with-user/serde = Serde(fn (cu: command-with-user) -> json(cu, ?valuefn=command-with-user/valuefn), fn (s: string) -> dejson(s, ?pfn=command-with-user/pfn))
@@ -87,7 +87,7 @@ value struct command-with-user-and-output {
   user: user
   event: user-updated-event
 }
-fun command-with-user-and-output/pfn(v: json/value): <div,parse> command-with-user-and-output
+fun command-with-user-and-output/pfn(v: serjson/value): <div,parse> command-with-user-and-output
   match v
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object),
@@ -96,7 +96,7 @@ fun command-with-user-and-output/pfn(v: json/value): <div,parse> command-with-us
         user/pfn(user-object), 
         user-updated-event/pfn(event-object))
     _ -> fail("invalid json: command-with-user-and-output/pfn")    
-fun command-with-user-and-output/valuefn(cu: command-with-user-and-output): div json/value
+fun command-with-user-and-output/valuefn(cu: command-with-user-and-output): div serjson/value
   Object([Object-entry("command", update-user-command/valuefn(cu.command)),
           Object-entry("user", user/valuefn(cu.user)),
           Object-entry("event", user-updated-event/valuefn(cu.event))])

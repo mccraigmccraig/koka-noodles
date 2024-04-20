@@ -1,4 +1,4 @@
-module json
+module serjson
 
 import std/core/either
 import std/core/undiv
@@ -68,8 +68,8 @@ pub fun eithervalue/(==)(a: either<string,value>, b: either<string,value>): bool
     (Right(aa),Right(bb)) -> value/(==)(aa,bb)
     _ -> False
 
-pub alias pfn<t> = (json/value) -> <div,parse> t
-pub alias valuefn<t> = (t) -> div json/value
+pub alias pfn<t> = (serjson/value) -> <div,parse> t
+pub alias valuefn<t> = (t) -> div serjson/value
 
 fun hex-digit()
   char-is("hex-digit", is-hex-digit)
@@ -173,7 +173,7 @@ fun object-entries()
   char('}')
   entries
 
-pub fun json/pvalue()
+pub fun serjson/pvalue()
   choose([
     {json-string().String},
     {pint().Int},  
@@ -184,10 +184,10 @@ pub fun json/pvalue()
   ])
 
 pub fun parse-value(s: string)
-  s.slice.parse(json/pvalue).either
+  s.slice.parse(serjson/pvalue).either
 
 pub fun dejson<t>(s: string, ?pfn: pfn<t>): div either<string,t>
-  s.slice.parse({json/pvalue().?pfn}).either
+  s.slice.parse({serjson/pvalue().?pfn}).either
 
 pub fun json<t>(t: t, ?valuefn: valuefn<t>): div string
   ?valuefn(t).show
