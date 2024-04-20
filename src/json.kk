@@ -1,6 +1,10 @@
 module json
 
+import std/core/either
+import std/core/undiv
+import std/core/list
 import std/text/parse 
+import std/test/test
 
 pub struct object-entry {
   key: string
@@ -26,6 +30,37 @@ pub fun value/show(v: value)
     Null -> "null"
     Array(a) -> "[" ++ a.map(show).join(", ") ++ "]"
     Object(o) -> "{" ++ o.map(show).join(", ") ++ "}"
+
+pub fun value/(==)(a: value, b: value): bool
+  match (a,b) 
+    (String(aa),String(bb)) -> aa == bb
+    (Int(aa),Int(bb)) -> aa == bb
+    (Bool(aa),Bool(bb)) -> aa == bb
+    (Null,Null) -> True
+    (Array(aa),Array(bb)) -> 
+      match (aa,bb)
+        ([],[]) -> True
+        ([],_) -> False
+        (_,[]) -> False
+        (Cons(x,xs),Cons(y,ys)) -> 
+          value/(==)(pretend-decreasing(x), y) && 
+          value/(==)(pretend-decreasing(Array(xs)),Array(ys))
+    (Object(aa),Object(bb)) -> 
+      match (aa,bb)
+        ([],[]) -> True
+        ([],_) -> False
+        (_,[]) -> False
+        (Cons(x,xs),Cons(y,ys)) -> 
+          x.key == y.key &&
+          value/(==)(pretend-decreasing(x.value), y.value) &&
+          value/(==)(pretend-decreasing(Object(xs)),Object(ys))
+    _ -> False
+
+pub fun eithervalue/(==)(a: either<string,value>, b: either<string,value>): bool
+  match (a,b)
+    (Left(_aa),Left(_bb)) -> False
+    (Right(aa),Right(bb)) -> value/(==)(aa,bb)
+    _ -> False
 
 pub alias pfn<t> = (json/value) -> <div,parse> t
 pub alias valuefn<t> = (t) -> div json/value
@@ -151,6 +186,27 @@ pub fun dejson<t>(s: string, ?pfn: pfn<t>): div either<string,t>
 pub fun json<t>(t: t, ?valuefn: valuefn<t>): div string
   ?valuefn(t).show
 
+pub fun test-equals()
+  basic/test("string-equals")
+    expect-fail(String("foo"), fn () String("foo"), ?(==)=value/(==))
+  basic/test("int-equals")
+    expect-fail(Int(1), fn () Int(1), ?(==)=value/(==))
+  basic/test("array-test")
+    expect-fail(Array([Int(1), Int(2)]), fn () Array([Int(1), Int(2)]), ?(==)=value/(==))
+  basic/test("object-test")
+    expect-fail(Object([Object-entry("foo", Int(1))]), fn () Object([Object-entry("foo", Int(1))]), ?(==)=value/(==))
+
+pub fun test-parse()
+  basic/test("simple-parse")
+    val res = "{\"foo\": [1,\"two\",true,{\"bar\": 200}]}"
+    val expectation = Right(Object([
+      Object-entry("foo", Array([
+        Int(1),
+        String("two"),
+        Bool(True),
+        Object([
+          Object-entry("bar", Int(200))])]))]))
+    expect-fail(expectation, fn () res.parse-value, ?(==)=eithervalue/(==))
 
 pub fun example-parse()
   "{\"foo\": [1,\"two\",true,{\"bar\": 200}]}".parse-value.show
