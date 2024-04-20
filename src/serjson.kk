@@ -1,5 +1,27 @@
 module serjson
 
+// a very simple JSON serializer and deserializer
+//
+// it's not a general JSON parser and has some limitations:
+// - it uses an assoc-list to represent objects, and 
+//   pattern matches during parsing, so changing the order
+//   of serialized fields will break parsing
+// - it doesn't currently handle numbers other than integers
+// - it doesn't currently handle some escaped characters in strings
+//
+// It can serialize and deserialize nested structures with the provision of
+// two functions:
+//   valuefn<t> = (t) -> div serjson/value
+//   pfn<t> = (serjson/value) -> <div,parse> t
+// 
+// valuefn takes a t and returns a serjson/value, while pfn takes a serjson/value
+// and returns a t (or a parse fail)
+//
+// given those functions, a value can be serialized with 
+//  v.json 
+// and deserialized with
+//   s.dejson
+
 import std/core/either
 import std/core/undiv
 import std/core/list
