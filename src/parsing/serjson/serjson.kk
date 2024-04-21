@@ -1,13 +1,14 @@
 module serjson
 
-// a very simple JSON serializer and deserializer
+// A very simple JSON serializer and deserializer
 //
-// it's not a general JSON parser and has some limitations:
+// It's currently not a general-purpose JSON parser and has some limitations:
 // - it uses an assoc-list to represent objects, and 
 //   pattern matches during parsing, so changing the order
 //   of serialized fields will break parsing
 // - it doesn't currently handle numbers other than integers
 // - it doesn't currently handle some escaped characters in strings
+// - errors are almost completely uninformative
 //
 // It can serialize and deserialize nested structures with the provision of
 // two functions:
