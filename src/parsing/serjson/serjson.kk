@@ -4,8 +4,8 @@ module serjson
 //
 // It's currently not a general-purpose JSON parser and has some limitations:
 // - it uses an assoc-list to represent objects, and 
-//   pattern matches during parsing, so changing the order
-//   of serialized fields will break parsing
+//   using pattern matching during parsing will mean that changing 
+//   the order of keys in an object assoc-list will break things
 // - it doesn't currently handle numbers other than integers
 // - it doesn't currently handle some escaped characters in strings
 // - errors are almost completely uninformative
