@@ -1,7 +1,7 @@
 module serjson_test
 
-import std/test/test
 import std/text/parse 
+import std/test/test
 import serjson
 
 // some structs to test parsing nested structures

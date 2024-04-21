@@ -24,10 +24,9 @@ module serjson
 //   s.dejson
 
 import std/core/either
-import std/core/undiv
 import std/core/list
+import std/core/undiv
 import std/text/parse 
-import std/test/test
 
 pub struct object-entry {
   key: string
