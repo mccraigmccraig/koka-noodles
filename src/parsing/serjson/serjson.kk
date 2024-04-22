@@ -50,8 +50,8 @@ pub fun value/show(v: value)
     Int(i) -> i.show
     Bool(b) -> if b then "true" else "false"
     Null -> "null"
-    Array(a) -> "[" ++ a.map(show).join(", ") ++ "]"
-    Object(o) -> "{" ++ o.map(show).join(", ") ++ "}"
+    Array(a) -> "[" ++ a.map(value/show).join(", ") ++ "]"
+    Object(o) -> "{" ++ o.map(object-entry/show).join(", ") ++ "}"
 
 pub fun value/(==)(a: value, b: value): bool
   match (a,b) 

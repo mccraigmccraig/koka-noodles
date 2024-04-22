@@ -6,7 +6,7 @@ import std/core/string
 // serialize or deserialise all inputs and outputs, e.g. we might have an
 // "only log input and final-step output if there are no errors, but 
 //  log full step inputs+outputs if there are errors" policy
-pub alias stringsrc = () -> total string
+pub alias stringsrc = () -> div string
 
 pub type step-outcome
   Run
