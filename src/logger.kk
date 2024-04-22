@@ -2,16 +2,15 @@ module logger
 
 pub alias stringsrc = () -> div string
 
-pub effect logger
-  // open a step-log
-  fun log-enter(name: string, input-ser: stringsrc) : ()
-  // close a step log successfully
-  fun log-complete(output-ser: stringsrc) : ()
-  // close a step log with an error and immediately terminate
-  ctl log-error(error-ser: stringsrc) : ()
+pub type step-outcome
+  Run
+  Resume
+  StepError
+  UnhandledStepError
 
 pub struct step-log
   name: string
+  outcome: step-outcome
   input: stringsrc
   output: either<stringsrc,stringsrc>
 
@@ -20,10 +19,23 @@ pub value struct computation-log
   name: string
   step-logs: list<step-log>
 
+pub effect logger
+  // open a step-log
+  fun log-enter(name: string, input-ser: stringsrc) : ()
+  // close a step log successfully
+  fun log-complete(outcome: step-outcome, output-ser: stringsrc) : ()
+  // close a step log with an error and immediately terminate
+  ctl log-error(error-ser: stringsrc) : ()
+
 pub fun print-computation-log(log: computation-log)
   println("computation: " ++ log.name ++ "\n--")
   log.step-logs.reverse.foreach( fn (step-log)
     println("  step: " ++ step-log.name)
+    match(step-log.outcome)
+      Run -> println("  outcome: run")
+      Resume -> println("  outcome: resume")
+      StepError -> println("  outcome: error")
+      UnhandledStepError -> println("  outcome: unhandled error")
     println("  input: " ++ step-log.input()())
     match step-log.output
       Left(err) -> println("  error: " ++ err())
@@ -54,7 +66,7 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : d
         _ ->
           match next-step
             Just(Open-step(name, input-str)) ->
-              steps := Cons(Step-Log(name, input-str, Left({"Unhandled Exception: " ++ ex.show})), steps)
+              steps := Cons(Step-Log(name, UnhandledStepError, input-str, Left({"Unhandled Exception: " ++ ex.show})), steps)
               Left("Unhandled Exception: " ++ ex.show)
             Nothing -> Left("Unhandled Exception outside step:" ++ ex.show)
   with handler
@@ -62,17 +74,17 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : d
       match next-step
         Nothing -> next-step := Just(Open-Step(name, input-ser))
         Just(_) -> throw("Unexpected log-enter")
-    fun log-complete(output-ser)
+    fun log-complete(outcome, output-ser)
       match next-step
         Just(Open-step(name, input-ser)) -> 
-          steps := Cons(Step-Log(name, input-ser, Right(output-ser)), steps)
+          steps := Cons(Step-Log(name, outcome, input-ser, Right(output-ser)), steps)
           next-step := Nothing
         Nothing ->
           throw("Unexpected log-complete")
     ctl log-error(error-ser)
       match next-step
         Just(Open-step(name, input-ser)) ->
-          steps := Cons(Step-Log(name, input-ser, Left(error-ser)), steps)
+          steps := Cons(Step-Log(name, StepError, input-ser, Left(error-ser)), steps)
           next-step := Nothing
           // logging an error immediately terminates any computation
           throw(error-ser(), ExnTodo)
@@ -86,14 +98,14 @@ pub fun stuff(i: int)
   log-enter("stuff", {i.show})
   val o = i + i
   // log-error({o.show})
-  log-complete({o.show})
+  log-complete(Run, {o.show})
   o
 
 pub fun thingz(i: int)
   log-enter("thingz", {i.show})
   val o = i * i
   // throw("oops: " ++ o.show)
-  log-complete({o.show})
+  log-complete(Run, {o.show})
   o
 
 pub fun collect-test-logs()

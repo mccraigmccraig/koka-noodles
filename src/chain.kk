@@ -53,30 +53,30 @@ pub fun effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/s
 
 pub fun resume-pure-step<i,o>(resume-step-log: resume-step-log, s: pure-step<i,o>, i: i): <pure,logger> o
   log-enter(s.name, {s.i-serde.ser()(i)})
-  val o = match resume-step-log
+  val (outcome, o) = match resume-step-log
     StepLog(step-log) -> 
       match step-log.output
         Right(result-src) -> 
           match s.o-serde.serde/deser()(result-src())
-            Right(result) -> result
+            Right(result) -> (Resume, result)
             Left(err) -> throw("Result desrialization failed: " ++ err ++ " -- " ++ result-src())
-        Left(_) -> s.step()(i)
-    None -> s.step()(i)
-  log-complete({s.o-serde.ser()(o)})
+        Left(_) -> (Run, s.step()(i))
+    None -> (Run, s.step()(i))
+  log-complete(outcome, {s.o-serde.ser()(o)})
   o
 
 pub fun resume-effectful-step<i,o>(resume-step-log: resume-step-log, s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
   log-enter(s.name, {s.i-serde.ser()(i)})
-  val o = match resume-step-log 
+  val (outcome, o) = match resume-step-log 
     StepLog(step-log) ->
       match step-log.output
         Right(result-src) -> 
           match s.o-serde.serde/deser()(result-src())
-            Right(result) -> result
+            Right(result) -> (Resume, result)
             Left(err) -> throw("Result desrialization failed: "  ++ err ++ " -- "++ result-src())
-        Left(_) -> s.step()(i)
-    None -> s.step()(i)
-  log-complete({s.o-serde.ser()(o)})
+        Left(_) -> (Run, s.step()(i))
+    None -> (Run, s.step()(i))
+  log-complete(outcome, {s.o-serde.ser()(o)})
   o
 
 pub fun resume-step<i,o,e>(resume-step-log: resume-step-log, s: step<i,o,e>, i: i): <pure,logger|e> o
