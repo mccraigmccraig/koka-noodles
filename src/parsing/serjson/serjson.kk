@@ -41,17 +41,21 @@ pub type value
   Array(a: list<value>)
   Object(o: list<object-entry>)
 
-pub fun object-entry/show(e: object-entry)
-  "\"" ++ e.key ++ "\": " ++ e.value.show
+fun object-entry/show'(e: object-entry) : div string
+  "\"" ++ e.key ++ "\": " ++ e.value.show'
 
-pub fun value/show(v: value)
+fun value/show'(v: value) : div string
   match v
     String(s) -> "\"" ++ s ++ "\""
     Int(i) -> i.show
     Bool(b) -> if b then "true" else "false"
     Null -> "null"
-    Array(a) -> "[" ++ a.map(value/show).join(", ") ++ "]"
-    Object(o) -> "{" ++ o.map(object-entry/show).join(", ") ++ "}"
+    Array(a) -> "[" ++ a.map(value/show').join(", ") ++ "]"
+    Object(o) -> "{" ++ o.map(object-entry/show').join(", ") ++ "}"
+
+pub fun value/show(v: value) : total string
+  with pretend-no-div
+  value/show'(v)
 
 pub fun value/(==)(a: value, b: value): bool
   match (a,b) 
