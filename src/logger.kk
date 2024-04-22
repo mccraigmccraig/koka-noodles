@@ -1,6 +1,12 @@
 module logger
 
-pub alias stringsrc = () -> div string
+import std/core/string 
+
+// a thunk for step inputs and outputs - we don't always need to 
+// serialize or deserialise all inputs and outputs, e.g. we might have an
+// "only log input and final-step output if there are no errors, but 
+//  log full step inputs+outputs if there are errors" policy
+pub alias stringsrc = () -> total string
 
 pub type step-outcome
   Run
@@ -8,11 +14,39 @@ pub type step-outcome
   StepError
   UnhandledStepError
 
+pub fun step-outcome/show(outcome: step-outcome)
+  match outcome
+    Run -> "run"
+    Resume -> "resume"
+    StepError -> "error"
+    UnhandledStepError -> "unhandled error"
+
 pub struct step-log
   name: string
   outcome: step-outcome
   input: stringsrc
   output: either<stringsrc,stringsrc>
+
+effect val indent: int
+pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
+  with val indent = n
+  action()
+
+pub fun pad()
+  match indent 
+    0 -> ""
+    _ -> repeat(" ", indent)
+  
+pub fun step-log/show(log: step-log)
+  val p = pad()
+  val step-output = match log.output
+    Left(err) -> "error: " ++ err() ++ "\n"
+    Right(out) -> "output: " ++ out() ++ "\n"
+
+  p ++ "step: " ++ log.name ++
+  "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
+  "\n" ++ p ++ "input: " ++ log.input()() ++
+  "\n" ++ p ++ step-output
 
 // NB: step-logs are a reversed list, to match chain steps
 pub value struct computation-log
@@ -27,21 +61,13 @@ pub effect logger
   // close a step log with an error and immediately terminate
   ctl log-error(error-ser: stringsrc) : ()
 
+pub fun computation-log/show(log: computation-log)
+  with apply-indent(2)
+  "computation: " ++ log.name ++ "\n" ++
+  log.step-logs.reverse.map(step-log/show).foldl("", fn (a, b) -> a ++ "\n" ++ b)
+
 pub fun print-computation-log(log: computation-log)
-  println("computation: " ++ log.name ++ "\n--")
-  log.step-logs.reverse.foreach( fn (step-log)
-    println("  step: " ++ step-log.name)
-    match(step-log.outcome)
-      Run -> println("  outcome: run")
-      Resume -> println("  outcome: resume")
-      StepError -> println("  outcome: error")
-      UnhandledStepError -> println("  outcome: unhandled error")
-    println("  input: " ++ step-log.input()())
-    match step-log.output
-      Left(err) -> println("  error: " ++ err())
-      Right(out) -> println("  output: " ++ out())
-    println("--")
-  )  
+  println(log.show)
 
 // a de/serializable log of a single step
 // names should be unique, but it won't matter if not,
