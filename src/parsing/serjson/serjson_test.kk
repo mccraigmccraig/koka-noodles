@@ -69,17 +69,17 @@ fun stuff/show(s: stuff)
 pub fun test-serjson()
   basic/scope("value/(==)")
     scoped/test("string-equals")
-      expect-fail(String("foo"), fn () String("foo"))
+      expect(String("foo"), fn () String("foo"))
     scoped/test("int-equals")
-      expect-fail(Int(1), fn () Int(1))
+      expect(Int(1), fn () Int(1))
     scoped/test("bool-equals")
-      expect-fail(Bool(True), fn () Bool(True))
+      expect(Bool(True), fn () Bool(True))
     scoped/test("null-equals")
-      expect-fail(Null, fn () Null)
+      expect(Null, fn () Null)
     scoped/test("array-test")
-      expect-fail(Array([Int(1), Int(2)]), fn () Array([Int(1), Int(2)]))
+      expect(Array([Int(1), Int(2)]), fn () Array([Int(1), Int(2)]))
     scoped/test("object-test")
-      expect-fail(Object([Object-entry("foo", Int(1))]), fn () Object([Object-entry("foo", Int(1))]))
+      expect(Object([Object-entry("foo", Int(1))]), fn () Object([Object-entry("foo", Int(1))]))
 
   basic/scope("simple parse")
     scoped/test("simple parse")
@@ -91,7 +91,7 @@ pub fun test-serjson()
           Bool(True),
           Object([
             Object-entry("bar", Int(200))])]))]))
-      expect-fail(expectation, fn () res.parse-value, ?(==) = eithervalue/(==))
+      expect(expectation, fn () res.parse-value, ?(==) = eithervalue/(==))
 
   basic/scope("simple roundtrip")
     scoped/test("simple roundtrip")
@@ -105,14 +105,14 @@ pub fun test-serjson()
       val json = obj.show
       val reparsed = json.parse-value
       val expectation = Right(obj)
-      expect-fail(expectation, fn () reparsed, ?(==)=eithervalue/(==))
+      expect(expectation, fn () reparsed, ?(==)=eithervalue/(==))
 
   basic/scope("nested parse")
     scoped/test("nested parse")
       val json = "{\"foo\": 10, \"bar\": \"blah\", \"thing\": {\"name\": \"graagh\"}}"
       val parsed: either<string,stuff> = json.dejson(?pfn=stuff/pfn)
       val expectation = Right(Stuff(10, "blah", Thing("graagh")))
-      expect-fail(expectation, fn () parsed)
+      expect(expectation, fn () parsed)
 
   basic/scope("nested roundtrip")
     scoped/test("stuff-roundtrip")
@@ -122,7 +122,7 @@ pub fun test-serjson()
       val reparsed: either<string,stuff> = json.dejson
 
       val expectation = Right(s)
-      expect-fail(expectation, fn () reparsed)
+      expect(expectation, fn () reparsed)
 
 // examples
 
