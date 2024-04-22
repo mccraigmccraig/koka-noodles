@@ -95,7 +95,7 @@ pub fun eithervalue/(==)(a: either<string,value>, b: either<string,value>): bool
     _ -> False
 
 pub alias pfn<t> = (serjson/value) -> <div,parse> t
-pub alias valuefn<t> = (t) -> div serjson/value
+pub alias valuefn<t> = (t) -> total serjson/value
 
 fun hex-digit()
   char-is("hex-digit", is-hex-digit)
@@ -215,5 +215,5 @@ pub fun parse-value(s: string)
 pub fun dejson<t>(s: string, ?pfn: pfn<t>): div either<string,t>
   s.slice.parse({serjson/pvalue().?pfn}).either
 
-pub fun json<t>(t: t, ?valuefn: valuefn<t>): div string
+pub fun json<t>(t: t, ?valuefn: valuefn<t>): total string
   ?valuefn(t).show

@@ -8,7 +8,7 @@ import std/num/random
 import logger
 
 pub value struct serde<a>
-  ser: (a) -> div string
+  ser: (a) -> total string
   deser: (string) -> div either<string,a>
 
 pub alias pure-step-fn<i,o> = (i) -> <pure,logger> o

@@ -22,7 +22,7 @@ fun user/pfn(v: serjson/value): <div,parse> user
       User(id, name, password)
     _ -> fail("invalid json: user/pfn")
 
-fun user/valuefn(u: user): div serjson/value
+fun user/valuefn(u: user): total serjson/value
   Object([Object-entry("id", Int(u.user-id)), 
           Object-entry("name", String(u.name)), 
           Object-entry("password", String(u.encryptedPassword))])
@@ -41,7 +41,7 @@ fun update-user-command/pfn(v: serjson/value): <div,parse> update-user-command
             Object-entry("password", String(password))]) -> 
         Update-user-command(id, name, password)
     _ -> fail("invalid json: update-user-command/pfn")
-fun update-user-command/valuefn(cmd: update-user-command): div serjson/value
+fun update-user-command/valuefn(cmd: update-user-command): total serjson/value
   Object([Object-entry("id", Int(cmd.user-id)), 
           Object-entry("name", String(cmd.name)), 
           Object-entry("password", String(cmd.password))])
@@ -59,7 +59,7 @@ fun user-updated-event/pfn(v: serjson/value): <div,parse> user-updated-event
             Object-entry("encryptedPassword", String(password))]) -> 
         User-updated-event(id, name, password)
     _ -> fail("invalid json: user-updated-event/pfn")
-fun user-updated-event/valuefn(e: user-updated-event): div serjson/value
+fun user-updated-event/valuefn(e: user-updated-event): total serjson/value
   Object([Object-entry("id", Int(e.user-id)), 
           Object-entry("name", String(e.name)), 
           Object-entry("encryptedPassword", String(e.encryptedPassword))])
@@ -77,7 +77,7 @@ fun command-with-user/pfn(v: serjson/value): <div,parse> command-with-user
             Object-entry("user", user-object)]) ->
       Command-with-user(update-user-command/pfn(cmd-object), user/pfn(user-object))
     _ -> fail("invalid json: command-with-user/pfn")
-fun command-with-user/valuefn(cu: command-with-user): div serjson/value
+fun command-with-user/valuefn(cu: command-with-user): total serjson/value
   Object([Object-entry("command", update-user-command/valuefn(cu.command)),
           Object-entry("user", user/valuefn(cu.user))])
 val command-with-user/serde = Serde(fn (cu: command-with-user) -> json(cu, ?valuefn=command-with-user/valuefn), fn (s: string) -> dejson(s, ?pfn=command-with-user/pfn))
@@ -96,7 +96,7 @@ fun command-with-user-and-output/pfn(v: serjson/value): <div,parse> command-with
         user/pfn(user-object), 
         user-updated-event/pfn(event-object))
     _ -> fail("invalid json: command-with-user-and-output/pfn")    
-fun command-with-user-and-output/valuefn(cu: command-with-user-and-output): div serjson/value
+fun command-with-user-and-output/valuefn(cu: command-with-user-and-output): total serjson/value
   Object([Object-entry("command", update-user-command/valuefn(cu.command)),
           Object-entry("user", user/valuefn(cu.user)),
           Object-entry("event", user-updated-event/valuefn(cu.event))])
@@ -187,7 +187,6 @@ pub fun test-resume-computation()
 pub fun test-deserialize()
   val str = "{\"command\": {\"id\": 1, \"name\": \"new-name\", \"password\": \"new-password\"}, \"user\": {\"id\": 1, \"name\": \"name\", \"password\": \"password\"}}"
   val json-value = parse-value(str)
-  json-value.show()
   match command-with-user/serde.deser()(str)
     Left(err) -> println("parse error: " ++ err)
     Right(cu) -> println("parsed ok: " ++ cu.json())
