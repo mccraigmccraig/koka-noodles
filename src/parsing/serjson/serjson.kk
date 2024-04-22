@@ -2,7 +2,8 @@ module serjson
 
 // A very simple JSON serializer and deserializer
 //
-// It's currently not a general-purpose JSON parser and has some limitations:
+// It's currently not a general-purpose JSON parser and has some limitations,
+// including at least:
 // - it uses an assoc-list to represent objects, and 
 //   using pattern matching during parsing will mean that changing 
 //   the order of keys in an object assoc-list will break things
@@ -16,10 +17,10 @@ module serjson
 //   pfn<t> = (serjson/value) -> <div,parse> t
 // 
 // valuefn takes a t and returns a serjson/value, while pfn takes a serjson/value
-// and returns a t (or a parse fail)
+// and returns a t (or fails the parse)
 //
 // given those functions, a value can be serialized with 
-//  v.json 
+//   v.json 
 // and deserialized with
 //   s.dejson
 
@@ -199,7 +200,7 @@ fun object-entries()
   char('}')
   entries
 
-pub fun serjson/pvalue'()
+fun serjson/pvalue'()
   choose([
     {json-string().String},
     {pint().Int},  
