@@ -118,6 +118,21 @@ pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
 //     First(fst) -> Link(fst, c)
 //     Link(lst, fr) -> Link(lst, append-chain(fr, c))
 
+fun resume-chain'(resume-step-logs: list<resume-step-log>, c: chain<i,o,e>, i: i): <pure,logger |e> o
+  match c
+    First(fst) -> 
+      match resume-step-logs
+        Cons(sl,_) -> resume-step(sl, fst, i)
+        Nil -> resume-step(None, fst, i)
+    Link(lst, fr) -> 
+      match resume-step-logs
+        Cons(sl,rsl) -> 
+          val r = resume-chain'(rsl, fr, i)
+          resume-step(sl, lst, r)
+        Nil -> 
+          val r = resume-chain'([], fr, i)
+          resume-step(None, lst, r)
+
 // given a log of a previous computation run, and a chain of steps,
 // resume the computation
 // - steps with a successful output are not re-run - but the result will 
@@ -125,19 +140,13 @@ pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
 // - once failure is encountered, steps start to be re-run
 // TODO foldr ?
 pub fun resume-chain(step-logs: list<step-log>, c: chain<i,o,e>, i: i): <pure,logger |e> o
-  match c
-    First(fst) -> 
-      match step-logs
-        Cons(sl,_) -> resume-step(StepLog(sl), fst, i)
-        Nil -> resume-step(None, fst, i)
-    Link(lst, fr) -> 
-      match step-logs
-        Cons(sl,rsl) -> 
-          val r = resume-chain(rsl, fr, i)
-          resume-step(StepLog(sl), lst, r)
-        Nil -> 
-          val r = resume-chain([], fr, i)
-          resume-step(None, lst, r)
+  // log is backwards!
+  val fwd-step-logs = step-logs.reverse
+  val step-count = c.length  
+  val padding = replicate(None, step-count - fwd-step-logs.length)
+  val padded-step-logs = (fwd-step-logs.map(StepLog) ++ padding).reverse
+
+  resume-chain'(padded-step-logs, c, i)
 
 // test/example
 
