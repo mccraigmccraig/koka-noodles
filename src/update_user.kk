@@ -14,7 +14,7 @@ struct user {
   encryptedPassword: string
 }
 
-fun user/pfn(v: serjson/value): <div,parse> user 
+fun user/pfn(v: serjson/value): parse user 
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
@@ -34,7 +34,7 @@ struct update-user-command {
   name: string
   password: string
 }
-fun update-user-command/pfn(v: serjson/value): <div,parse> update-user-command
+fun update-user-command/pfn(v: serjson/value): parse update-user-command
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
@@ -52,7 +52,7 @@ struct user-updated-event {
   name: string
   encryptedPassword: string
 }
-fun user-updated-event/pfn(v: serjson/value): <div,parse> user-updated-event
+fun user-updated-event/pfn(v: serjson/value): parse user-updated-event
   match v
     Object([Object-entry("id", Int(id)), 
             Object-entry("name", String(name)), 
@@ -71,7 +71,7 @@ value struct command-with-user {
   command: update-user-command
   user: user
 }
-fun command-with-user/pfn(v: serjson/value): <div,parse> command-with-user
+fun command-with-user/pfn(v: serjson/value): parse command-with-user
   match v
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object)]) ->
@@ -87,7 +87,7 @@ value struct command-with-user-and-output {
   user: user
   event: user-updated-event
 }
-fun command-with-user-and-output/pfn(v: serjson/value): <div,parse> command-with-user-and-output
+fun command-with-user-and-output/pfn(v: serjson/value): parse command-with-user-and-output
   match v
     Object([Object-entry("command", cmd-object),
             Object-entry("user", user-object),

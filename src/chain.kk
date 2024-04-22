@@ -4,12 +4,13 @@ import std/core/either
 import std/core/exn
 import std/core/int
 import std/core/list
+import std/core/undiv
 import std/num/random
 import logger
 
 pub value struct serde<a>
   ser: (a) -> total string
-  deser: (string) -> div either<string,a>
+  deser: (string) -> total either<string,a>
 
 pub alias pure-step-fn<i,o> = (i) -> <pure,logger> o
 pub alias effectful-step-fn<i,o,e> = (i) -> <pure,logger|e> o
@@ -100,10 +101,10 @@ fun string/deser(s: string): either<string,string>
   Right(s)
 val string/serde = Serde(string/ser, string/deser)
 
-pub fun length(c: chain<i,o,e>): div int
+pub fun length(c: chain<i,o,e>): total int
   match c
     First(_) -> 1
-    Link(_, fr) -> 1 + length(fr)
+    Link(_, fr) -> 1 + length(pretend-decreasing(fr))
 
 pub fun add-step(c: chain<i,o,e>, s: step<o,p,e>): chain<i,p,e>
   match c

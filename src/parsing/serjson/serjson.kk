@@ -94,7 +94,7 @@ pub fun eithervalue/(==)(a: either<string,value>, b: either<string,value>): bool
     (Right(aa),Right(bb)) -> value/(==)(aa,bb)
     _ -> False
 
-pub alias pfn<t> = (serjson/value) -> <div,parse> t
+pub alias pfn<t> = (serjson/value) -> parse t
 pub alias valuefn<t> = (t) -> total serjson/value
 
 fun hex-digit()
@@ -175,7 +175,7 @@ fun array-values()
   json-whitespace()
   val values = many({
     whitespace-comma()
-    val v = pvalue()
+    val v = pvalue'()
     whitespace-comma()
     v})
   json-whitespace()
@@ -191,7 +191,7 @@ fun object-entries()
     json-whitespace()
     char(':')
     json-whitespace()
-    val v = pvalue()
+    val v = pvalue'()
     whitespace-comma()
     Object-entry(k, v)
   })
@@ -199,7 +199,7 @@ fun object-entries()
   char('}')
   entries
 
-pub fun serjson/pvalue()
+pub fun serjson/pvalue'()
   choose([
     {json-string().String},
     {pint().Int},  
@@ -209,10 +209,14 @@ pub fun serjson/pvalue()
     {object-entries().Object}
   ])
 
+pub fun serjson/pvalue()
+  with pretend-no-div
+  serjson/pvalue'()
+
 pub fun parse-value(s: string)
   s.slice.parse(serjson/pvalue).either
 
-pub fun dejson<t>(s: string, ?pfn: pfn<t>): div either<string,t>
+pub fun dejson<t>(s: string, ?pfn: pfn<t>): total either<string,t>
   s.slice.parse({serjson/pvalue().?pfn}).either
 
 pub fun json<t>(t: t, ?valuefn: valuefn<t>): total string

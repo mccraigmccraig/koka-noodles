@@ -64,7 +64,6 @@ pub fun stuff/pfn(v: value)
 fun stuff/show(s: stuff)
   s.json(?valuefn=stuff/valuefn).show
 
-
 // tests
 
 pub fun test-serjson()
