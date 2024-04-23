@@ -8,7 +8,7 @@ import std/core/undiv
 import std/num/random
 import logger
 
-pub value struct serde<a>
+pub value struct stringalize<a>
   ser: (a) -> total string
   deser: (string) -> total either<string,a>
 
@@ -18,14 +18,14 @@ pub alias effectful-step-fn<i,o,e> = (i) -> <pure,logger|e> o
 pub struct pure-step<i,o>
   name: string
   step: pure-step-fn<i,o>
-  i-serde: serde<i>
-  o-serde: serde<o>
+  i-stringalize: stringalize<i>
+  o-stringalize: stringalize<o>
 
 pub struct effectful-step<i,o,e>
   name: string
   step: effectful-step-fn<i,o,e>
-  i-serde: serde<i>
-  o-serde: serde<o>
+  i-stringalize: stringalize<i>
+  o-stringalize: stringalize<o>
 
 // A computation step
 // TODO extend with choice steps ? which can choose from 
@@ -46,38 +46,38 @@ pub type chain<i,o,e>
   First(first: step<i,o,e>)
   Link(last: some <j> step<j,o,e>, front: some <j> chain<i,j,e>)
 
-pub fun pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/serde: serde<i>, ?o/serde: serde<o>): pure-step<i,o>
-  Pure-step(name, step, ?i/serde, ?o/serde)
+pub fun pure-step<i,o>(name: string, step: pure-step-fn<i,o>, ?i/stringalize: stringalize<i>, ?o/stringalize: stringalize<o>): pure-step<i,o>
+  Pure-step(name, step, ?i/stringalize, ?o/stringalize)
 
-pub fun effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/serde: serde<i>, ?o/serde: serde<o>): effectful-step<i,o,e>
-  Effectful-step(name, step, ?i/serde, ?o/serde)
+pub fun effectful-step<i,o,e>(name: string, step: effectful-step-fn<i,o,e>, ?i/stringalize: stringalize<i>, ?o/stringalize: stringalize<o>): effectful-step<i,o,e>
+  Effectful-step(name, step, ?i/stringalize, ?o/stringalize)
 
 pub fun resume-pure-step<i,o>(resume-step-log: resume-step-log, s: pure-step<i,o>, i: i): <pure,logger> o
-  log-enter(s.name, {s.i-serde.ser()(i)})
+  log-enter(s.name, {s.i-stringalize.ser()(i)})
   val (outcome, o) = match resume-step-log
     StepLog(step-log) -> 
       match step-log.output
         Right(result-src) -> 
-          match s.o-serde.serde/deser()(result-src())
+          match s.o-stringalize.stringalize/deser()(result-src())
             Right(result) -> (Resume, result)
             Left(err) -> throw("Result desrialization failed: " ++ err ++ " -- " ++ result-src())
         Left(_) -> (Run, s.step()(i))
     None -> (Run, s.step()(i))
-  log-complete(outcome, {s.o-serde.ser()(o)})
+  log-complete(outcome, {s.o-stringalize.ser()(o)})
   o
 
 pub fun resume-effectful-step<i,o>(resume-step-log: resume-step-log, s: effectful-step<i,o,e>, i: i): <pure,logger|e> o
-  log-enter(s.name, {s.i-serde.ser()(i)})
+  log-enter(s.name, {s.i-stringalize.ser()(i)})
   val (outcome, o) = match resume-step-log 
     StepLog(step-log) ->
       match step-log.output
         Right(result-src) -> 
-          match s.o-serde.serde/deser()(result-src())
+          match s.o-stringalize.stringalize/deser()(result-src())
             Right(result) -> (Resume, result)
             Left(err) -> throw("Result desrialization failed: "  ++ err ++ " -- "++ result-src())
         Left(_) -> (Run, s.step()(i))
     None -> (Run, s.step()(i))
-  log-complete(outcome, {s.o-serde.ser()(o)})
+  log-complete(outcome, {s.o-stringalize.ser()(o)})
   o
 
 pub fun resume-step<i,o,e>(resume-step-log: resume-step-log, s: step<i,o,e>, i: i): <pure,logger|e> o
@@ -93,13 +93,13 @@ fun int/deser(s: string): either<string,int>
     Just(i) -> Right(i)
     Nothing -> Left("failed to parse int: " ++ s)
 
-val int/serde = Serde(int/ser, int/deser)
+val int/stringalize = Stringalize(int/ser, int/deser)
 
 fun string/ser(s: string): string
   s
 fun string/deser(s: string): either<string,string>
   Right(s)
-val string/serde = Serde(string/ser, string/deser)
+val string/stringalize = Stringalize(string/ser, string/deser)
 
 pub fun length(c: chain<i,o,e>): total int
   match c

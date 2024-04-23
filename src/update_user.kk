@@ -27,7 +27,7 @@ fun user/valuefn(u: user): total serjson/value
           Object-entry("name", String(u.name)), 
           Object-entry("password", String(u.encryptedPassword))])
 
-val user/serde = Serde(fn (u: user) -> json(u), fn (s: string) -> dejson(s))
+val user/stringalize = Stringalize(fn (u: user) -> json(u), fn (s: string) -> dejson(s))
 
 struct update-user-command {
   user-id: int
@@ -45,7 +45,7 @@ fun update-user-command/valuefn(cmd: update-user-command): total serjson/value
   Object([Object-entry("id", Int(cmd.user-id)), 
           Object-entry("name", String(cmd.name)), 
           Object-entry("password", String(cmd.password))])
-val update-user-command/serde = Serde(fn (cmd: update-user-command) -> json(cmd), fn (s: string) -> dejson(s, ?pfn=update-user-command/pfn))
+val update-user-command/stringalize = Stringalize(fn (cmd: update-user-command) -> json(cmd), fn (s: string) -> dejson(s, ?pfn=update-user-command/pfn))
 
 struct user-updated-event {
   user-id: int
@@ -63,7 +63,7 @@ fun user-updated-event/valuefn(e: user-updated-event): total serjson/value
   Object([Object-entry("id", Int(e.user-id)), 
           Object-entry("name", String(e.name)), 
           Object-entry("encryptedPassword", String(e.encryptedPassword))])
-val user-updated-event/serde = Serde(fn (e: user-updated-event) -> json(e), fn (s: string) -> dejson(s))
+val user-updated-event/stringalize = Stringalize(fn (e: user-updated-event) -> json(e), fn (s: string) -> dejson(s))
 
 // chain objects
 
@@ -80,7 +80,7 @@ fun command-with-user/pfn(v: serjson/value): parse command-with-user
 fun command-with-user/valuefn(cu: command-with-user): total serjson/value
   Object([Object-entry("command", update-user-command/valuefn(cu.command)),
           Object-entry("user", user/valuefn(cu.user))])
-val command-with-user/serde = Serde(fn (cu: command-with-user) -> json(cu, ?valuefn=command-with-user/valuefn), fn (s: string) -> dejson(s, ?pfn=command-with-user/pfn))
+val command-with-user/stringalize = Stringalize(fn (cu: command-with-user) -> json(cu, ?valuefn=command-with-user/valuefn), fn (s: string) -> dejson(s, ?pfn=command-with-user/pfn))
 
 value struct command-with-user-and-output {
   command: update-user-command
@@ -100,7 +100,7 @@ fun command-with-user-and-output/valuefn(cu: command-with-user-and-output): tota
   Object([Object-entry("command", update-user-command/valuefn(cu.command)),
           Object-entry("user", user/valuefn(cu.user)),
           Object-entry("event", user-updated-event/valuefn(cu.event))])
-val command-with-user-and-output/serde = Serde(fn (cu: command-with-user-and-output) -> json(cu, ?valuefn=command-with-user-and-output/valuefn), fn (s: string) -> dejson(s))
+val command-with-user-and-output/stringalize = Stringalize(fn (cu: command-with-user-and-output) -> json(cu, ?valuefn=command-with-user-and-output/valuefn), fn (s: string) -> dejson(s))
 
 // chain functions
 
@@ -138,7 +138,7 @@ pub fun make-update-user-computation()
   Computation("update-user", input-chain, core, output-chain)
 
 pub fun make-broken-update-user-computation()
-  val in1 = Effectful(effectful-step("fetch-user", fetch-user, ?i/serde=update-user-command/serde))
+  val in1 = Effectful(effectful-step("fetch-user", fetch-user, ?i/stringalize=update-user-command/stringalize))
   val input-chain = First(in1)
 
   val core = pure-step("update-user", broken-update-user)
