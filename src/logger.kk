@@ -64,7 +64,7 @@ pub effect logger
 pub fun computation-log/show(log: computation-log)
   with apply-indent(2)
   "computation: " ++ log.name ++ "\n" ++
-  log.step-logs.reverse.map(step-log/show).foldl("", fn (a, b) -> a ++ "\n" ++ b)
+  log.step-logs.reverse.map(step-log/show).joinsep/join(pad() ++ "--\n")
 
 pub fun print-computation-log(log: computation-log)
   println(log.show)
