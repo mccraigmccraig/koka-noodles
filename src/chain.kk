@@ -42,7 +42,7 @@ pub value type resume-step-log
 // as steps are added to the chain, the interior step
 // output types represented by the existential j
 // become invisible
-pub rec type chain<i,o,e>
+pub type chain<i,o,e>
   First(first: step<i,o,e>)
   Link(last: some <j> step<j,o,e>, front: some <j> chain<i,j,e>)
 
