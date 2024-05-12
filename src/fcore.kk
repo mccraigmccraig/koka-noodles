@@ -4,6 +4,10 @@ import std/core/list
 import logger
 import chain
 
+// TODO maybe want to recast this with the input-chain and output-chain
+// as single functions, then have a DSL for building up 
+// the functions from steps... free monad perhaps ?
+
 // computations have a potentially effectful input-chain, a pure step, and
 // a potentially effectful output-chain. the input-chain gathers the
 // input to the pure step, and the output-chain processes the output
