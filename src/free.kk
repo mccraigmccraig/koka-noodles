@@ -3,66 +3,88 @@ import std/core/list
 import std/core/maybe
 import std/core/tuple
 
-// playing around with free monads... maybe useful for an effectful
-// computation DSL - with autologging, resumption, etc...
-// in particular, the `with x <- mval.bind` syntax allowing 
-// could be great for composing effectful steps
+// playing around with the free monad... 
 
-alias fpure<f,a> = a -> f<a>
-alias ffmap<f,a,b> = (a -> div b, f<a>) -> div f<b>
-ref struct functor<f>
-  pure : forall<a> fpure<f,a>
-  fmap : forall<a,b> ffmap<f,a,b>
+ref struct functor<f,e>
+  pure : forall<a> a -> f<a>
+  fmap : forall<a,b> (a -> <div|e> b, f<a>) -> <div|e> f<b>
 
-alias mpure<m,a> = a -> m<a>
-alias mbind<m,a,b> = (m<a>, a -> div m<b>) -> div m<b>
-ref struct monad<m>
-  pure : forall<a> mpure<m,a> 
-  bind : forall<a,b> mbind<m,a,b>
+ref struct monad<m,e>
+  pure : forall<a> a -> m<a> 
+  bind : forall<a,b> (m<a>, a -> <div|e> m<b>) -> <div|e> m<b>
+
+val list/functor = Functor( fn(x) [x], fn(f,m) m.map(f))
+val list/monad = Monad( fn(x) [x], list/flatmap)
+
+val maybe/functor = Functor( fn(x) Just(x), fn(f,m) m.map(f))
+val maybe/monad = Monad( 
+  fn(x) Just(x), 
+  fn(m,f) match m 
+    Nothing -> Nothing
+    Just(x) -> f(x)
+)
+
+pub fun mzip<a,e>(ma : m<a>, mb : m<a>, .?monad: monad<m,e>) : <div|e> m<(a,a)>
+  with a <- ma.bind
+  with b <- mb.bind
+  pure((a,b))
+
+pub fun example-zip-list()
+  val a = [1,2,3]
+  val b = [4,5,6]
+  mzip(a, b)
+
+pub fun example-zip-maybe()
+  val a = Just(5)
+  val b = Just(6)
+  mzip(a,b)
 
 type free<f,a>
   Pure(a: a)
   Free(f: f<free<f,a>>)
 
-
-fun free/pure<a>( a: a, .?functor : functor<f>) : free<f,a>
+fun free/pure( a: a, .?functor : functor<f,e>) : free<f,a>
   Pure(a)
 
-fun free/fmap( f : (a) -> div b, m: free<f,a>, .?functor : functor<f>) : div free<f,b>
+fun free/fmap( f : (a) -> <div|e> b, m: free<f,a>, .?functor : functor<f,e>) : <div|e> free<f,b>
   match m
     Pure(x) -> Pure(f(x))
     Free(g) -> Free(fmap(fn(x){free/fmap(f,x,?functor=?functor)},g))
 
-fun free/bind( m: free<f,a>, f : (a) -> div free<f,b>, .?functor : functor<f>) : div free<f,b>
+fun free/bind( m: free<f,a>, f : (a) -> <div|e> free<f,b>, .?functor : functor<f,e>) : <div|e> free<f,b>
   match m
     Pure(x) -> f(x)
     Free(g) -> Free(fmap(fn(x){free/bind(x,f,?functor=?functor)},g))
 
-val list/functor = Functor( fn(x) [x], fn(f,m) m.map(f))
+// val free/monad = Monad(free/free/pure, free/free/bind)
 
-val maybe/functor = Functor( fn(x) Just(x), fn(f,m) m.map(f))
-
-// failing to type this properly... maybe i need to go back and figure
-// out how to convert a free monad to a corresponding vanilla monad
-// fun free/show<f,a>( m: free<f, a>, ?a/show : a -> div string, .?functor : functor<f>, ?f/show : f -> div string) : div string
-//   match m
-//     Pure(x) -> "Pure<" ++ x.a/show ++ ">"
-//     Free(g) -> "Free<" ++ fmap(fn(x){free/show(x)}, g).f/show ++ ">"
+// https://www.parsonsmatt.org/2017/09/22/what_does_free_buy_us.html
+fun foldFree<f,m,a,e>(morph: (f<free<f,a>>) -> m<free<f,a>>, ff: free<f,a>, .?monad : monad<m,e>) : <div|e> m<a>
+  match ff
+    Pure(a) -> a.pure
+    Free(x) -> 
+      with a <- x.morph.bind
+      foldFree(morph,a)
 
 fun freelist/show<a>( m: free<list, a>, ?a/show : a -> div string) : div string
   match m
     Pure(x) -> "Pure<" ++ x.a/show ++ ">"
     Free(g) -> "Free<" ++ g.map(fn(x){free/show(x)}).show ++ ">"
 
-pub fun mzip<f,a,b>(aas : free<f,a>, bbs : free<f,b>, .?functor: functor<f>) : div free<f,(a,b)>
+pub fun freezip<f,a,b,e>(aas : free<f,a>, bbs : free<f,b>, .?functor: functor<f,e>) : <div|e> free<f,(a,b)>
   with a <- aas.bind
   with b <- bbs.bind
   free/pure((a,b))
 
-pub fun test-list-free()
+pub fun make-list-free()
   val aas = Free([Pure(1), Pure(2)])
   val bbs = Free([Pure(True), Pure(False)])
-  val ccs = mzip(aas, bbs)
+  val ccs = freezip(aas, bbs)
+  ccs
+
+pub fun test-list-free()
+  "building...".println
+  val ccs = make-list-free()
   "running...".println
   ccs.freelist/show.println
 
@@ -71,59 +93,17 @@ fun freemaybe/show<a>( m: free<maybe, a>, ?a/show : a -> div string) : div strin
     Pure(x) -> "Pure<" ++ x.a/show ++ ">"
     Free(g) -> "Free<" ++ g.map(fn(x){free/show(x)}).show ++ ">"
 
-pub fun test-maybe-free()
+pub fun make-maybe-free()
   val aas = Free(Just(Pure(1)))
   val bbs = Free(Just(Pure(True)))
   val ccs = Free(Nothing)
-  val dds = mzip(aas, bbs)
-  val ees : free<maybe,(int, bool)> = mzip(aas, ccs)
+  val dds = freezip(aas, bbs)
+  val ees : free<maybe,(int, bool)> = freezip(aas, ccs)
+  (dds,ees)
+
+pub fun test-maybe-free()
+  "building...".println
+  val (dds,ees) = make-maybe-free()
   "running...".println
   dds.freemaybe/show.println
   ees.freemaybe/show.println
-
-// val free/functor = Functor(Pure, free/fmap)
-
-// val free/functor = Functor(
-//   Pure, 
-//   fn(f, m) 
-//     match m 
-//       Pure(x) -> Pure(f(x)) 
-//       Free(g) -> Free(ffmap(fn(x){ffmap(f,x,?functor=free/functor)},g))
-// )
-
-
-// fun fpure( x: a, .?functor: functor<f>) : f<a>
-//   pure(x)
-  
-// fun ffmap( f: (a) -> div b , m: f<a>, .?functor: functor<f>) : div f<b>
-//   fmap(f,m)
-
-// val list/functor = Functor( fn(x) [x], fn(f,m) m.map(f))
-
-// pub fun example-list-functor()
-//   ffmap(inc, [1,2,3]).show
-
-
-
-// fun mbind( m, f, .?monad )
-//   bind(m,f)
-
-// fun mpure( x : a, .?monad : monad<m> ) : m<a>
-//   pure(x)
-
-// looking at https://serokell.io/blog/introduction-to-free-monads#free-monads
-
-
-
-// val free/monad = Monad(Pure, fn (m, f) match m {Pure(x) -> })
-
-
-
-// recursive values seem forbidden e.g. 
-// val x = fn(i: int) { if i <= 0 then 1 else i + x(i - 1) }
-
-fun x(i: int) : div int
-  if i <= 0 then 1 else i + x(i - 1)
-
-pub fun test-x()
-  x(5).show
