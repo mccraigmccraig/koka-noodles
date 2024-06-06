@@ -6,11 +6,11 @@ import std/core/tuple
 // playing around with the free monad... 
 
 ref struct functor<f>
-  pure : forall<a> a -> f<a>
+  pure : forall<a> a -> div f<a>
   fmap : forall<a,b> (a -> <div> b, f<a>) -> <div> f<b>
 
 ref struct monad<m>
-  pure : forall<a> a -> m<a> 
+  pure : forall<a> a -> div m<a> 
   bind : forall<a,b> (m<a>, a -> <div> m<b>) -> <div> m<b>
 
 val list/functor = Functor( fn(x) [x], fn(f,m) m.map(f))
@@ -56,6 +56,16 @@ fun free/bind( m: free<f,a>, f : (a) -> <div> free<f,b>, .?functor : functor<f>)
     Pure(x) -> f(x)
     Free(g) -> Free(fmap(fn(x){free/bind(x,f,?functor=?functor)},g))
 
+fun foldFree<f,m,a>(morph: (f<free<f,a>>) -> m<free<f,a>>, ff: free<f,a>, .?monad : monad<m>) : <div> m<a>
+  match ff
+    Pure(a) -> a.pure
+    Free(x) -> 
+      with a <- x.morph.bind
+      foldFree(morph,a)
+
+fun liftFree<f,m,a>(fa: f<a>, .?functor: functor<f>) : <div> free<f,a>
+  Free(fmap(fn(x){Pure(x)}, fa)) 
+
 fun freelist/pure<a>( a: a) : free<list,a>
   free/pure( a, ?functor=list/functor)
 
@@ -75,46 +85,49 @@ val freemaybe/monad = Monad(freemaybe/pure, freemaybe/bind)
 // OK - how about a freestate...
 
 type state<s, a>
-  UnState(sf: s -> <div> (a,s)) 
+  RunState(sf: s -> <div> (a,s)) 
 
-fun state/get(): state<s, s>
-  UnState(fn (s) -> (s,s))
+fun state/get(): state<s,s>
+  RunState(fn (s) -> (s,s))
 
 fun state/put(s: s): state<s,()>
-  UnState(fn (_) -> ((), s))
+  RunState(fn (_) -> ((), s))
 
 fun run-state(st : state<s,a>, s: s): <div> (a,s)
   match st
-    UnState(sf) -> 
-      sf(s)
+    RunState(sf) -> sf(s)
 
 fun state/pure<a>(a: a): state<s,a>
-  UnState(fn (s) (a,s))
+  RunState(fn (s) (a,s))
 
 fun state/fmap<a,b>(f: (a) -> <div> b, st: state<s,a>): <div> state<s,b>
-  UnState(fn (s)
+  RunState(fn (s)
     match st 
-      UnState(sf) -> 
+      RunState(sf) -> 
         val (a,s') = sf(s)
         (f(a),s')
   )
 
 val state/functor = Functor(state/pure, state/fmap)
 
-fun freestate/pure<a>(a: a) : free<state<string>, a>
-  free/pure(a, ?functor=state/functor)
+fun freestate/pure<a>(a: a) : div free<state<s>, a>
+  free/pure(a)
 
-fun freestate/bind<a,b>(ma: free<state<string>, a>, f: (a) -> <div> free<state<string>, b>): <div> free<state<string>, b>
+fun freestate/bind<a,b>(ma: free<state<s>, a>, f: (a) -> <div> free<state<s>, b>): <div> free<state<s>, b>
   free/bind(ma, f, ?functor=state/functor)
 
 val freestate/monad = Monad(freestate/pure, freestate/bind)  
+
+fun freestate/get()
+  liftFree(state/get())
+
+fun freestate/put(s)
+  liftFree(state/put(s))
+
+  
+  
+  
 // // https://www.parsonsmatt.org/2017/09/22/what_does_free_buy_us.html
-// fun foldFree<f,m,a,e>(morph: (f<free<f,a>>) -> m<free<f,a>>, ff: free<f,a>, .?monad : monad<m,e>) : <div|e> m<a>
-//   match ff
-//     Pure(a) -> a.pure
-//     Free(x) -> 
-//       with a <- x.morph.bind
-//       foldFree(morph,a)
 
 // fun freelist/show<a>( m: free<list, a>, ?a/show : a -> div string) : div string
 //   match m
