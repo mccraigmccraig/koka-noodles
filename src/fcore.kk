@@ -6,7 +6,10 @@ import chain
 
 // TODO maybe want to recast this with the input-chain and output-chain
 // as single functions, then have a DSL for building up 
-// the functions from steps... free monad perhaps ?
+// the functions from steps... free monad perhaps ? ...or...
+// since koka functions are uncoloured we can perhaps use
+// our own monad without loss of expressivity and use the  
+// with bind as the DSL
 
 // computations have a potentially effectful input-chain, a pure step, and
 // a potentially effectful output-chain. the input-chain gathers the
