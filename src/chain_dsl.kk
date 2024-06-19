@@ -6,7 +6,6 @@ import std/text/parse
 
 import parsers/serjson/serjson
 
-
 // using an identity monad to build a simple DSL... don't need monads
 // for effects like state, 'cos we have effects, but the binding aspect
 // is useful... can also do without flow-control effects like either/maybe
@@ -26,6 +25,11 @@ pub value struct sdescr<i>
 
 pub fun desc<i>(name: string, ?stringalize: stringalize<i>): sdescr<i>
   Sdescr(name, ?stringalize)
+
+// step is identity bind, with a name and serde provided. all effects from f are propagated
+pub fun step<i, o, e>(i: i, descr: sdescr<i>, f: (i) -> <console/console|e> o): <console/console|e> o
+  println(descr.name ++ ": " ++ descr.stringalize.ser()(i))
+  f(i)
 
 // serialize/deserialize int and list<int>
 
@@ -47,10 +51,6 @@ val listint/stringalize = Stringalize(
   fn(s) -> serjson/list/dejson(s)
 )
 
-// step is identity bind, with a name provided. all effects from f are propagated
-pub fun step<i, o, e>(i: i, descr: sdescr<i>, f: (i) -> <console/console|e> o): <console/console|e> o
-  println(descr.name ++ ": " ++ descr.stringalize.ser()(i))
-  f(i)
 
 pub fun test-dsl2()
   with x <- 1.step(desc("x"))
