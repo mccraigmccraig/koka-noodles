@@ -3,13 +3,7 @@ module fcore
 import std/core/list
 import logger
 import chain
-
-// TODO maybe want to recast this with the input-chain and output-chain
-// as single functions, then have a DSL for building up 
-// the functions from steps... free monad perhaps ? ...or...
-// since koka functions are uncoloured we can perhaps use
-// our own monad without loss of expressivity and use the  
-// with bind as the DSL
+import chain_dsl
 
 // computations have a potentially effectful input-chain, a pure step, and
 // a potentially effectful output-chain. the input-chain gathers the
@@ -87,9 +81,3 @@ pub fun resume-computation<i,d,o,v,e>(
   with log-collector(c.name)
   with io-handler
   resume-computation-steps(log.step-logs, c, i)
-
-// TODO step-logs could record a computation-decision, 
-// such as branching, so that we can support 
-// DAGs of computation, not just lists...
-// this seems more general purpose than
-// previous idea of multiple chains...
