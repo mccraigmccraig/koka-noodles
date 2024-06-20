@@ -1,34 +1,29 @@
 module chain_dsl
 
+import parsers/serjson/serjson
 import std/core/console
 import std/core/exn
 import std/text/parse
 
-import parsers/serjson/serjson
-
-// using an identity monad to build a simple DSL... don't need monads
-// for effects like state, 'cos we have effects, but the binding aspect
-// is useful... can also do without flow-control effects like either/maybe
-// because we have the exn effect
-//
-// step is bind is just function application here, but there's no reason it can't 
-// be extended to log, resume, etc - the point is that we can bind each 
-// step's value... can also forget .pure because it's an identity monad
+import logger
 
 pub value struct stringalize<a>
   ser: (a) -> total string
   deser: (string) -> total either<string,a>
 
-pub value struct sdescr<i>
+pub struct smeta<i>
   name: string
-  stringalize: stringalize<i>
+  i-str: stringalize<i>
 
-pub fun desc<i>(name: string, ?stringalize: stringalize<i>): sdescr<i>
-  Sdescr(name, ?stringalize)
+pub fun meta<i>(name: string, ?stringalize: stringalize<i>): smeta<i>
+  Smeta(name, ?stringalize)
 
-// step is identity bind, with a name and serde provided. all effects from f are propagated
-pub fun step<i, o, e>(i: i, descr: sdescr<i>, f: (i) -> <console/console|e> o): <console/console|e> o
-  println(descr.name ++ ": " ++ descr.stringalize.ser()(i))
+pub alias vfn<t> = () -> t
+
+// it's bind for 0-args fns returning a value, with a bit of extra metadata
+pub fun step<i,o,e>(ifn: vfn<i>, m: smeta<i>, f: (i) -> <console/console|e> vfn<o>): <console/console|e> vfn<o>
+  val i = ifn()
+  println(m.name ++ ": " ++ m.i-str.ser()(i))
   f(i)
 
 // serialize/deserialize int and list<int>
@@ -51,25 +46,31 @@ val listint/stringalize = Stringalize(
   fn(s) -> serjson/list/dejson(s)
 )
 
+// some examples
+
+pub fun make-test-dsl2()
+  with x <- ({1}).step(meta("x"))
+  with y <- ({10}).step(meta("y"))
+  with z <- ({x + y}).step(meta("z"))
+  ({2 * z})
 
 pub fun test-dsl2()
-  with x <- 1.step(desc("x"))
-  with y <- 10.step(desc("y"))
-  with z <- (x + y).step(desc("z"))
-  2 * z
+  val td = make-test-dsl2()
+  td()
 
 // can match bound variables and continue binding
 pub fun make-test-dsl3(i: int)
-  with x <- i.step(desc("x"))
-  with y <- [10,11].step(desc("y"))
-  val aa = match y
+  with x <- ({i}).step(meta("x"))
+  with y <- ({[10,11]}).step(meta("y"))
+  val aa' = match y
     [a, b] -> 
-      with z <- (x + a + b).step(desc("z"))
-      z
-    _ -> 0
-  with bb <- 12.step(desc("bb"))
-  aa.show ++ "/" ++ bb.show
+      with z <- ({(x + a + b)}).step(meta("z"))
+      ({z})
+    _ -> ({0})
+  with aa <- aa'.step(meta("aa"))
+  with bb <- ({12}).step(meta("bb"))
+  ({aa.show ++ "/" ++ bb.show})
 
 pub fun test-dsl3()
-  println(make-test-dsl3(1))
-  println(make-test-dsl3(10))
+  println(make-test-dsl3(1)())
+  println(make-test-dsl3(10)())
