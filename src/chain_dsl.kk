@@ -34,7 +34,7 @@ pub fun pure<i>(i: i): thunk<i>
 
 pub fun make-test-dsl2()
   with x <- 1.pure.bind(step("x"))
-  with y <- ({10}).bind(step("y"))
+  with y <- 10.pure.bind(step("y"))
   with z <- ({x + y}).bind(step("z"))
   ({2 * z})
 
@@ -44,8 +44,8 @@ pub fun test-dsl2()
 
 // can match bound variables and continue binding
 pub fun make-test-dsl3(i: int)
-  with x <- ({i}).bind(step("x"))
-  with y <- ({[10,11]}).bind(step("y"))
+  with x <- 1.pure.bind(step("x"))
+  with y <- [10,11].pure.bind(step("y"))
   val aa' = match y
     [a, b] -> 
       with z <- ({(x + a + b)}).bind(step("z"))
