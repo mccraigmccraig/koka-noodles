@@ -36,13 +36,16 @@ pub fun step/pure<a>(a: a, ?stringalize: stringalize<a>): step<a>
 
 pub fun make-test-dsl1()
   with x <- ({1}).step("x").bind
-  with y <- ({10}).step("y").bind
+  with y <- step({10},"y").bind
   with z <- ({x + y}).step("z").bind
   ({2 * z}).step("result")
 
 pub fun test-dsl1()
   val td = make-test-dsl1()
   td()
+
+fun stuff(i: int)
+  step({i}, "stuff")
 
 // can match bound variables and continue binding
 pub fun make-test-dsl2(i: int)
@@ -54,11 +57,12 @@ pub fun make-test-dsl2(i: int)
       ({z}).step("aa'-pair")
     _ -> ({0}).step("aa'-default")
   with aa <- aa'.bind
-  with bb <- ({12}).step("bb").bind
+  with bb <- stuff(i).bind
   ({aa.show ++ "/" ++ bb.show}).step("result")
 
 pub fun test-dsl2()
   println(make-test-dsl2(1)())
+  println("--")
   println(make-test-dsl2(10)())
 
 
