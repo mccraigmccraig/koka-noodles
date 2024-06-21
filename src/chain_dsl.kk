@@ -10,6 +10,8 @@ pub value struct stringalize<a>
   ser: (a) -> total string
   deser: (string) -> total either<string,a>
 
+pub alias thunk<a> = () -> a
+
 pub struct step<a>
   name: string
   str: stringalize<a>
@@ -17,7 +19,8 @@ pub struct step<a>
 pub fun step<a>(name: string, ?stringalize: stringalize<a>): step<a>
   Step(name, ?stringalize)
 
-pub alias thunk<a> = () -> a
+
+// TODO not very happy about the bind signature - can we standardize it ?
 
 // it's bind for thunks, with a bit of extra metadata to name the step and de/serialize the value
 pub fun bind<a,b,e>(ifn: thunk<a>, st: step<a>, f: (a) -> <console/console|e> thunk<b>): <console/console|e> thunk<b>
