@@ -4,27 +4,76 @@ import parsers/serjson/serjson
 import std/core/console
 import std/core/exn
 import std/text/parse
-
 import logger
 
 pub value struct stringalize<a>
   ser: (a) -> total string
   deser: (string) -> total either<string,a>
 
-pub struct smeta<i>
+pub struct step<i>
   name: string
-  i-str: stringalize<i>
+  str: stringalize<i>
 
-pub fun meta<i>(name: string, ?stringalize: stringalize<i>): smeta<i>
-  Smeta(name, ?stringalize)
+pub fun step<i>(name: string, ?stringalize: stringalize<i>): step<i>
+  Step(name, ?stringalize)
 
-pub alias vfn<t> = () -> t
+pub alias thunk<t> = () -> t
 
-// it's bind for 0-args fns returning a value, with a bit of extra metadata
-pub fun step<i,o,e>(ifn: vfn<i>, m: smeta<i>, f: (i) -> <console/console|e> vfn<o>): <console/console|e> vfn<o>
+// it's bind for thunks, with a bit of extra metadata to name the step and de/serialize the value
+pub fun bind<i,o,e>(ifn: thunk<i>, m: step<i>, f: (i) -> <console/console|e> thunk<o>): <console/console|e> thunk<o>
+  // can retrieve the value of i from logs or evaluate the ifn
   val i = ifn()
-  println(m.name ++ ": " ++ m.i-str.ser()(i))
+  println(m.name ++ ": " ++ m.str.ser()(i))
   f(i)
+
+pub fun pure<i>(i: i): thunk<i>
+  fn() -> i
+
+
+// some examples
+
+pub fun make-test-dsl2()
+  with x <- 1.pure.bind(step("x"))
+  with y <- ({10}).bind(step("y"))
+  with z <- ({x + y}).bind(step("z"))
+  ({2 * z})
+
+pub fun test-dsl2()
+  val td = make-test-dsl2()
+  td()
+
+// can match bound variables and continue binding
+pub fun make-test-dsl3(i: int)
+  with x <- ({i}).bind(step("x"))
+  with y <- ({[10,11]}).bind(step("y"))
+  val aa' = match y
+    [a, b] -> 
+      with z <- ({(x + a + b)}).bind(step("z"))
+      ({z})
+    _ -> ({0})
+  with aa <- aa'.bind(step("aa"))
+  with bb <- ({12}).bind(step("bb"))
+  ({aa.show ++ "/" ++ bb.show})
+
+pub fun test-dsl3()
+  println(make-test-dsl3(1)())
+  println(make-test-dsl3(10)())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // serialize/deserialize int and list<int>
 
@@ -45,32 +94,3 @@ val listint/stringalize = Stringalize(
   fn(l: list<int>) -> serjson/list/json(l),
   fn(s) -> serjson/list/dejson(s)
 )
-
-// some examples
-
-pub fun make-test-dsl2()
-  with x <- ({1}).step(meta("x"))
-  with y <- ({10}).step(meta("y"))
-  with z <- ({x + y}).step(meta("z"))
-  ({2 * z})
-
-pub fun test-dsl2()
-  val td = make-test-dsl2()
-  td()
-
-// can match bound variables and continue binding
-pub fun make-test-dsl3(i: int)
-  with x <- ({i}).step(meta("x"))
-  with y <- ({[10,11]}).step(meta("y"))
-  val aa' = match y
-    [a, b] -> 
-      with z <- ({(x + a + b)}).step(meta("z"))
-      ({z})
-    _ -> ({0})
-  with aa <- aa'.step(meta("aa"))
-  with bb <- ({12}).step(meta("bb"))
-  ({aa.show ++ "/" ++ bb.show})
-
-pub fun test-dsl3()
-  println(make-test-dsl3(1)())
-  println(make-test-dsl3(10)())
