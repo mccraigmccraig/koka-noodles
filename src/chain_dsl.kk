@@ -44,15 +44,15 @@ pub fun test-dsl2()
 
 // can match bound variables and continue binding
 pub fun make-test-dsl3(i: int)
-  with x <- 1.pure.bind(step("x"))
+  with x <- i.pure.bind(step("x"))
   with y <- [10,11].pure.bind(step("y"))
   val aa' = match y
     [a, b] -> 
       with z <- ({(x + a + b)}).bind(step("z"))
-      ({z})
-    _ -> ({0})
+      z.pure
+    _ -> 0.pure
   with aa <- aa'.bind(step("aa"))
-  with bb <- ({12}).bind(step("bb"))
+  with bb <- 12.pure.bind(step("bb"))
   ({aa.show ++ "/" ++ bb.show})
 
 pub fun test-dsl3()
