@@ -15,31 +15,33 @@ pub alias thunk<a> = () -> a
 pub struct step<a>
   name: string
   str: stringalize<a>
+  thunk: thunk<a>
 
-pub fun step<a>(name: string, ?stringalize: stringalize<a>): step<a>
-  Step(name, ?stringalize)
+pub fun step<a>(thunk: thunk<a>, name: string, ?stringalize: stringalize<a>): step<a>
+  Step(name, ?stringalize, thunk)
 
+pub fun step/show(a: step<a>): string
+  a.name ++ ": " ++ a.str.ser()(a.thunk()())
 
-// TODO not very happy about the bind signature - can we standardize it ?
-
-// it's bind for thunks, with a bit of extra metadata to name the step and de/serialize the value
-pub fun bind<a,b,e>(ifn: thunk<a>, st: step<a>, f: (a) -> <console/console|e> thunk<b>): <console/console|e> thunk<b>
+// it's bind for step thunks
+pub fun bind<a,b,e>(st: step<a>, f: (a) -> <console/console|e> step<b>): <console/console|e> step<b>
   // can retrieve the value of i from logs or evaluate the ifn
-  val i = ifn()
-  println(st.name ++ ": " ++ st.str.ser()(i))
-  f(i)
+  val a = st.thunk()()
+  println(st.name ++ ": " ++ st.str.ser()(a))
+  f(a)
 
-pub fun pure<a>(i: a): thunk<a>
-  fn() -> i
+pub fun test-make-step()
+  ({100}).step("foo")
+
 
 
 // some examples
 
 pub fun make-test-dsl1()
-  with x <- 1.pure.bind(step("x"))
-  with y <- 10.pure.bind(step("y"))
-  with z <- ({x + y}).bind(step("z"))
-  ({2 * z})
+  with x <- ({1}).step("x").bind
+  with y <- ({10}).step("y").bind
+  with z <- ({x + y}).step("z").bind
+  ({2 * z}).step("result")
 
 pub fun test-dsl1()
   val td = make-test-dsl1()
@@ -47,16 +49,16 @@ pub fun test-dsl1()
 
 // can match bound variables and continue binding
 pub fun make-test-dsl2(i: int)
-  with x <- i.pure.bind(step("x"))
-  with y <- [10,11].pure.bind(step("y"))
+  with x <- ({i}).step("x").bind
+  with y <- ({[10,11]}).step("y").bind
   val aa' = match y
     [a, b] -> 
-      with z <- ({(x + a + b)}).bind(step("z"))
-      z.pure
-    _ -> 0.pure
-  with aa <- aa'.bind(step("aa"))
-  with bb <- 12.pure.bind(step("bb"))
-  ({aa.show ++ "/" ++ bb.show})
+      with z <- ({(x + a + b)}).step("z").bind
+      ({z}).step("aa'")
+    _ -> ({0}).step("aa'")
+  with aa <- aa'.bind
+  with bb <- ({12}).step("bb").bind
+  ({aa.show ++ "/" ++ bb.show}).step("result")
 
 pub fun test-dsl2()
   println(make-test-dsl2(1)())
@@ -96,4 +98,9 @@ val int/stringalize = Stringalize(
 val listint/stringalize = Stringalize(
   fn(l: list<int>) -> serjson/list/json(l),
   fn(s) -> serjson/list/dejson(s)
+)
+
+val string/stringalize = Stringalize(
+  fn(s: string) -> s,
+  fn(s) -> Right(s)
 )
