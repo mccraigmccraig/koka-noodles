@@ -24,13 +24,9 @@ pub fun step/show(a: step<a>): string
   a.name ++ ": " ++ a.str.ser()(a.thunk()())
 
 pub fun bind<a,b,e>(st: step<a>, f: (a) -> <console/console|e> step<b>): <console/console|e> step<b>
-  // can retrieve the value of i from logs or evaluate the ifn
   val a = st.thunk()()
   println(st.name ++ ": " ++ st.str.ser()(a))
   f(a)
-
-pub fun step/pure<a>(a: a, ?stringalize: stringalize<a>): step<a>
-  step({a}, "pure", ?stringalize=?stringalize)
 
 // some examples
 
