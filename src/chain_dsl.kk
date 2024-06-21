@@ -10,23 +10,23 @@ pub value struct stringalize<a>
   ser: (a) -> total string
   deser: (string) -> total either<string,a>
 
-pub struct step<i>
+pub struct step<a>
   name: string
-  str: stringalize<i>
+  str: stringalize<a>
 
-pub fun step<i>(name: string, ?stringalize: stringalize<i>): step<i>
+pub fun step<a>(name: string, ?stringalize: stringalize<a>): step<a>
   Step(name, ?stringalize)
 
-pub alias thunk<t> = () -> t
+pub alias thunk<a> = () -> a
 
 // it's bind for thunks, with a bit of extra metadata to name the step and de/serialize the value
-pub fun bind<i,o,e>(ifn: thunk<i>, m: step<i>, f: (i) -> <console/console|e> thunk<o>): <console/console|e> thunk<o>
+pub fun bind<a,b,e>(ifn: thunk<a>, st: step<a>, f: (a) -> <console/console|e> thunk<b>): <console/console|e> thunk<b>
   // can retrieve the value of i from logs or evaluate the ifn
   val i = ifn()
-  println(m.name ++ ": " ++ m.str.ser()(i))
+  println(st.name ++ ": " ++ st.str.ser()(i))
   f(i)
 
-pub fun pure<i>(i: i): thunk<i>
+pub fun pure<a>(i: a): thunk<a>
   fn() -> i
 
 
