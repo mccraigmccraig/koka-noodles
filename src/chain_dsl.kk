@@ -23,16 +23,11 @@ pub fun step<a>(thunk: thunk<a>, name: string, ?stringalize: stringalize<a>): st
 pub fun step/show(a: step<a>): string
   a.name ++ ": " ++ a.str.ser()(a.thunk()())
 
-// it's bind for step thunks
 pub fun bind<a,b,e>(st: step<a>, f: (a) -> <console/console|e> step<b>): <console/console|e> step<b>
   // can retrieve the value of i from logs or evaluate the ifn
   val a = st.thunk()()
   println(st.name ++ ": " ++ st.str.ser()(a))
   f(a)
-
-pub fun test-make-step()
-  ({100}).step("foo")
-
 
 
 // some examples
@@ -50,12 +45,12 @@ pub fun test-dsl1()
 // can match bound variables and continue binding
 pub fun make-test-dsl2(i: int)
   with x <- ({i}).step("x").bind
-  with y <- ({[10,11]}).step("y").bind
+  with y <- ({ if i>5 then [10,11] else [] }).step("y").bind
   val aa' = match y
     [a, b] -> 
       with z <- ({(x + a + b)}).step("z").bind
-      ({z}).step("aa'")
-    _ -> ({0}).step("aa'")
+      ({z}).step("aa'-pair")
+    _ -> ({0}).step("aa'-default")
   with aa <- aa'.bind
   with bb <- ({12}).step("bb").bind
   ({aa.show ++ "/" ++ bb.show}).step("result")
