@@ -29,6 +29,8 @@ pub fun bind<a,b,e>(st: step<a>, f: (a) -> <console/console|e> step<b>): <consol
   println(st.name ++ ": " ++ st.str.ser()(a))
   f(a)
 
+pub fun step/pure<a>(a: a, ?stringalize: stringalize<a>): step<a>
+  step({a}, "pure", ?stringalize=?stringalize)
 
 // some examples
 
