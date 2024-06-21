@@ -32,18 +32,18 @@ pub fun pure<a>(i: a): thunk<a>
 
 // some examples
 
-pub fun make-test-dsl2()
+pub fun make-test-dsl1()
   with x <- 1.pure.bind(step("x"))
   with y <- 10.pure.bind(step("y"))
   with z <- ({x + y}).bind(step("z"))
   ({2 * z})
 
-pub fun test-dsl2()
-  val td = make-test-dsl2()
+pub fun test-dsl1()
+  val td = make-test-dsl1()
   td()
 
 // can match bound variables and continue binding
-pub fun make-test-dsl3(i: int)
+pub fun make-test-dsl2(i: int)
   with x <- i.pure.bind(step("x"))
   with y <- [10,11].pure.bind(step("y"))
   val aa' = match y
@@ -55,9 +55,9 @@ pub fun make-test-dsl3(i: int)
   with bb <- 12.pure.bind(step("bb"))
   ({aa.show ++ "/" ++ bb.show})
 
-pub fun test-dsl3()
-  println(make-test-dsl3(1)())
-  println(make-test-dsl3(10)())
+pub fun test-dsl2()
+  println(make-test-dsl2(1)())
+  println(make-test-dsl2(10)())
 
 
 
