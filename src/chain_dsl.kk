@@ -49,7 +49,9 @@ pub fun run<a>(
   with logger/log-collector(st.name)
   h(st.thunk)
 
-
+// convenience function for running a step with no effects
+pub fun run-nofx(st: step<a,<pure,logger>>): pure (either<string,a>, logger/computation-log)
+  run(st, fn (th) -> th())
 
 // pub value type resume-step-log
 //   StepLog(step-log: step-log)
@@ -66,11 +68,8 @@ pub fun make-test-dsl1()
   with z <- ({int/(+)(x, y)}).step("z").bind
   ({2 * z}).step("result")
 
-pub fun log-test-dsl1()
-  make-test-dsl1().run(fn (t) -> t())
-
 pub fun test-dsl1()
-  val (_, log) = log-test-dsl1()
+  val (_, log) = make-test-dsl1().run-nofx
   logger/print-computation-log(log)
   
 
@@ -90,11 +89,8 @@ pub fun make-test-dsl2(i: int)
   with bb <- testdsl/stuff(i).bind
   ({aa.int/show ++ "/" ++ bb.int/show}).step("result")
 
-pub fun log-test-dsl2(i: int)
-  make-test-dsl2(i).run(fn (t) -> t())
-
 pub fun print-log-test-dsl2(i: int)
-  val (_, log) = log-test-dsl2(i)
+  val (_, log) = make-test-dsl2(i).run-nofx
   logger/print-computation-log(log)
 
 pub fun test-dsl2()
