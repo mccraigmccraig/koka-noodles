@@ -34,9 +34,10 @@ pub fun bind<a,b,e>(
     ?strde,
     fn () -> 
       logger/log-enter(st.name)
-      val a = st.thunk()()
-      val r = f(a).thunk()()
-      logger/log-complete(logger/Run, {st.strde.str()(a)})
+      val a = st.thunk()() // the bound value
+      logger/log-bound-value({st.strde.str()(a)})
+      val r = f(a).thunk()() 
+      logger/log-complete(logger/Run, {?strde.str()(r)})
       r
   )
 
