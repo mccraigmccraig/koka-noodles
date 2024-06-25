@@ -28,14 +28,16 @@ pub fun bind<a,b,e>(
     f: (a) -> total step<b,<logger|e>>,
     ?strde: strde<b>
   ): total step<b,<logger|e>>
+
   Step(
     "bind: " ++ st.name,
     ?strde,
     fn () -> 
       logger/log-enter(st.name)
       val a = st.thunk()()
+      val r = f(a).thunk()()
       logger/log-complete(logger/Run, {st.strde.str()(a)})
-      f(a).thunk()()
+      r
   )
 
 // run a step, returning an either result and the computation-log

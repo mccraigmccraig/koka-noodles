@@ -43,16 +43,16 @@ fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
 fun pad()
   match indent 
     0 -> ""
-    _ -> repeat(" ", indent)
+    _ -> " " ++ repeat(" |", (indent - 1)) ++ " "
   
 pub fun step-log/show(log: step-log): <div,indent> string
   val p = pad()
   val step-output = match log.output
-    Left(err) -> "error: " ++ err() ++ "\n"
-    Right(v) -> "value: " ++ v() ++ "\n"
+    Left(err) -> "error: " ++ err()
+    Right(v) -> "value: " ++ v()
 
-  val children-output = apply-indent(indent + 2)
-   log.children.reverse.map(step-log/show).joinsep/join(pad() ++ "--\n")
+  val children-output = apply-indent(indent + 1)
+   log.children.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
 
   p ++ "step: " ++ log.name ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
@@ -65,7 +65,7 @@ pub value struct computation-log
   step-logs: list<step-log>
 
 pub fun computation-log/show(log: computation-log)
-  with apply-indent(2)
+  with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
   log.step-logs.reverse.map(step-log/show).joinsep/join(pad() ++ "--\n")
 
