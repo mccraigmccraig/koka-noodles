@@ -79,7 +79,6 @@ pub fun test-dsl1()
 fun testdsl/stuff(i: int)
   step({i}, "stuff")
 
-// can match bound variables and continue binding
 pub fun make-test-dsl2(i: int)
   with x <- ({i}).step("x").bind
   with y <- ({ if i>5 then [10,11] else [] }).step("y").bind
