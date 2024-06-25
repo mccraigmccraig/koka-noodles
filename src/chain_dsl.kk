@@ -35,7 +35,6 @@ pub fun bind<a,b,e>(
       logger/log-enter(st.name)
       val a = st.thunk()()
       logger/log-complete(logger/Run, {st.strde.str()(a)})
-      // println(st.name ++ ": " ++ st.str.ser()(a) )
       f(a).thunk()()
   )
 
