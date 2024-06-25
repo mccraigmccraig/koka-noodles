@@ -82,7 +82,7 @@ pub fun make-test-dsl2(i: int)
   with y <- ({ if i>5 then [10,11] else [] }).step("y").bind
   val aa' = match y
     [a, b] -> 
-      with z <- ({foldl([x, a, b], 0, int/(+))}).step("z").bind
+      with z <- ({foldl([x, a, b], 0, (+))}).step("z").bind
       ({z}).step("aa'-pair", ?strde=int/strde)
     _ -> ({0}).step("aa'-default")
   with aa <- aa'.bind
