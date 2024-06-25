@@ -46,7 +46,8 @@ pub fun run<a>(
     h: (thunk<a,<logger|e>>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(st.name)
-  h(st.thunk)
+  with h 
+  st.thunk()()
 
 // convenience function for running a step with no effects
 pub fun run-nofx(st: step<a,<pure,logger>>): div (either<string,a>, logger/computation-log)
