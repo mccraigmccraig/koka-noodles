@@ -44,12 +44,12 @@ pub fun bind<a,b,e>(
 pub fun run<a>(
     st: step<a,<logger|e>>,
     h: (thunk<a,<logger|e>>) -> <pure,logger> a
-  ): pure (either<string,a>, logger/computation-log)
+  ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(st.name)
   h(st.thunk)
 
 // convenience function for running a step with no effects
-pub fun run-nofx(st: step<a,<pure,logger>>): pure (either<string,a>, logger/computation-log)
+pub fun run-nofx(st: step<a,<pure,logger>>): div (either<string,a>, logger/computation-log)
   run(st, fn (th) -> th())
 
 // pub value type resume-step-log
