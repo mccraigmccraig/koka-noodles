@@ -30,7 +30,7 @@ pub fun bind<a,b,e>(
   ): total step<b,<logger|e>>
 
   Step(
-    "bind: " ++ st.name,
+    "bind--" ++ st.name,
     ?strde,
     fn () -> 
       logger/log-enter(st.name)
