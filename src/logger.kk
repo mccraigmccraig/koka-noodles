@@ -36,11 +36,11 @@ pub struct step-log
   output: either<stringsrc,stringsrc>
 
 effect val indent: int
-pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
+fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
   with val indent = n
   action()
 
-pub fun pad()
+fun pad()
   match indent 
     0 -> ""
     _ -> repeat(" ", indent)
