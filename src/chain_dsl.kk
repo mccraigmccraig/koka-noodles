@@ -6,19 +6,19 @@ import std/core/exn
 import std/text/parse
 import logger
 
-pub value struct stringalize<a>
-  ser: (a) -> total string
-  deser: (string) -> total either<string,a>
+pub value struct strde<a>
+  str: (a) -> total string
+  de: (string) -> total either<string,a>
 
 pub alias thunk<a,e> = () -> e a
 
 pub struct step<a,e>
   name: string
-  str: stringalize<a>
+  strde: strde<a>
   thunk: thunk<a,e>
 
-pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?stringalize: stringalize<a>): step<a,e>
-  Step(name, ?stringalize, thunk)
+pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
+  Step(name, ?strde, thunk)
 
 pub fun step/show(a: step<a,e>): string
   a.name ++ ": <unevaluated>"
@@ -26,15 +26,15 @@ pub fun step/show(a: step<a,e>): string
 pub fun bind<a,b,e>(
     st: step<a,<logger|e>>, 
     f: (a) -> <logger|e> step<b,<logger|e>>,
-    ?stringalize: stringalize<b>
+    ?strde: strde<b>
   ): total step<b,<logger|e>>
   Step(
     "bind: " ++ st.name,
-    ?stringalize,
+    ?strde,
     fn () -> 
       logger/log-enter(st.name)
       val a = st.thunk()()
-      logger/log-complete(logger/Run, {st.str.ser()(a)})
+      logger/log-complete(logger/Run, {st.strde.str()(a)})
       // println(st.name ++ ": " ++ st.str.ser()(a) )
       f(a).thunk()()
   )
@@ -84,7 +84,7 @@ pub fun make-test-dsl2(i: int)
   val aa' = match y
     [a, b] -> 
       with z <- ({foldl([x, a, b], 0, int/(+))}).step("z").bind
-      ({z}).step("aa'-pair", ?stringalize=int/stringalize)
+      ({z}).step("aa'-pair", ?strde=int/strde)
     _ -> ({0}).step("aa'-default")
   with aa <- aa'.bind
   with bb <- testdsl/stuff(i).bind
@@ -128,17 +128,17 @@ fun int/pfn(v: serjson/value): parse int
     serjson/Int(i) -> i
     _ -> parse/fail("not an int")
 
-val int/stringalize = Stringalize(
+val int/strde = Strde(
   fn(i: int) -> serjson/json(i, ?valuefn=int/valuefn),
   fn(s) -> serjson/dejson(s, ?pfn=int/pfn)
 )
 
-val listint/stringalize = Stringalize(
+val listint/strde = Strde(
   fn(l: list<int>) -> serjson/list/json(l),
   fn(s) -> serjson/list/dejson(s)
 )
 
-val string/stringalize = Stringalize(
+val string/strde = Strde(
   fn(s: string) -> s,
   fn(s) -> Right(s)
 )
