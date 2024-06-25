@@ -55,7 +55,7 @@ pub fun step-log/show(log: step-log): <div,indent> string
    log.children.reverse.map(step-log/show).joinsep/join(pad() ++ "--\n")
 
   p ++ "step: " ++ log.name ++
-  (if length(log.children)>0 then "\nchildren:\n" ++ children-output else "") ++
+  (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
   "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
   "\n" ++ p ++ step-output
 
