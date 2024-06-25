@@ -92,16 +92,11 @@ pub fun make-test-dsl2(i: int)
   with bb <- testdsl/stuff(i).bind
   ({aa.int/show ++ "/" ++ bb.int/show}).step("result")
 
-pub fun print-log-test-dsl2(i: int)
-  val (_, log) = make-test-dsl2(i).run-nofx
-  logger/print-computation-log(log)
-
 pub fun test-dsl2()
-  // print-log-test-dsl2(1)
-  // println("--")
-  print-log-test-dsl2(10)
-
-
+  val (_, log) = make-test-dsl2(10).run-nofx
+  logger/print-computation-log(log)
+  // val (_, log2) = make-test-dsl2(0).run-nofx
+  // logger/print-computation-log(log2)
 
 
 
