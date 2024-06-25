@@ -94,8 +94,8 @@ pub fun print-log-test-dsl2(i: int)
   logger/print-computation-log(log)
 
 pub fun test-dsl2()
-  print-log-test-dsl2(1)
-  println("--")
+  // print-log-test-dsl2(1)
+  // println("--")
   print-log-test-dsl2(10)
 
 
