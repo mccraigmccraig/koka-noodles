@@ -25,7 +25,7 @@ pub fun step/show(a: step<a,e>): string
 
 pub fun bind<a,b,e>(
     st: step<a,<logger|e>>, 
-    f: (a) -> <logger|e> step<b,<logger|e>>,
+    f: (a) -> total step<b,<logger|e>>,
     ?strde: strde<b>
   ): total step<b,<logger|e>>
   Step(
