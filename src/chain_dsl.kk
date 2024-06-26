@@ -122,25 +122,11 @@ pub fun test-dsl2()
 
 // serialize/deserialize int and list<int>
 
-fun int/valuefn(i: int): serjson/value
-  serjson/Int(i)
-
-fun int/pfn(v: serjson/value): parse int
-  match v
-    serjson/Int(i) -> i
-    _ -> parse/fail("not an int")
-
-val int/strde = Strde(
-  fn(i: int) -> serjson/json(i, ?valuefn=int/valuefn),
-  fn(s) -> serjson/dejson(s, ?pfn=int/pfn)
-)
+val int/strde = Strde(fn(i: int) -> serjson/json(i), fn(s) -> serjson/dejson(s))
 
 val listint/strde = Strde(
-  fn(l: list<int>) -> serjson/list/json(l),
-  fn(s) -> serjson/list/dejson(s)
+  fn(l: list<int>) -> serjson/json(l, ?valuefn=list/make-valuefn(int/valuefn)),
+  fn(s) -> serjson/dejson(s, ?pfn=list/make-pfn(int/pfn))
 )
 
-val string/strde = Strde(
-  fn(s: string) -> s,
-  fn(s) -> Right(s)
-)
+val string/strde = Strde(fn(s: string) -> serjson/json(s), fn(s) -> serjson/dejson(s))
