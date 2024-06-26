@@ -21,6 +21,12 @@ pub struct step<a,e>
 pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
+// alternative allowing the thunk to be given as a trailing lambda - the
+// desugaring puts the trailing lambda before the implicit args!
+pub fun stepx<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
+  Step(name, ?strde, thunk)
+
+
 pub fun step/show(a: step<a,e>): string
   a.name ++ ": <unevaluated>"
 
@@ -67,10 +73,10 @@ pub fun run-nofx(st: step<a,<pure,logger>>): div (either<string,a>, logger/compu
 // some examples
 
 pub fun make-test-dsl1()
-  with x: int <- ({1}).step("x").bind
-  with y <- step({10},"y").bind
-  with z <- ({x + y}).step("z").bind
-  ({2 * z}).step("result")
+  with x: int <- stepx("x"){1}.bind
+  with y <- stepx("y"){10}.bind
+  with z <- stepx("z"){x + y}.bind
+  stepx("result"){2 * z}
 
 pub fun test-dsl1()
   val (_, log) = make-test-dsl1().run-nofx
@@ -79,7 +85,7 @@ pub fun test-dsl1()
 
 fun testdsl/stuff(i: int)
   with x: int <- step({i}, "i").bind
-  with y <- step({random-int()},"rand").bind
+  with y <- stepx("rand"){random-int()}.bind
   ({x + y}).step("stuff")
 
 pub fun make-test-dsl2(i: int)
