@@ -32,8 +32,9 @@ pub fun step-outcome/show(outcome: step-outcome)
 
 pub struct step-log
   name: string
+  binding-children: list<step-log>
   bound-value: maybe<stringsrc>
-  children: list<step-log>
+  body-children: list<step-log>
   outcome: step-outcome
   output: either<stringsrc,stringsrc>
 
@@ -58,12 +59,16 @@ pub fun step-log/show(log: step-log): <div,indent> string
     Left(err) -> "error: " ++ err()
     Right(v) -> "output: " ++ v()
 
-  val children-output = apply-indent(indent + 1)
-   log.children.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
+  val binding-children-output = apply-indent(indent + 1)
+   log.binding-children.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
+
+  val body-children-output = apply-indent(indent + 1)
+   log.body-children.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
 
   p ++ "step: " ++ log.name ++
+  (if length(log.binding-children)>0 then "\n" ++ pad() ++ "binding-children:\n" ++ binding-children-output else "") ++
   "\n" ++ p ++ bound-value-output ++
-  (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
+  (if length(log.body-children)>0 then "\n" ++ pad() ++ "body-children:\n" ++ body-children-output else "") ++
   "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
   "\n" ++ p ++ step-output
 
@@ -81,10 +86,11 @@ pub fun print-computation-log(log: computation-log)
   println(log.show)
 
 // a de/serializable log of a single step
-value struct open-step
+struct open-step
   name: string
+  binding-children: list<step-log>
   bound-value: maybe<stringsrc>
-  children: list<step-log>
+  body-children: list<step-log>
 
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
@@ -104,36 +110,42 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : d
         _ ->
           match next-step
             Cons(first,_rest) ->
-              steps := Cons(Step-log(first.name, first.bound-value, first.children, UnhandledStepError, Left({"Unhandled Exception: " ++ ex.show})), steps)
+              steps := Cons(Step-log(first.name, first.binding-children, first.bound-value, first.body-children, UnhandledStepError, Left({"Unhandled Exception: " ++ ex.show})), steps)
               Left("Unhandled Exception: " ++ ex.show)
             [] -> Left("Unhandled Exception outside step:" ++ ex.show)
   with handler
     fun log-enter(name)
       match next-step
-        [] -> next-step := [Open-Step(name, Nothing, [])]
-        rest -> next-step := Cons(Open-Step(name, Nothing, []), rest)
+        [] -> next-step := [Open-Step(name, [], Nothing, [])]
+        rest -> next-step := Cons(Open-Step(name, [], Nothing, []), rest)
     fun log-bound-value(value-ser)
       match next-step
-        Cons(first, rest) -> next-step := Cons(Open-Step(first.name, Just(value-ser), first.children), rest)
+        Cons(first, rest) -> next-step := Cons(Open-Step(first.name, first.binding-children, Just(value-ser), first.body-children), rest)
         [] -> throw("Unexpected log-bound-value")
     fun log-complete(outcome, output-ser)
       match next-step
         Cons(first, Nil) -> 
-          steps := Cons(Step-Log(first.name, first.bound-value, first.children, outcome, Right(output-ser)), steps)
+          steps := Cons(Step-Log(first.name, first.binding-children, first.bound-value, first.body-children, outcome, Right(output-ser)), steps)
           next-step := []
         Cons(first, Cons(next, rest)) -> 
-          val step-log = Step-Log(first.name, first.bound-value, first.children, outcome, Right(output-ser))
-          val next' = next(children = Cons(step-log, next.children))
+          val step-log = Step-Log(first.name, first.binding-children, first.bound-value, first.body-children, outcome, Right(output-ser))
+          val next' = match next-step
+            Cons(Open-step(_,_,Nothing,_),_) -> next(binding-children = Cons(step-log, next.binding-children))
+            Cons(Open-step(_,_,Just(_),_),_) -> next(body-children = Cons(step-log, next.body-children))
+            [] -> throw("Unexpected log-complete")
           next-step := Cons(next', rest)
         [] -> throw("Unexpected log-complete")
     ctl log-error(error-ser)
       match next-step
         Cons(first, Nil) -> 
-          steps := Cons(Step-Log(first.name, first.bound-value, first.children, StepError, Left(error-ser)), steps)
+          steps := Cons(Step-Log(first.name, first.binding-children, first.bound-value, first.body-children, StepError, Left(error-ser)), steps)
           throw(error-ser(), ExnTodo)
         Cons(first, Cons(next, rest)) ->
-          val step-log = Step-Log(first.name, first.bound-value, first.children, StepError, Left(error-ser))
-          val next' = next(children = Cons(step-log, next.children))
+          val step-log = Step-Log(first.name, first.binding-children, first.bound-value, first.body-children, StepError, Left(error-ser))
+          val next' = match next-step
+            Cons(Open-step(_,_,Nothing,_),_) -> next(binding-children = Cons(step-log, next.binding-children))
+            Cons(Open-step(_,_,Just(_),_),_) -> next(body-children = Cons(step-log, next.body-children))
+            [] -> throw("Unexpected log-error")
           next-step := Cons(next', rest)
           throw(error-ser(), ExnTodo)
         [] -> throw("Unexpected log-error")
