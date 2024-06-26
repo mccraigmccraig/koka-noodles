@@ -3,6 +3,7 @@ module chain_dsl
 import parsers/serjson/serjson
 import std/core/console
 import std/core/exn
+import std/num/random
 import std/text/parse
 import logger
 
@@ -77,7 +78,9 @@ pub fun test-dsl1()
   
 
 fun testdsl/stuff(i: int)
-  step({i}, "stuff")
+  with x <- step({i}, "i").bind
+  with y <- step({random-int()},"rand").bind
+  ({int/(+)(x,y)}).step("stuff")
 
 pub fun make-test-dsl2(i: int)
   with x <- ({i}).step("x").bind
@@ -92,7 +95,7 @@ pub fun make-test-dsl2(i: int)
   ({aa.int/show ++ "/" ++ bb.int/show}).step("result")
 
 pub fun test-dsl2()
-  val (_, log) = make-test-dsl2(10).run-nofx
+  val (_, log) = make-test-dsl2(10).run(fn(th) -> pseudo-random(100, th))
   logger/print-computation-log(log)
   // val (_, log2) = make-test-dsl2(0).run-nofx
   // logger/print-computation-log(log2)
