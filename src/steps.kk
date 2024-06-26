@@ -1,4 +1,4 @@
-module chain_dsl
+module steps
 
 import parsers/serjson/serjson
 import std/core/console
