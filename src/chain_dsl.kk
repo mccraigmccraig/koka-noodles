@@ -67,9 +67,9 @@ pub fun run-nofx(st: step<a,<pure,logger>>): div (either<string,a>, logger/compu
 // some examples
 
 pub fun make-test-dsl1()
-  with x <- ({1}).step("x").bind
+  with x: int <- ({1}).step("x").bind
   with y <- step({10},"y").bind
-  with z <- ({int/(+)(x, y)}).step("z").bind
+  with z <- ({x + y}).step("z").bind
   ({2 * z}).step("result")
 
 pub fun test-dsl1()
@@ -78,21 +78,21 @@ pub fun test-dsl1()
   
 
 fun testdsl/stuff(i: int)
-  with x <- step({i}, "i").bind
+  with x: int <- step({i}, "i").bind
   with y <- step({random-int()},"rand").bind
-  ({int/(+)(x,y)}).step("stuff")
+  ({x + y}).step("stuff")
 
 pub fun make-test-dsl2(i: int)
-  with x <- ({i}).step("x").bind
+  with x: int <- ({i}).step("x").bind
   with y <- ({ if i>5 then [10,11] else [] }).step("y").bind
   val aa' = match y
     [a, b] -> 
-      with z <- ({foldl([x, a, b], 0, (+))}).step("z").bind
+      with z <- ({x + a + b}).step("z").bind
       ({z}).step("aa'-pair", ?strde=int/strde)
     _ -> ({0}).step("aa'-default")
-  with aa <- aa'.bind
-  with bb <- testdsl/stuff(i).bind
-  ({aa.int/show ++ "/" ++ bb.int/show}).step("result")
+  with aa: int <- aa'.bind
+  with bb: int <- testdsl/stuff(i).bind
+  ({aa.show ++ "/" ++ bb.show}).step("result")
 
 pub fun test-dsl2()
   val (_, log) = make-test-dsl2(10).run(fn(th) -> pseudo-random(100, th))
