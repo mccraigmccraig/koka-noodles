@@ -75,7 +75,7 @@ pub value struct computation-log
 pub fun computation-log/show(log: computation-log)
   with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
-  log.step-logs.reverse.map(step-log/show).joinsep/join(pad() ++ "--\n")
+  log.step-logs.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
 
 pub fun print-computation-log(log: computation-log)
   println(log.show)
