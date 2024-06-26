@@ -150,6 +150,7 @@ pub fun stuff(i: int)
 
 pub fun thingz(i: int)
   log-enter("thingz")
+  log-bound-value({i.show})
   val o = i * i
   // throw("oops: " ++ o.show)
   log-complete(Run, {o.show})
@@ -161,8 +162,36 @@ pub fun collect-test-logs()
   val w = thingz(v)
   w
 
+pub fun logs-an-error()
+  log-enter("logs-an-error")
+  log-error({"boo!"})
+
+pub fun collect-logs-with-error()
+  with log-collector("test-with-error")
+  val v = stuff(5)
+  logs-an-error()
+  v
+
+pub fun throws-an-exception()
+  log-enter("throws-an-exception")
+  throw("oops")
+
+pub fun collect-logs-with-exception()
+  with log-collector("test-with-exception")
+  val v = stuff(5)
+  throws-an-exception()
+  v
+
 pub fun test-collect-logs()
   match collect-test-logs()
+    (v, log) -> 
+      print-computation-log(log)
+      println("Result: " ++ v.show)
+  match collect-logs-with-error()
+    (v, log) -> 
+      print-computation-log(log)
+      println("Result: " ++ v.show)
+  match collect-logs-with-exception()
     (v, log) -> 
       print-computation-log(log)
       println("Result: " ++ v.show)
