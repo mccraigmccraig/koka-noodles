@@ -39,8 +39,10 @@ fun bindcore<a,b,e>(
     b-strde: strde<b>
   ): <logger|e> b
 
-  val a = st.thunk()() // the bound value
+  // call the thunk to get the value to be bound
+  val a = st.thunk()() 
   logger/log-bound-value({st.strde.str()(a)})
+  // bind a new step, then call its thunk
   val r = f(a).thunk()() 
   logger/log-complete(logger/Run, {b-strde.str()(r)})
   r
@@ -57,6 +59,7 @@ pub fun bind<a,b,e>(
     fn () -> 
       val rs = logger/log-enter(st.name)
       match rs
+        // if we are resuming a successful step, short-circuit to the result
         Log(Step-log(_,_,_,Run,Right(r))) ->
           match ?b/strde.de()(r())
             Right(rr) -> 
