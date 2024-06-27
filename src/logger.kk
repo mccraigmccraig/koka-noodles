@@ -14,15 +14,6 @@ pub type step-outcome
   StepError
   UnhandledStepError
 
-pub effect logger
-  // open a step-log
-  fun log-enter(name: string) : ()
-  fun log-bound-value(value-ser: stringsrc) : ()
-  // close a step log successfully
-  fun log-complete(outcome: step-outcome, output-ser: stringsrc) : ()
-  // close a step log with an error and immediately terminate
-  ctl log-error(error-ser: stringsrc) : ()
-
 pub fun step-outcome/show(outcome: step-outcome)
   match outcome
     Run -> "run"
@@ -35,7 +26,22 @@ pub struct step-log
   bound-value: maybe<stringsrc>
   children: list<step-log>
   outcome: step-outcome
-  output: either<stringsrc,stringsrc>
+  result: either<stringsrc,stringsrc>
+
+// When resuming a computation, an existing step-log will be
+// given back as the result of log-enter
+pub value type resumed-step
+  Log(l: step-log)
+  NoLog
+
+pub effect logger
+  // open a step-log
+  fun log-enter(name: string) : resumed-step
+  fun log-bound-value(value-ser: stringsrc) : ()
+  // close a step log successfully
+  fun log-complete(outcome: step-outcome, result-ser: stringsrc) : ()
+  // close a step log with an error and immediately terminate
+  ctl log-error(error-ser: stringsrc) : ()
 
 effect val indent: int
 fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
@@ -54,9 +60,9 @@ pub fun step-log/show(log: step-log): <div,indent> string
     Just(v) -> "bound-value: " ++ v()
     Nothing -> "bound-value: Nothing"
 
-  val step-output = match log.output
+  val step-output = match log.result
     Left(err) -> "error: " ++ err()
-    Right(v) -> "output: " ++ v()
+    Right(v) -> "result: " ++ v()
 
   val children-output = apply-indent(indent + 1)
    log.children.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
@@ -112,17 +118,18 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : d
       match next-step
         [] -> next-step := [Open-Step(name, Nothing, [])]
         rest -> next-step := Cons(Open-Step(name, Nothing, []), rest)
+      NoLog
     fun log-bound-value(value-ser)
       match next-step
         Cons(first, rest) -> next-step := Cons(Open-Step(first.name, Just(value-ser), first.children), rest)
         [] -> throw("Unexpected log-bound-value")
-    fun log-complete(outcome, output-ser)
+    fun log-complete(outcome, result-ser)
       match next-step
         Cons(first, Nil) -> 
-          steps := Cons(Step-Log(first.name, first.bound-value, first.children, outcome, Right(output-ser)), steps)
+          steps := Cons(Step-Log(first.name, first.bound-value, first.children, outcome, Right(result-ser)), steps)
           next-step := []
         Cons(first, Cons(next, rest)) -> 
-          val step-log = Step-Log(first.name, first.bound-value, first.children, outcome, Right(output-ser))
+          val step-log = Step-Log(first.name, first.bound-value, first.children, outcome, Right(result-ser))
           val next' = next(children = Cons(step-log, next.children))
           next-step := Cons(next', rest)
         [] -> throw("Unexpected log-complete")

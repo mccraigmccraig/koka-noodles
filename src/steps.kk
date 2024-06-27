@@ -30,6 +30,21 @@ pub fun stepx<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
 pub fun step/show(a: step<a,e>): string
   a.name ++ ": <unevaluated>"
 
+// the core binding logic - call the thunk to get a value,
+// bind that value to the next step, and call that next
+// thunk
+fun bindcore<a,b,e>(
+    st: step<a,<logger|e>>, 
+    f: (a) -> total step<b,<logger|e>>,
+    xstrde: strde<b>
+  ): <logger|e> b
+
+  val a = st.thunk()() // the bound value
+  logger/log-bound-value({st.strde.str()(a)})
+  val r = f(a).thunk()() 
+  logger/log-complete(logger/Run, {xstrde.str()(r)})
+  r
+
 pub fun bind<a,b,e>(
     st: step<a,<logger|e>>, 
     f: (a) -> total step<b,<logger|e>>,
@@ -40,12 +55,18 @@ pub fun bind<a,b,e>(
     "bind--" ++ st.name,
     ?strde,
     fn () -> 
-      logger/log-enter(st.name)
-      val a = st.thunk()() // the bound value
-      logger/log-bound-value({st.strde.str()(a)})
-      val r = f(a).thunk()() 
-      logger/log-complete(logger/Run, {?strde.str()(r)})
-      r
+      val rs = logger/log-enter(st.name)
+      match rs
+        Log(Step-log(_,_,_,Run,Right(r))) ->
+          match ?strde.de()(r())
+            Right(rr) -> 
+              logger/log-complete(logger/Resume, r)
+              rr
+            Left(_err) -> 
+              // deser failed - perhaps the code no longer matches the data?
+              bindcore(st,f,?strde)
+        _ -> 
+          bindcore(st,f,?strde)
   )
 
 // run a step, returning an either result and the computation-log
@@ -62,6 +83,14 @@ pub fun run<a>(
 // convenience function for running a step with no effects
 pub fun run-nofx(st: step<a,<pure,logger>>): div (either<string,a>, logger/computation-log)
   run(st, fn (th) -> th())
+
+pub fun rerun<a>(
+    st: step<a,<logger|e>>,
+    h: (thunk<a,<logger|e>>) -> <pure,logger> a
+  ): div (either<string,a>, logger/computation-log)
+  with logger/log-collector(st.name)
+  with h 
+  st.thunk()()
 
 // pub value type resume-step-log
 //   StepLog(step-log: step-log)
