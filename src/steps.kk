@@ -36,37 +36,37 @@ pub fun step/show(a: step<a,e>): string
 fun bindcore<a,b,e>(
     st: step<a,<logger|e>>, 
     f: (a) -> total step<b,<logger|e>>,
-    xstrde: strde<b>
+    b-strde: strde<b>
   ): <logger|e> b
 
   val a = st.thunk()() // the bound value
   logger/log-bound-value({st.strde.str()(a)})
   val r = f(a).thunk()() 
-  logger/log-complete(logger/Run, {xstrde.str()(r)})
+  logger/log-complete(logger/Run, {b-strde.str()(r)})
   r
 
 pub fun bind<a,b,e>(
     st: step<a,<logger|e>>, 
     f: (a) -> total step<b,<logger|e>>,
-    ?strde: strde<b>
+    ?b/strde: strde<b>
   ): total step<b,<logger|e>>
 
   Step(
     "bind--" ++ st.name,
-    ?strde,
+    ?b/strde,
     fn () -> 
       val rs = logger/log-enter(st.name)
       match rs
         Log(Step-log(_,_,_,Run,Right(r))) ->
-          match ?strde.de()(r())
+          match ?b/strde.de()(r())
             Right(rr) -> 
               logger/log-complete(logger/Resume, r)
               rr
             Left(_err) -> 
               // deser failed - perhaps the code no longer matches the data?
-              bindcore(st,f,?strde)
+              bindcore(st,f,?b/strde)
         _ -> 
-          bindcore(st,f,?strde)
+          bindcore(st,f,?b/strde)
   )
 
 // run a step, returning an either result and the computation-log
