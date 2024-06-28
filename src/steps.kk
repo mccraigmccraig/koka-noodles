@@ -117,12 +117,12 @@ pub fun rerun<a>(
 
 pub fun make-test-dsl1(i: int)
   with x: int <- sb("x") {i}
-  with y <- sb("y") {10}
+  with y <- sb("y") {random-int()}
   with z <- sb("z") {x + y}
   s("result") {2 * z}
 
 pub fun test-dsl1()
-  val (_, log) = make-test-dsl1(100).run-nofx
+  val (_, log) = make-test-dsl1(100).run(fn(th) -> pseudo-random(100, th))
   logger/print-computation-log(log)
   
 
