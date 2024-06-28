@@ -115,14 +115,14 @@ pub fun rerun<a>(
 
 // some examples
 
-pub fun make-test-dsl1()
-  with x: int <- sb("x") {1}
+pub fun make-test-dsl1(i: int)
+  with x: int <- sb("x") {i}
   with y <- sb("y") {10}
   with z <- sb("z") {x + y}
   s("result") {2 * z}
 
 pub fun test-dsl1()
-  val (_, log) = make-test-dsl1().run-nofx
+  val (_, log) = make-test-dsl1(100).run-nofx
   logger/print-computation-log(log)
   
 
