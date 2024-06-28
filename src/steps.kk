@@ -23,8 +23,9 @@ pub alias pure-step<a> = step<a,<pure,logger>>
 pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
-// a monadic fn of steps
+// monadic fns of steps
 pub alias stepmfn<a,b,e> = (a: a) -> total step<b,e>
+pub alias pure-stepmfn<a,b> = stepmfn<a,b,<pure,logger>>
 
 // alternative allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
