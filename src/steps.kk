@@ -94,8 +94,8 @@ pub fun run<a>(
   with h 
   st.thunk()()
 
-// convenience function for running a step with no effects
-pub fun run-nofx(st: step<a,<pure,logger>>): div (either<string,a>, logger/computation-log)
+// convenience function for running a pure step
+pub fun run-pure(st: step<a,<pure,logger>>): div (either<string,a>, logger/computation-log)
   run(st, fn (th) -> th())
 
 pub fun rerun<a>(
@@ -114,6 +114,17 @@ pub fun rerun<a>(
 //   st.thunk()()
 
 // some examples
+
+pub fun make-test-dsl0(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") {10}
+  with z <- sb("z") {x + y}
+  s("result") {2 * z}
+
+pub fun test-dsl0()
+  val (_, log) = make-test-dsl0(100).run-pure
+  logger/print-computation-log(log)
+
 
 pub fun make-test-dsl1(i: int)
   with x: int <- sb("x") {i}
