@@ -23,9 +23,20 @@ pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
 
 // alternative allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
-pub fun stepx<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
+pub fun s<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
+// another alternative - merging the step + bind into a single function
+// giving a much more compact DSL syntax... the trailing lambda and 
+// the with lambda are desugared into the desired positions
+pub fun b<a,b,e>(
+    name: string, 
+    thunk: thunk<a,<logger|e>>, 
+    f: (a) -> total step<b,<logger|e>>, 
+    ?a/strde: strde<a>,
+    ?b/strde: strde<b>
+  ): step<b,<logger|e>>
+  Step(name, ?a/strde, thunk).bind(f, ?b/strde=?b/strde)
 
 pub fun step/show(a: step<a,e>): string
   a.name ++ ": <unevaluated>"
@@ -105,10 +116,10 @@ pub fun rerun<a>(
 // some examples
 
 pub fun make-test-dsl1()
-  with x: int <- stepx("x"){1}.bind
-  with y <- stepx("y"){10}.bind
-  with z <- stepx("z"){x + y}.bind
-  stepx("result"){2 * z}
+  with x: int <- b("x") {1}
+  with y <- b("y") {10}
+  with z <- b("z") {x + y}
+  s("result") {2 * z}
 
 pub fun test-dsl1()
   val (_, log) = make-test-dsl1().run-nofx
@@ -117,7 +128,7 @@ pub fun test-dsl1()
 
 fun testdsl/stuff(i: int)
   with x: int <- step({i}, "i").bind
-  with y <- stepx("rand"){random-int()}.bind
+  with y <- s("rand"){random-int()}.bind
   ({x + y}).step("stuff")
 
 pub fun make-test-dsl2(i: int)
