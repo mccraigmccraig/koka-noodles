@@ -24,8 +24,8 @@ pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
 // monadic fns of steps
-pub alias stepmfn<a,b,e> = (a: a) -> total step<b,e>
-pub alias pure-stepmfn<a,b> = stepmfn<a,b,<pure,logger>>
+pub alias stepmfn<a,b,e> = (a: a) -> total step<b,<logger|e>>
+pub alias pure-stepmfn<a,b> = stepmfn<a,b,pure>
 
 // alternative allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
@@ -38,7 +38,7 @@ pub fun s<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
 pub fun sb<a,b,e>(
     name: string, 
     thunk: thunk<a,<logger|e>>, 
-    f: (a) -> total step<b,<logger|e>>, 
+    f: stepmfn<a,b,e>, 
     ?a/strde: strde<a>,
     ?b/strde: strde<b>
   ): step<b,<logger|e>>
@@ -53,7 +53,7 @@ pub fun step/show(a: step<a,e>): string
 fun bindcore<a,b,e>(
     st: step<a,<logger|e>>, 
     // f: (a) -> total step<b,<logger|e>>,
-    f: stepmfn<a,b,<logger|e>>,
+    f: stepmfn<a,b,e>,
     b-strde: strde<b>
   ): <logger|e> b
 
