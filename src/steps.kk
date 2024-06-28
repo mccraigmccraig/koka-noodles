@@ -121,8 +121,12 @@ pub fun make-test-dsl1(i: int)
   with z <- sb("z") {x + y}
   s("result") {2 * z}
 
+fun handle-random<a>(th: thunk<a,<random|e>>): e a
+  with pseudo-random(100)
+  th()
+
 pub fun test-dsl1()
-  val (_, log) = make-test-dsl1(100).run(fn(th) -> pseudo-random(100, th))
+  val (_, log) = make-test-dsl1(100).run(handle-random)
   logger/print-computation-log(log)
   
 
@@ -144,7 +148,7 @@ pub fun make-test-dsl2(i: int)
   ({aa.show ++ "/" ++ bb.show}).step("result")
 
 pub fun test-dsl2()
-  val (_, log) = make-test-dsl2(10).run(fn(th) -> pseudo-random(100, th))
+  val (_, log) = make-test-dsl2(10).run(handle-random)
   logger/print-computation-log(log)
   // val (_, log2) = make-test-dsl2(0).run-nofx
   // logger/print-computation-log(log2)
