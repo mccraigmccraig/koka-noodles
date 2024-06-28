@@ -18,6 +18,8 @@ pub struct step<a,e>
   strde: strde<a>
   thunk: thunk<a,e>
 
+pub alias pure-step<a> = step<a,<pure,logger>>
+
 pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
@@ -95,7 +97,7 @@ pub fun run<a>(
   st.thunk()()
 
 // convenience function for running a pure step
-pub fun run-pure(st: step<a,<pure,logger>>): div (either<string,a>, logger/computation-log)
+pub fun run-pure(st: pure-step<a>): div (either<string,a>, logger/computation-log)
   run(st, fn (th) -> th())
 
 pub fun rerun<a>(
