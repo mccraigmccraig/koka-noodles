@@ -29,7 +29,7 @@ pub fun s<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
 // another alternative - merging the step + bind into a single function
 // giving a much more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
-pub fun b<a,b,e>(
+pub fun sb<a,b,e>(
     name: string, 
     thunk: thunk<a,<logger|e>>, 
     f: (a) -> total step<b,<logger|e>>, 
@@ -116,9 +116,9 @@ pub fun rerun<a>(
 // some examples
 
 pub fun make-test-dsl1()
-  with x: int <- b("x") {1}
-  with y <- b("y") {10}
-  with z <- b("z") {x + y}
+  with x: int <- sb("x") {1}
+  with y <- sb("y") {10}
+  with z <- sb("z") {x + y}
   s("result") {2 * z}
 
 pub fun test-dsl1()
@@ -149,6 +149,23 @@ pub fun test-dsl2()
   // val (_, log2) = make-test-dsl2(0).run-nofx
   // logger/print-computation-log(log2)
 
+pub fun make-test-dsl3(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") { if i>5 then [10,11] else [] }
+  val aa' = match y
+    [a, b] -> 
+      with z <- sb("z") {x + a + b}
+      s("aa'-pair", ?strde=int/strde) {z}
+    _ -> s("aa'-default") {0}
+  with aa: int <- aa'.bind
+  with bb: int <- testdsl/stuff(i).bind
+  s("result") {aa.show ++ "/" ++ bb.show}
+
+pub fun test-dsl3()
+  val (_, log) = make-test-dsl3(10).run(fn(th) -> pseudo-random(100, th))
+  logger/print-computation-log(log)
+  // val (_, log2) = make-test-dsl2(0).run-nofx
+  // logger/print-computation-log(log2)
 
 
 
