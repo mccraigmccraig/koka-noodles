@@ -1,6 +1,7 @@
 module logger
 
 import std/core/string 
+import std/core/vector
 
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an
@@ -65,7 +66,7 @@ pub fun step-log/show(log: step-log): <div,indent> string
     Right(v) -> "result: " ++ v()
 
   val children-output = apply-indent(indent + 1)
-   log.children.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
+   log.children.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
 
   p ++ "step: " ++ log.name ++
   "\n" ++ p ++ bound-value-output ++
@@ -73,7 +74,6 @@ pub fun step-log/show(log: step-log): <div,indent> string
   "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
   "\n" ++ p ++ step-output
 
-// NB: step-logs are a reversed list, to match chain steps
 pub value struct computation-log
   name: string
   step-logs: list<step-log>
@@ -81,7 +81,7 @@ pub value struct computation-log
 pub fun computation-log/show(log: computation-log)
   with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
-  log.step-logs.reverse.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
+  log.step-logs.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
 
 pub fun print-computation-log(log: computation-log)
   println(log.show)
@@ -92,16 +92,45 @@ value struct open-step
   bound-value: maybe<stringsrc>
   children: list<step-log>
 
+value struct step-cursor
+  steps: vector<step-log>
+  i: int
+
+value struct log-cursor
+  levels: list<step-cursor>
+
+fun make-log-cursor(log: computation-log): log-cursor
+  Log-cursor(levels = Cons(Step-cursor(steps = vector(log.step-logs), i = 0), Nil))
+
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
 // return is div (would be nice for it to be total, but there's
 // no stdlib for timeouts yet afaics)
+
+// how to do replay ... we have:
+// step-log
+//   name: string
+//   bound-value: maybe<stringsrc>
+//   children: list<step-log>
+//   outcome: step-outcome
+//   result: either<stringsrc,stringsrc>
+// computation-log
+//   step-logs: list<step-log>
+// 
+// want to follow the computation-log tree, but as soon as the computation diverges - 
+// e.g. there was an error, or there are too many or too few logged steps, or too deep,
+// then we switch to making real calls and recording new results
+//
+// so, as we're traversing the computation-log tree we should be accumulating all the results
+// as if it was a new computation, so when the log diverges we can carry on with the new log
+//
+// to follow the tree, need something like a zipper
 pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : div (either<string,v>, computation-log)
   // list of completed top-level steps
   var steps: list<step-log> := []
   // steps can have children, which we will prepend to the next-step list
   var next-step: list<open-step> := []
-  with return(v) (v, Computation-Log(computation-name, steps))
+  with return(v) (v, Computation-Log(computation-name, steps.reverse))
   with handler
     final ctl throw-exn(ex)
       match ex
@@ -126,20 +155,20 @@ pub fun log-collector<v>(computation-name, action: () -> <div,exn,logger> v) : d
     fun log-complete(outcome, result-ser)
       match next-step
         Cons(first, Nil) -> 
-          steps := Cons(Step-Log(first.name, first.bound-value, first.children, outcome, Right(result-ser)), steps)
+          steps := Cons(Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser)), steps)
           next-step := []
         Cons(first, Cons(next, rest)) -> 
-          val step-log = Step-Log(first.name, first.bound-value, first.children, outcome, Right(result-ser))
+          val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser))
           val next' = next(children = Cons(step-log, next.children))
           next-step := Cons(next', rest)
         [] -> throw("Unexpected log-complete")
     ctl log-error(error-ser)
       match next-step
         Cons(first, Nil) -> 
-          steps := Cons(Step-Log(first.name, first.bound-value, first.children, StepError, Left(error-ser)), steps)
+          steps := Cons(Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser)), steps)
           throw(error-ser(), ExnTodo)
         Cons(first, Cons(next, rest)) ->
-          val step-log = Step-Log(first.name, first.bound-value, first.children, StepError, Left(error-ser))
+          val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
           val next' = next(children = Cons(step-log, next.children))
           next-step := Cons(next', rest)
           throw(error-ser(), ExnTodo)
