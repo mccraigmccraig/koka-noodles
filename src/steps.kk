@@ -24,8 +24,8 @@ pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
 // monadic fns of steps
-pub alias stepmfn<a,b,e> = (a: a) -> total step<b,<logger|e>>
-pub alias pure-stepmfn<a,b> = stepmfn<a,b,pure>
+pub alias stepmfn<a,b,e> = (a: a) -> total step<b,<pure,logger|e>>
+pub alias pure-stepmfn<a,b> = stepmfn<a,b,<pure,logger>>
 
 // alternative allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
@@ -37,11 +37,11 @@ pub fun s<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
 // the with lambda are desugared into the desired positions
 pub fun sb<a,b,e>(
     name: string, 
-    thunk: thunk<a,<logger|e>>, 
+    thunk: thunk<a,<pure,logger|e>>, 
     f: stepmfn<a,b,e>, 
     ?a/strde: strde<a>,
     ?b/strde: strde<b>
-  ): step<b,<logger|e>>
+  ): step<b,<pure,logger|e>>
   Step(name, ?a/strde, thunk).bind(f, ?b/strde=?b/strde)
 
 pub fun step/show(a: step<a,e>): string
@@ -51,11 +51,11 @@ pub fun step/show(a: step<a,e>): string
 // bind that value to the next step, and call that next
 // thunk
 fun bindcore<a,b,e>(
-    st: step<a,<logger|e>>, 
+    st: step<a,<pure,logger|e>>, 
     // f: (a) -> total step<b,<logger|e>>,
     f: stepmfn<a,b,e>,
     b-strde: strde<b>
-  ): <logger|e> b
+  ): <pure,logger|e> b
 
   // call the thunk to get the value to be bound
   val a = st.thunk()() 
@@ -66,10 +66,10 @@ fun bindcore<a,b,e>(
   r
 
 pub fun bind<a,b,e>(
-    st: step<a,<logger|e>>, 
-    f: (a) -> total step<b,<logger|e>>,
+    st: step<a,<pure,logger|e>>, 
+    f: stepmfn<a,b,e>,
     ?b/strde: strde<b>
-  ): total step<b,<logger|e>>
+  ): total step<b,<pure,logger|e>>
 
   Step(
     "bind--" ++ st.name,
@@ -89,6 +89,12 @@ pub fun bind<a,b,e>(
         _ -> 
           bindcore(st,f,?b/strde)
   )
+
+// run a step without dismissing any effects
+pub fun run'<a>(
+  st: step<a, e>
+): e a
+  st.thunk()()
 
 // run a step, returning an either result and the computation-log
 // h must handle any non-logger effects from the step - the only 
