@@ -94,13 +94,59 @@ value struct open-step
 
 value struct step-cursor
   steps: vector<step-log>
-  i: int
+  next-idx: int
 
+// enables navigation through a computation-log tree, 
+// for as long as the log tree matches the computation tree - 
+// so errored computations can be continued from the point of error
 value struct log-cursor
-  levels: list<step-cursor>
+  step-cursors: list<step-cursor>
+
+value type log-cursor-nav-result
+  // a matching step with a completed log was found
+  RunStep(sl: step-log) 
+  // a matching step with an error log was found
+  ErrorStep(sl: step-log)
+  // the leave operation was matched
+  NoStep
+  // there was a tree-shape mismatch
+  Mismatch
+
+fun make-step-cursor(sls: list<step-log>): step-cursor
+  Step-cursor(steps = vector(sls), next-idx = 0)
 
 fun make-log-cursor(log: computation-log): log-cursor
-  Log-cursor(levels = Cons(Step-cursor(steps = vector(log.step-logs), i = 0), Nil))
+  Log-cursor(step-cursors = Cons(make-step-cursor(log.step-logs), Nil))
+
+fun log-cursor/enter(lc: log-cursor): exn (log-cursor, log-cursor-nav-result)
+  match lc.step-cursors
+    Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
+      val sl = @index(steps, next-idx)
+      match sl 
+        Step-log(_, _, _, StepError, _) ->
+          (Log-cursor(Cons(make-step-cursor(sl.children), Cons(Step-cursor(steps, next-idx + 1), rest))), 
+            ErrorStep(sl))
+        Step-log(_, _, _, UnhandledStepError, _) ->
+          (Log-cursor(Cons(make-step-cursor(sl.children), Cons(Step-cursor(steps, next-idx + 1), rest))), 
+            ErrorStep(sl))
+        _ ->
+          (Log-cursor(Cons(make-step-cursor(sl.children), Cons(Step-cursor(steps, next-idx + 1), rest))), 
+            RunStep(sl))        
+    _ -> (lc, Mismatch)
+
+fun log-cursor/leave(lc: log-cursor): (log-cursor, log-cursor-nav-result)
+  match lc.step-cursors
+    Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
+      (Log-cursor(rest), NoStep)
+    _ -> (lc, Mismatch)
+
+fun log-cursor/next(lc: log-cursor): exn (log-cursor, log-cursor-nav-result)
+  match lc.step-cursors
+    Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
+      val sl = @index(steps, next-idx)
+      (Log-cursor(Cons(Step-cursor(steps, next-idx + 1), rest)), 
+       RunStep(sl))
+    _ -> (lc, Mismatch)
 
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
