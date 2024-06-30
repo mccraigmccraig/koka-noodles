@@ -12,7 +12,7 @@ import steps
 // input->pure->output steps
 pub struct functional-core<a,b,c,d,e>
   input: (a) -> step<b,<pure,logger|e>>
-  pure: (b) -> step<c,<pure,logger>>
+  core: (b) -> step<c,<pure,logger>>
   output: (c) -> step<d,<pure,logger|e>>
 
 alias composedfn<a,d,e> = (a: a) -> <pure,logger|e> step<d,<pure,logger|e>>
@@ -22,7 +22,7 @@ pub fun compose(fc: functional-core<a,b,c,d,e>): total composedfn<a,d,e>
   fn (a)
     val sb = fc.input()(a)
     val b = sb.thunk()()
-    val sc = fc.pure()(b)
+    val sc = fc.core()(b)
     val c = sc.thunk()()
     val sd = fc.output()(c)
     sd
