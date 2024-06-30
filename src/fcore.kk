@@ -11,17 +11,21 @@ import steps
 // the functional-core operation is just the composition of the
 // input->pure->output steps
 pub struct functional-core<a,b,c,d,e>
-  input: stepmfn<a,b,e>
-  pure: pure-stepmfn<b,c>
-  output: stepmfn<c,d,e>
+  input: (a) -> step<b,<pure,logger|e>>
+  pure: (b) -> step<c,<pure,logger>>
+  output: (c) -> step<d,<pure,logger|e>>
 
-// building this isn't as easy as I first thought - I need the 
-// implicit strde functions for each step, and I don't have them in 
-// the functional-core (yet)
-pub fun compose(fc: functional-core<a,b,c,d,e>): stepmfn<a,b,e>
+alias composedfn<a,d,e> = (a: a) -> <pure,logger|e> step<d,<pure,logger|e>>
+
+// compose the input, pure, output computations from a functional-core
+pub fun compose(fc: functional-core<a,b,c,d,e>): total composedfn<a,d,e>
   fn (a)
     val sb = fc.input()(a)
-    sb
+    val b = sb.thunk()()
+    val sc = fc.pure()(b)
+    val c = sc.thunk()()
+    val sd = fc.output()(c)
+    sd
 
 // // controls the input-gathering and output-performing phases - 
 // // perhaps data is read directly from the serialized log of 
