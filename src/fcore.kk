@@ -15,6 +15,9 @@ pub struct functional-core<a,b,c,d,e>
   core: (b) -> step<c,<pure,logger>>
   output: (c) -> step<d,<pure,logger|e>>
 
+// the effects percolate to the composed function because the steps
+// get run in the function... maybe the stepmfn should also have the
+// effects 
 alias composedfn<a,d,e> = (a: a) -> <pure,logger|e> step<d,<pure,logger|e>>
 
 // compose the input, pure, output computations from a functional-core
