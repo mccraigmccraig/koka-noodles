@@ -24,6 +24,9 @@ pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
 // monadic fns of steps
+// TODO determine whether these should have the <pure,logger|e> effects
+// since (cf fcore.compose) we often need to *run* the step thunks
+// to compose the mfns
 pub alias stepmfn<a,b,e> = (a: a) -> total step<b,<pure,logger|e>>
 pub alias pure-stepmfn<a,b> = stepmfn<a,b,<pure,logger>>
 
