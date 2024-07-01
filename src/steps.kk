@@ -91,9 +91,7 @@ pub fun bind<a,b,e>(
   )
 
 // run a step without dismissing any effects
-pub fun run'<a>(
-  st: step<a, e>
-): e a
+pub fun run'<a,e>(st: step<a, e>): e a
   st.thunk()()
 
 // run a step, returning an either result and the computation-log
