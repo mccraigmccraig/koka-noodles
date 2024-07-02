@@ -12,7 +12,7 @@ pub value struct strde<a>
   de: (string) -> total either<string,a>
 
 pub alias thunk<a,e> = () -> e a
-pub alias step-thunk<a,e> = () -> <pure,logger|e> a
+pub alias step-thunk<a,e> = thunk<a,<pure,logger|e>>
 
 pub struct step<a,e>
   name: string
