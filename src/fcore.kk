@@ -9,6 +9,11 @@ import steps
 // effectful output step. 
 // the functional-core operation is the composed pipeline of
 // input->pure->output steps
+//
+// TODO is this the best structure ? after the thunk-monad bind syntax
+// for the steps, it seems awfully constricting - but - it's just about
+// getting the input and processing the output for the core, so maybe
+// it's good
 pub struct functional-core<a,b,c,d,e>
   input: stepmfn<a,b,e>
   core: pure-stepmfn<b,c>
