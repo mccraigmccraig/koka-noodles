@@ -4,24 +4,18 @@ import std/core/list
 import logger
 import steps
 
-// computations have a potentially effectful input step, a pure step, and
-// a potentially effectful output step. the input step gathers the
-// inputs for the pure step, and the output-step processes the output
-// from the pure step.
-// the functional-core operation is just the composition of the
+// computations have a potentially effectful input step, which gathers
+// an input for a pure core step, which returns a value to a potentially 
+// effectful output step. 
+// the functional-core operation is the composed pipeline of
 // input->pure->output steps
 pub struct functional-core<a,b,c,d,e>
-  input: (a) -> step<b,<pure,logger|e>>
-  core: (b) -> step<c,<pure,logger>>
-  output: (c) -> step<d,<pure,logger|e>>
-
-// the effects percolate to the composed function because the steps
-// get run in the function... maybe the stepmfn should also have the
-// effects 
-alias composedfn<a,d,e> = (a: a) -> <pure,logger|e> step<d,<pure,logger|e>>
+  input: stepmfn<a,b,e>
+  core: pure-stepmfn<b,c>
+  output: stepmfn<c,d,e>
 
 // compose the input, pure, output computations from a functional-core
-pub fun compose(fc: functional-core<a,b,c,d,e>): total composedfn<a,d,e>
+pub fun compose(fc: functional-core<a,b,c,d,e>): total stepmfn<a,d,e>
   fn (a)
     val sb = fc.input()(a)
     val b = sb.thunk()()
