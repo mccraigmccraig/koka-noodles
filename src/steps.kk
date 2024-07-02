@@ -12,27 +12,27 @@ pub value struct strde<a>
   de: (string) -> total either<string,a>
 
 pub alias thunk<a,e> = () -> e a
+pub alias step-thunk<a,e> = () -> <pure,logger|e> a
 
 pub struct step<a,e>
   name: string
   strde: strde<a>
-  thunk: thunk<a,e>
+  thunk: step-thunk<a,e>
 
-pub alias pure-step<a> = step<a,<pure,logger>>
+pub alias pure-step<a> = step<a,<>>
 
-pub fun step<a,e>(thunk: thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
+pub fun step<a,e>(thunk: step-thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
-// monadic fns of steps
-// TODO determine whether these should have the <pure,logger|e> effects
+// monadic fns of steps - the fns have the <pure,logger|e> effects
 // since (cf fcore.compose) we often need to *run* the step thunks
 // to compose the mfns
-pub alias stepmfn<a,b,e> = (a: a) -> total step<b,<pure,logger|e>>
-pub alias pure-stepmfn<a,b> = stepmfn<a,b,<pure,logger>>
+pub alias stepmfn<a,b,e> = (a: a) -> <pure,logger|e> step<b,e>
+pub alias pure-stepmfn<a,b> = stepmfn<a,b,<>>
 
 // alternative allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
-pub fun s<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
+pub fun s<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
 // another alternative - merging the step + bind into a single function
@@ -40,11 +40,11 @@ pub fun s<a,e>(name: string, thunk: thunk<a,e>, ?strde: strde<a>): step<a,e>
 // the with lambda are desugared into the desired positions
 pub fun sb<a,b,e>(
     name: string, 
-    thunk: thunk<a,<pure,logger|e>>, 
+    thunk: step-thunk<a,e>, 
     f: stepmfn<a,b,e>, 
     ?a/strde: strde<a>,
     ?b/strde: strde<b>
-  ): step<b,<pure,logger|e>>
+  ): step<b,e>
   Step(name, ?a/strde, thunk).bind(f, ?b/strde=?b/strde)
 
 pub fun step/show(a: step<a,e>): string
@@ -54,7 +54,7 @@ pub fun step/show(a: step<a,e>): string
 // bind that value to the next step, and call that next
 // thunk
 fun bindcore<a,b,e>(
-    st: step<a,<pure,logger|e>>, 
+    st: step<a,e>, 
     // f: (a) -> total step<b,<logger|e>>,
     f: stepmfn<a,b,e>,
     b-strde: strde<b>
@@ -69,10 +69,10 @@ fun bindcore<a,b,e>(
   r
 
 pub fun bind<a,b,e>(
-    st: step<a,<pure,logger|e>>, 
+    st: step<a,e>, 
     f: stepmfn<a,b,e>,
     ?b/strde: strde<b>
-  ): total step<b,<pure,logger|e>>
+  ): total step<b,e>
 
   Step(
     "bind--" ++ st.name,
@@ -94,15 +94,15 @@ pub fun bind<a,b,e>(
   )
 
 // run a step without dismissing any effects
-pub fun run'<a,e>(st: step<a, e>): e a
+pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
   st.thunk()()
 
 // run a step, returning an either result and the computation-log
 // h must handle any non-logger effects from the step - the only 
 // effects allowed out are div,exn
 pub fun run<a>(
-    st: step<a,<logger|e>>,
-    h: (thunk<a,<logger|e>>) -> <pure,logger> a
+    st: step<a,e>,
+    h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(st.name)
   with h 
@@ -113,8 +113,8 @@ pub fun run-pure(st: pure-step<a>): div (either<string,a>, logger/computation-lo
   run(st, fn (th) -> th())
 
 pub fun rerun<a>(
-    st: step<a,<logger|e>>,
-    h: (thunk<a,<logger|e>>) -> <pure,logger> a
+    st: step<a,e>,
+    h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(st.name)
   with h 
