@@ -14,6 +14,10 @@ pub value struct strde<a>
 pub alias thunk<a,e> = () -> e a
 pub alias step-thunk<a,e> = thunk<a,<pure,logger|e>>
 
+// steps are a name, a thunk and a de/serializer for the thunk value.
+// this is enough to control execution of a computation and to 
+// serialize bound values and outputs to a log so that computations 
+// can be resumed and failures inspected from the log
 pub struct step<a,e>
   name: string
   strde: strde<a>
