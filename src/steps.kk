@@ -108,7 +108,7 @@ pub fun run<a>(
     st: step<a,e>,
     h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
-  with logger/log-collector(st.name)
+  with logger/log-collector(Nothing, st.name)
   with h 
   st.thunk()()
 
@@ -120,7 +120,7 @@ pub fun rerun<a>(
     st: step<a,e>,
     h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
-  with logger/log-collector(st.name)
+  with logger/log-collector(Nothing, st.name)
   with h 
   st.thunk()()
 
