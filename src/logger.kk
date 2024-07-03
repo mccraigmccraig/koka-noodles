@@ -106,6 +106,12 @@ value type log-cursor-nav-result
   // there was a tree-shape mismatch
   Mismatch
 
+// accumulating a single step
+value struct open-step
+  name: string
+  bound-value: maybe<stringsrc>
+  children: list<step-log>
+
 // all the logger state
 struct logger-state
   resume-cursor: maybe<log-cursor>
@@ -126,22 +132,23 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
 // record the outcome
-fun log-cursor/enter(state: logger-state, step-name: string): exn (logger-state, resumed-step)
+fun state/enter(state: logger-state, step-name: string): total (logger-state, resumed-step)
   // follow the resumed log, if it matches
   val state-resumed-step = match state.resume-cursor
     Just(lc) -> 
       match lc.step-cursors
         Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
-          val sl = @index(steps, next-idx)
-          match sl 
-            Step-log(_, _, _, StepError, _) -> (state(resume-cursor=Nothing), NoLog)
-            Step-log(_, _, _, UnhandledStepError, _) -> (state(resume-cursor=Nothing), NoLog)
-            _ ->
+          val maybe-sl = at(steps, next-idx)
+          match maybe-sl 
+            Just(Step-log(_, _, _, StepError, _)) -> (state(resume-cursor=Nothing), NoLog)
+            Just(Step-log(_, _, _, UnhandledStepError, _)) -> (state(resume-cursor=Nothing), NoLog)
+            Just(sl) ->
               // inc the next-idx counter on the current step-cursor, push a new step-cursor
               (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
                                                         Cons(Step-cursor(steps, next-idx + 1), 
                                                              rest))))), 
-               Log(sl))        
+               Log(sl))
+            _ -> (state(resume-cursor=Nothing), NoLog)
         _ -> (state(resume-cursor=Nothing), NoLog)
     _ -> (state(resume-cursor=Nothing), NoLog)
     
@@ -153,26 +160,23 @@ fun log-cursor/enter(state: logger-state, step-name: string): exn (logger-state,
         rest -> Cons(Open-Step(step-name, Nothing, []), rest)
       (s'(open-steps=open-steps'), rs)
 
-fun log-cursor/leave(lc: log-cursor): (log-cursor, log-cursor-nav-result)
-  match lc.step-cursors
-    Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
-      (Log-cursor(rest), NoStep)
-    _ -> (lc, Mismatch)
+// fun state/next(state: logger-state): exn (logger-state, resumed-step)
+//   // follow the resumed log, if it matches
+//   val state-resumed-step = match state.resume-cursor
+//     Just(lc) -> 
+//       match lc.step-cursors
+//         Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
+//           val sl = @index(steps, next-idx)
+//           (Log-cursor(Cons(Step-cursor(steps, next-idx + 1), rest)), 
+//           RunStep(sl))
+//     _ -> (lc, Mismatch)
 
-fun log-cursor/next(lc: log-cursor): exn (log-cursor, log-cursor-nav-result)
-  match lc.step-cursors
-    Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
-      val sl = @index(steps, next-idx)
-      (Log-cursor(Cons(Step-cursor(steps, next-idx + 1), rest)), 
-       RunStep(sl))
-    _ -> (lc, Mismatch)
+// fun log-cursor/leave(state: logger-state): (logger-state)
+//   match lc.step-cursors
+//     Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
+//       (Log-cursor(rest), NoStep)
+//     _ -> (lc, Mismatch)
 
-
-// accumulating a single step
-value struct open-step
-  name: string
-  bound-value: maybe<stringsrc>
-  children: list<step-log>
 
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
@@ -203,6 +207,8 @@ pub fun log-collector<v>(
     action: () -> <div,exn,logger> v
   ) : div (either<string,v>, computation-log)
 
+  var state := make-logger-state(previous-log)
+
   // if we got a previous log, follow it
   var cursor := match previous-log
     Just(pl) -> Just(make-log-cursor(pl))
@@ -229,10 +235,11 @@ pub fun log-collector<v>(
 
   with handler
     fun log-enter(name)
-      match next-step
-        [] -> next-step := [Open-Step(name, Nothing, [])]
-        rest -> next-step := Cons(Open-Step(name, Nothing, []), rest)
-      NoLog
+      val state_resumed_step = state/enter(state, name)
+      match state_resumed_step
+        (state', resumed-step) -> 
+          state := state'
+          resumed-step
     fun log-bound-value(value-ser)
       match next-step
         Cons(first, rest) -> next-step := Cons(Open-Step(first.name, Just(value-ser), first.children), rest)
