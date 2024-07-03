@@ -160,22 +160,14 @@ fun state/enter(state: logger-state, step-name: string): total (logger-state, re
         rest -> Cons(Open-Step(step-name, Nothing, []), rest)
       (s'(open-steps=open-steps'), rs)
 
-// fun state/next(state: logger-state): exn (logger-state, resumed-step)
-//   // follow the resumed log, if it matches
-//   val state-resumed-step = match state.resume-cursor
-//     Just(lc) -> 
-//       match lc.step-cursors
-//         Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
-//           val sl = @index(steps, next-idx)
-//           (Log-cursor(Cons(Step-cursor(steps, next-idx + 1), rest)), 
-//           RunStep(sl))
-//     _ -> (lc, Mismatch)
-
-// fun log-cursor/leave(state: logger-state): (logger-state)
-//   match lc.step-cursors
-//     Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
-//       (Log-cursor(rest), NoStep)
-//     _ -> (lc, Mismatch)
+fun state/leave(state: logger-state): total logger-state
+  match state.resume-cursor
+    Just(lc) ->
+      match lc.step-cursors
+        Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
+          state(resume-cursor=Just(Log-cursor(rest)))
+        _ -> state(resume-cursor=Nothing)
+    _ -> state(resume-cursor=Nothing)
 
 
 // collect and return a list of step-logs from a computation
