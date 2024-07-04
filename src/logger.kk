@@ -61,12 +61,12 @@ pub fun step-log/show(log: step-log): <div,indent> string
     Just(v) -> "bound-value: " ++ v()
     Nothing -> "bound-value: Nothing"
 
+  val children-output = apply-indent(indent + 1)
+   log.children.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
+
   val step-output = match log.result
     Left(err) -> "error: " ++ err()
     Right(v) -> "result: " ++ v()
-
-  val children-output = apply-indent(indent + 1)
-   log.children.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
 
   p ++ "step: " ++ log.name ++
   "\n" ++ p ++ bound-value-output ++
