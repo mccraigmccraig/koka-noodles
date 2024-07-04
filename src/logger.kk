@@ -160,14 +160,37 @@ fun state/enter(state: logger-state, step-name: string): total (logger-state, re
         rest -> Cons(Open-Step(step-name, Nothing, []), rest)
       (s'(open-steps=open-steps'), rs)
 
-fun state/leave(state: logger-state): total logger-state
-  match state.resume-cursor
+fun state/log-bound-value(state: logger-state, value-ser: stringsrc): exn logger-state
+  val open-steps' = match state.open-steps
+    Cons(first, rest) -> Cons(Open-Step(first.name, Just(value-ser), first.children), rest)
+    [] -> throw("Unexpected log-bound-value")
+  state(open-steps=open-steps')    
+
+
+fun state/leave(state: logger-state, outcome : step-outcome, result-ser : stringsrc): exn logger-state
+  val state' = match state.resume-cursor
     Just(lc) ->
       match lc.step-cursors
         Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
           state(resume-cursor=Just(Log-cursor(rest)))
         _ -> state(resume-cursor=Nothing)
     _ -> state(resume-cursor=Nothing)
+
+  val completed-steps-open-steps = match state.open-steps
+    Cons(first, Nil) -> 
+      (Cons(Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser)), state.completed-steps),
+       [])
+    Cons(first, Cons(next, rest)) -> 
+      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser))
+      val next' = next(children = Cons(step-log, next.children))
+      val open-steps' = Cons(next', rest)
+      (state.completed-steps, open-steps')
+    [] -> throw("Unexpected log-complete")
+
+  match completed-steps-open-steps
+    (completed-steps', open-steps') ->
+      state(completed-steps=completed-steps', open-steps=open-steps')
+
 
 
 // collect and return a list of step-logs from a computation
