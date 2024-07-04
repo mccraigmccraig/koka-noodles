@@ -29,6 +29,10 @@ pub struct step-log
   outcome: step-outcome
   result: either<stringsrc,stringsrc>
 
+pub value struct computation-log
+  name: string
+  step-logs: list<step-log>
+
 // When resuming a computation, an existing step-log will be
 // given back as the result of log-enter
 pub value type resumed-step
@@ -74,10 +78,6 @@ pub fun step-log/show(log: step-log): <div,indent> string
   "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
   "\n" ++ p ++ step-output
 
-pub value struct computation-log
-  name: string
-  step-logs: list<step-log>
-
 pub fun computation-log/show(log: computation-log)
   with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
@@ -95,16 +95,6 @@ value struct step-cursor
 // so errored computations can be continued from the point of error
 value struct log-cursor
   step-cursors: list<step-cursor>
-
-value type log-cursor-nav-result
-  // a matching step with a completed log was found
-  RunStep(sl: step-log) 
-  // a matching step with an error log was found
-  ErrorStep(sl: step-log)
-  // the leave operation was matched
-  NoStep
-  // there was a tree-shape mismatch
-  Mismatch
 
 // accumulating a single step
 value struct open-step
@@ -132,7 +122,7 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
 // record the outcome
-fun state/enter(state: logger-state, step-name: string): total (logger-state, resumed-step)
+fun state/log-enter(state: logger-state, step-name: string): total (logger-state, resumed-step)
   // follow the resumed log, if it matches
   val state-resumed-step = match state.resume-cursor
     Just(lc) -> 
@@ -167,7 +157,7 @@ fun state/log-bound-value(state: logger-state, value-ser: stringsrc): exn logger
   state(open-steps=open-steps')    
 
 
-fun state/leave(state: logger-state, outcome : step-outcome, result-ser : stringsrc): exn logger-state
+fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser : stringsrc): exn logger-state
   val state' = match state.resume-cursor
     Just(lc) ->
       match lc.step-cursors
@@ -191,7 +181,7 @@ fun state/leave(state: logger-state, outcome : step-outcome, result-ser : string
     (completed-steps', open-steps') ->
       state(completed-steps=completed-steps', open-steps=open-steps')
 
-fun state/error(state: logger-state, error-ser: stringsrc): exn logger-state 
+fun state/log-error(state: logger-state, error-ser: stringsrc): exn logger-state 
   match state.open-steps
     Cons(first, Nil) -> 
       val completed-steps' = Cons(Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser)), state.completed-steps)
@@ -202,29 +192,9 @@ fun state/error(state: logger-state, error-ser: stringsrc): exn logger-state
       state(open-steps=Cons(next', rest))
     [] -> state
 
-// collect and return a list of step-logs from a computation
-// this handler should also handle any exn effect, so the 
-// return is div (would be nice for it to be total, but there's
-// no stdlib for timeouts yet afaics)
-
-// how to do replay ... we have:
-// step-log
-//   name: string
-//   bound-value: maybe<stringsrc>
-//   children: list<step-log>
-//   outcome: step-outcome
-//   result: either<stringsrc,stringsrc>
-// computation-log
-//   step-logs: list<step-log>
-// 
-// want to follow the computation-log tree, but as soon as the computation diverges - 
-// e.g. there was an error, or there are too many or too few logged steps, or too deep,
-// then we switch to making real calls and recording new results
-//
-// so, as we're traversing the computation-log tree we should be accumulating all the results
-// as if it was a new computation, so when the log diverges we can carry on with the new log
-//
-// to follow the tree, need something like a zipper
+// collect and return a computation-log from a computation
+// this handler also handles any exn effect, so the 
+// return is div
 pub fun log-collector<v>(
     previous-log: maybe<computation-log>, 
     computation-name, 
@@ -254,7 +224,7 @@ pub fun log-collector<v>(
 
   with handler
     fun log-enter(name)
-      val state_resumed_step = state/enter(state, name)
+      val state_resumed_step = state/log-enter(state, name)
       match state_resumed_step
         (state', resumed-step) -> 
           state := state'
@@ -263,10 +233,10 @@ pub fun log-collector<v>(
       val state' = state/log-bound-value(state, value-ser)
       state := state'
     fun log-complete(outcome, result-ser)
-      val state' = state/leave(state, outcome, result-ser)
+      val state' = state/log-complete(state, outcome, result-ser)
       state := state'
     ctl log-error(error-ser)
-      val state' = state/error(state, error-ser)
+      val state' = state/log-error(state, error-ser)
       state := state'
       throw(error-ser(), ExnTodo)
 
