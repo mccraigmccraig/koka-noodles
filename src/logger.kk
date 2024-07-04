@@ -191,7 +191,16 @@ fun state/leave(state: logger-state, outcome : step-outcome, result-ser : string
     (completed-steps', open-steps') ->
       state(completed-steps=completed-steps', open-steps=open-steps')
 
-
+fun state/error(state: logger-state, error-ser: stringsrc): exn logger-state 
+  match state.open-steps
+    Cons(first, Nil) -> 
+      val completed-steps' = Cons(Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser)), state.completed-steps)
+      state(completed-steps=completed-steps')
+    Cons(first, Cons(next, rest)) ->
+      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
+      val next' = next(children = Cons(step-log, next.children))
+      state(open-steps=Cons(next', rest))
+    [] -> state
 
 // collect and return a list of step-logs from a computation
 // this handler should also handle any exn effect, so the 
@@ -224,17 +233,7 @@ pub fun log-collector<v>(
 
   var state := make-logger-state(previous-log)
 
-  // if we got a previous log, follow it
-  var cursor := match previous-log
-    Just(pl) -> Just(make-log-cursor(pl))
-    _ -> Nothing
-
-  // list of completed top-level steps
-  var steps: list<step-log> := []
-  // steps can have children, which we will prepend to the next-step list
-  var next-step: list<open-step> := []
-
-  with return(v) (v, Computation-Log(computation-name, steps.reverse))
+  with return(v) (v, Computation-Log(computation-name, state.completed-steps.reverse))
 
   with handler
     final ctl throw-exn(ex)
@@ -242,11 +241,16 @@ pub fun log-collector<v>(
         Exception(_, ExnTodo) ->
           Left("Error logged: " ++ ex.show)
         _ ->
-          match next-step
+          val err_state = match state.open-steps
             Cons(first,_rest) ->
-              steps := Cons(Step-log(first.name, first.bound-value, first.children, UnhandledStepError, Left({"Unhandled Exception: " ++ ex.show})), steps)
-              Left("Unhandled Exception: " ++ ex.show)
-            [] -> Left("Unhandled Exception outside step:" ++ ex.show)
+              val completed-steps' = Cons(Step-log(first.name, first.bound-value, first.children, UnhandledStepError, Left({"Unhandled Exception: " ++ ex.show})), state.completed-steps)
+              val state' = state(completed-steps=completed-steps')
+              (Left("Unhandled Exception: " ++ ex.show), state')
+            [] -> (Left("Unhandled Exception outside step:" ++ ex.show), state)
+          match err_state
+            (err,state') -> 
+              state := state'
+              err
 
   with handler
     fun log-enter(name)
@@ -256,30 +260,15 @@ pub fun log-collector<v>(
           state := state'
           resumed-step
     fun log-bound-value(value-ser)
-      match next-step
-        Cons(first, rest) -> next-step := Cons(Open-Step(first.name, Just(value-ser), first.children), rest)
-        [] -> throw("Unexpected log-bound-value")
+      val state' = state/log-bound-value(state, value-ser)
+      state := state'
     fun log-complete(outcome, result-ser)
-      match next-step
-        Cons(first, Nil) -> 
-          steps := Cons(Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser)), steps)
-          next-step := []
-        Cons(first, Cons(next, rest)) -> 
-          val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser))
-          val next' = next(children = Cons(step-log, next.children))
-          next-step := Cons(next', rest)
-        [] -> throw("Unexpected log-complete")
+      val state' = state/leave(state, outcome, result-ser)
+      state := state'
     ctl log-error(error-ser)
-      match next-step
-        Cons(first, Nil) -> 
-          steps := Cons(Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser)), steps)
-          throw(error-ser(), ExnTodo)
-        Cons(first, Cons(next, rest)) ->
-          val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
-          val next' = next(children = Cons(step-log, next.children))
-          next-step := Cons(next', rest)
-          throw(error-ser(), ExnTodo)
-        [] -> throw("Unexpected log-error")
+      val state' = state/error(state, error-ser)
+      state := state'
+      throw(error-ser(), ExnTodo)
 
   Right(action())
 
