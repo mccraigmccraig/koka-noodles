@@ -154,15 +154,15 @@ fun state/enter(state: logger-state, step-name: string): total (logger-state, re
     
   // always accumulate a new open-step
   match state-resumed-step
-    (s', rs) -> 
+    (state', resumed-step) -> 
       val open-steps' = match state.open-steps
         [] -> [Open-Step(step-name, Nothing, [])]
         rest -> Cons(Open-Step(step-name, Nothing, []), rest)
-      (s'(open-steps=open-steps'), rs)
+      (state'(open-steps=open-steps'), resumed-step)
 
 fun state/log-bound-value(state: logger-state, value-ser: stringsrc): exn logger-state
   val open-steps' = match state.open-steps
-    Cons(first, rest) -> Cons(Open-Step(first.name, Just(value-ser), first.children), rest)
+    Cons(first, rest) -> Cons(first(bound-value=Just(value-ser)), rest)
     [] -> throw("Unexpected log-bound-value")
   state(open-steps=open-steps')    
 
