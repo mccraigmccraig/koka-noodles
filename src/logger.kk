@@ -119,6 +119,14 @@ fun make-logger-state(previous-log: maybe<computation-log>)
     Just(pl) -> Logger-state(Just(make-log-cursor(pl)), [], [])
     _ -> Logger-state(Nothing, [], [])
 
+// propagate an error through the open-steps, closing them all
+fun state/error-open-steps(open-steps: list<open-step>, error-ser: stringsrc): list<step-log>
+  match open-steps
+    Cons(first, rest) -> 
+      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
+      Cons(step-log, state/error-open-steps(rest, error-ser))
+    [] -> []
+
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
 // record the outcome
@@ -150,13 +158,15 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
         rest -> Cons(Open-Step(step-name, Nothing, []), rest)
       (state'(open-steps=open-steps'), resumed-step)
 
-fun state/log-bound-value(state: logger-state, value-ser: stringsrc): exn logger-state
-  val open-steps' = match state.open-steps
-    Cons(first, rest) -> Cons(first(bound-value=Just(value-ser)), rest)
-    [] -> throw("Unexpected log-bound-value")
-  state(open-steps=open-steps')    
-
-
+fun state/log-bound-value(state: logger-state, value-ser: stringsrc): total logger-state
+  match state.open-steps
+    Cons(first, rest) -> 
+      val open-steps' = Cons(first(bound-value=Just(value-ser)), rest)
+      state(open-steps=open-steps')
+    [] -> 
+      val completed-steps' = state/error-open-steps(state.open-steps, {"log-bound-value: no open-step"})
+      state(completed-steps=completed-steps', open-steps=[])
+  
 fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser : stringsrc): exn logger-state
   val state' = match state.resume-cursor
     Just(lc) ->
@@ -175,7 +185,7 @@ fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser :
       val next' = next(children = Cons(step-log, next.children))
       val open-steps' = Cons(next', rest)
       (state.completed-steps, open-steps')
-    [] -> throw("Unexpected log-complete")
+    [] -> throw("log-complete: no open-step")
 
   match completed-steps-open-steps
     (completed-steps', open-steps') ->
@@ -190,7 +200,7 @@ fun state/log-error(state: logger-state, error-ser: stringsrc): exn logger-state
       val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
       val next' = next(children = Cons(step-log, next.children))
       state(open-steps=Cons(next', rest))
-    [] -> state
+    [] -> throw("log-error: no open-step")
 
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect, so the 
