@@ -143,6 +143,17 @@ pub fun test-dsl0()
   val (_, log) = make-test-dsl0(100).run-pure
   logger/print-computation-log(log)
 
+pub fun make-test-dsl05(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") {throw("hoo") ; 10}
+  with z <- sb("z") {x + y}
+  throw("boo")
+  s("result") {2 * z}
+
+pub fun test-dsl05()
+  val (_, log) = make-test-dsl05(100).run-pure
+  logger/print-computation-log(log)
+
 
 pub fun make-test-dsl1(i: int)
   with x: int <- sb("x") {i}
