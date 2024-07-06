@@ -158,16 +158,16 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
         rest -> Cons(Open-Step(step-name, Nothing, []), rest)
       (state'(open-steps=open-steps'), resumed-step)
 
-fun state/log-bound-value(state: logger-state, value-ser: stringsrc): total logger-state
+// returns Left if there has been a programming error and there are no open steps
+fun state/log-bound-value(state: logger-state, value-ser: stringsrc): total either<string,logger-state>
   match state.open-steps
     Cons(first, rest) -> 
       val open-steps' = Cons(first(bound-value=Just(value-ser)), rest)
-      state(open-steps=open-steps')
+      Right(state(open-steps=open-steps'))
     [] -> 
-      val completed-steps' = state/error-open-steps(state.open-steps, {"log-bound-value: no open-step"})
-      state(completed-steps=completed-steps', open-steps=[])
+      Left("log-bound-value: no open-step")
   
-fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser : stringsrc): exn logger-state
+fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser : stringsrc): total either<string,logger-state>
   val state' = match state.resume-cursor
     Just(lc) ->
       match lc.step-cursors
@@ -176,31 +176,32 @@ fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser :
         _ -> state(resume-cursor=Nothing)
     _ -> state(resume-cursor=Nothing)
 
-  val completed-steps-open-steps = match state.open-steps
+  val error-completed-steps-open-steps = match state.open-steps
     Cons(first, Nil) -> 
-      (Cons(Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser)), state.completed-steps),
-       [])
+      Right((Cons(Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser)), state.completed-steps),
+            []))
     Cons(first, Cons(next, rest)) -> 
       val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser))
       val next' = next(children = Cons(step-log, next.children))
       val open-steps' = Cons(next', rest)
-      (state.completed-steps, open-steps')
-    [] -> throw("log-complete: no open-step")
+      Right((state.completed-steps, open-steps'))
+    [] -> Left("log-complete: no open-step")
 
-  match completed-steps-open-steps
-    (completed-steps', open-steps') ->
-      state(completed-steps=completed-steps', open-steps=open-steps')
+  match error-completed-steps-open-steps
+    Right((completed-steps', open-steps')) ->
+      Right(state(completed-steps=completed-steps', open-steps=open-steps'))
+    Left(err) -> Left(err)
 
-fun state/log-error(state: logger-state, error-ser: stringsrc): exn logger-state 
+fun state/log-error(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
   match state.open-steps
     Cons(first, Nil) -> 
       val completed-steps' = Cons(Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser)), state.completed-steps)
-      state(completed-steps=completed-steps')
+      Right(state(completed-steps=completed-steps'))
     Cons(first, Cons(next, rest)) ->
       val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
       val next' = next(children = Cons(step-log, next.children))
-      state(open-steps=Cons(next', rest))
-    [] -> throw("log-error: no open-step")
+      Right(state(open-steps=Cons(next', rest)))
+    [] -> Left("log-error: no open-step")
 
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect, so the 
@@ -232,6 +233,9 @@ pub fun log-collector<v>(
               state := state'
               err
 
+  // the handler implementation fns are all total, but can return errors via either. 
+  // Such errors will be thrown to the throw-exn handler, to immediately terminate 
+  // the computation
   with handler
     fun log-enter(name)
       val state_resumed_step = state/log-enter(state, name)
@@ -240,14 +244,20 @@ pub fun log-collector<v>(
           state := state'
           resumed-step
     fun log-bound-value(value-ser)
-      val state' = state/log-bound-value(state, value-ser)
-      state := state'
+      val error_state = state/log-bound-value(state, value-ser)
+      match error_state
+        Left(err) -> throw(err)
+        Right(state') -> state := state'
     fun log-complete(outcome, result-ser)
-      val state' = state/log-complete(state, outcome, result-ser)
-      state := state'
+      val error_state = state/log-complete(state, outcome, result-ser)
+      match error_state
+        Left(err) -> throw(err)
+        Right(state') -> state := state'
     ctl log-error(error-ser)
-      val state' = state/log-error(state, error-ser)
-      state := state'
+      val error_state = state/log-error(state, error-ser)
+      match error_state
+        Left(err) -> throw(err)
+        Right(state') -> state := state'
       throw(error-ser(), ExnTodo)
 
   Right(action())
