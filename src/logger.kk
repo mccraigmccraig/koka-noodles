@@ -226,6 +226,7 @@ pub fun log-collector<v>(
 
   with return(v) (v, Computation-Log(computation-name, state.completed-steps.reverse))
 
+  // try and close out all open steps with an error, then return the error
   with handler
     final ctl throw-exn(ex)
       val error_state = state/error-open-steps(state, {"Error: " ++ ex.show})
