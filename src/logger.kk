@@ -226,8 +226,8 @@ pub fun log-collector<v>(
   // try and close out all open steps with an error, then return the error
   with handler
     final ctl throw-exn(ex)
-      val error_state = state/error-open-steps(state, {"Error: " ++ ex.show})
-      match error_state
+      val error-state = state/error-open-steps(state, {"Error: " ++ ex.show})
+      match error-state
         Left(err) -> Left("Fatal: " ++ err.show)
         Right(state') -> 
           state := state'
@@ -238,24 +238,24 @@ pub fun log-collector<v>(
   // the computation
   with handler
     fun log-enter(name)
-      val state_resumed_step = state/log-enter(state, name)
-      match state_resumed_step
+      val state-resumed-step = state/log-enter(state, name)
+      match state-resumed-step
         (state', resumed-step) -> 
           state := state'
           resumed-step
     fun log-bound-value(value-ser)
-      val error_state = state/log-bound-value(state, value-ser)
-      match error_state
+      val error-state = state/log-bound-value(state, value-ser)
+      match error-state
         Left(err) -> throw(err)
         Right(state') -> state := state'
     fun log-complete(outcome, result-ser)
-      val error_state = state/log-complete(state, outcome, result-ser)
-      match error_state
+      val error-state = state/log-complete(state, outcome, result-ser)
+      match error-state
         Left(err) -> throw(err)
         Right(state') -> state := state'
     ctl log-error(error-ser)
-      val error_state = state/log-error(state, error-ser)
-      match error_state
+      val error-state = state/log-error(state, error-ser)
+      match error-state
         Left(err) -> throw(err)
         Right(state') -> state := state'
       throw(error-ser(), ExnTodo)
