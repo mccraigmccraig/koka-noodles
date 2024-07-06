@@ -124,7 +124,7 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 // propagate an error through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree
 // propagate an error to a state
-fun state/error-open-steps(state: logger-state, error-ser: stringsrc): div either<string,logger-state>
+fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
   match state.open-steps
     [] -> Left("error-open-steps: no open-step")
     Cons(first, Nil) -> 
@@ -134,7 +134,7 @@ fun state/error-open-steps(state: logger-state, error-ser: stringsrc): div eithe
     Cons(first, Cons(next, rest)) -> 
       val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
       val next' = next(children = Cons(step-log, next.children))
-      state/error-open-steps(state(open-steps=Cons(next', rest)), error-ser)
+      state/error-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), error-ser)
 
 
 // if we are following a log and have a step to enter, update the log cursor
