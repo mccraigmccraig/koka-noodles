@@ -15,14 +15,12 @@ pub type step-outcome
   Run
   Resume
   StepError
-  UnhandledStepError
 
 pub fun step-outcome/show(outcome: step-outcome)
   match outcome
     Run -> "run"
     Resume -> "resume"
     StepError -> "error"
-    UnhandledStepError -> "unhandled error"
 
 pub struct step-log
   name: string
@@ -149,7 +147,6 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
           val maybe-sl = at(steps, next-idx)
           match maybe-sl 
             Just(Step-log(_, _, _, StepError, _)) -> (state(resume-cursor=Nothing), NoLog)
-            Just(Step-log(_, _, _, UnhandledStepError, _)) -> (state(resume-cursor=Nothing), NoLog)
             Just(sl) ->
               // inc the next-idx counter on the current step-cursor, push a new step-cursor
               (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
