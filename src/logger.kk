@@ -226,12 +226,12 @@ pub fun log-collector<v>(
   // try and close out all open steps with an error, then return the error
   with handler
     final ctl throw-exn(ex)
-      val error-state = state/error-open-steps(state, {"Error: " ++ ex.show})
+      val error-state = state/error-open-steps(state, {ex.show})
       match error-state
         Left(err) -> Left("Fatal: " ++ err.show)
         Right(state') -> 
           state := state'
-          Left("Error: " ++ ex.show)
+          Left(ex.show)
 
   // the handler implementation fns are all total, but can return errors via either. 
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
