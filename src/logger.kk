@@ -1,6 +1,8 @@
 module logger
 
+import std/core/exn
 import std/core/string 
+import std/core/undiv
 import std/core/vector
 
 // a thunk for step values - we don't always need to 
@@ -119,13 +121,21 @@ fun make-logger-state(previous-log: maybe<computation-log>)
     Just(pl) -> Logger-state(Just(make-log-cursor(pl)), [], [])
     _ -> Logger-state(Nothing, [], [])
 
-// propagate an error through the open-steps, closing them all
-fun state/error-open-steps(open-steps: list<open-step>, error-ser: stringsrc): list<step-log>
-  match open-steps
-    Cons(first, rest) -> 
+// propagate an error through the open-steps, closing them all and 
+// returning a single step-log representing the whole closed tree
+// propagate an error to a state
+fun state/error-open-steps(state: logger-state, error-ser: stringsrc): div either<string,logger-state>
+  match state.open-steps
+    [] -> Left("error-open-steps: no open-step")
+    Cons(first, Nil) -> 
       val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
-      Cons(step-log, state/error-open-steps(rest, error-ser))
-    [] -> []
+      val completed-steps' = Cons(step-log, state.completed-steps)
+      Right(state(completed-steps=completed-steps', open-steps=[]))
+    Cons(first, Cons(next, rest)) -> 
+      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
+      val next' = next(children = Cons(step-log, next.children))
+      state/error-open-steps(state(open-steps=Cons(next', rest)), error-ser)
+
 
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
@@ -218,20 +228,12 @@ pub fun log-collector<v>(
 
   with handler
     final ctl throw-exn(ex)
-      match ex
-        Exception(_, ExnTodo) ->
-          Left("Error logged: " ++ ex.show)
-        _ ->
-          val err_state = match state.open-steps
-            Cons(first,_rest) ->
-              val completed-steps' = Cons(Step-log(first.name, first.bound-value, first.children, UnhandledStepError, Left({"Unhandled Exception: " ++ ex.show})), state.completed-steps)
-              val state' = state(completed-steps=completed-steps')
-              (Left("Unhandled Exception: " ++ ex.show), state')
-            [] -> (Left("Unhandled Exception outside step:" ++ ex.show), state)
-          match err_state
-            (err,state') -> 
-              state := state'
-              err
+      val error_state = state/error-open-steps(state, {"Error: " ++ ex.show})
+      match error_state
+        Left(err) -> Left("Fatal: " ++ err.show)
+        Right(state') -> 
+          state := state'
+          Left("Error: " ++ ex.show)
 
   // the handler implementation fns are all total, but can return errors via either. 
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
