@@ -3,7 +3,7 @@ module update_user
 import std/text/parse
 import logger
 import chain
-import fcore
+import pure-core
 import parsers/serjson/serjson
 
 // basic objects
