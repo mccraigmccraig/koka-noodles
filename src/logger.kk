@@ -41,6 +41,7 @@ pub value type resumed-step
   Log(l: step-log)
   NoLog
 
+// TODO distinguish between bind-steps and run-steps
 pub effect logger
   // open a step-log
   fun log-enter(name: string) : resumed-step
