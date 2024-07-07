@@ -157,7 +157,7 @@ pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
 
 // convenience function for running a pure step
 pub fun run-pure(st: pure-step<a>): div (either<string,a>, logger/computation-log)
-  run(st, fn (th) -> th())
+  run(st, pure-handler)
 
 pub fun rerun<a>(
     st: step<a,e>,
