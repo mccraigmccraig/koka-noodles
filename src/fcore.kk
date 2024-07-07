@@ -23,9 +23,9 @@ pub struct functional-core<a,b,c,d,e>
 pub fun compose(fc: functional-core<a,b,c,d,e>): total stepmfn<a,d,e>
   fn (a)
     val sb = fc.input()(a)
-    val b = sb.thunk()()
+    val b = sb.run'
     val sc = fc.core()(b)
-    val c = sc.thunk()()
+    val c = sc.run-pure'
     val sd = fc.output()(c)
     sd
 

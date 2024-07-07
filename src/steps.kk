@@ -137,6 +137,10 @@ pub fun bind<a,b,e>(
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
   st.thunk()()
 
+// run a pure-step 
+pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
+  st.run'
+
 // run a step, returning an either result and the computation-log
 // h must handle any non-logger effects from the step - the only 
 // effects allowed out are div,exn
