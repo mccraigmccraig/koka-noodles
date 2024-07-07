@@ -14,12 +14,14 @@ pub alias stringsrc = () -> total string
 pub type step-outcome
   Run
   Resume
+  ResumeBind
   StepError
 
 pub fun step-outcome/show(outcome: step-outcome)
   match outcome
     Run -> "run"
     Resume -> "resume"
+    ResumeBind -> "resume-bind"
     StepError -> "error"
 
 pub struct step-log

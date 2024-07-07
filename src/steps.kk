@@ -57,9 +57,8 @@ pub fun step/show(a: step<a,e>): string
 // the core binding logic - call the thunk to get a value,
 // bind that value to the next step, and call that next
 // thunk
-fun bindcore<a,b,e>(
+fun full/bind<a,b,e>(
     st: step<a,e>, 
-    // f: (a) -> total step<b,<logger|e>>,
     f: stepmfn<a,b,e>,
     b-strde: strde<b>
   ): <pure,logger|e> b
@@ -71,6 +70,42 @@ fun bindcore<a,b,e>(
   val r = f(a).thunk()() 
   logger/log-complete(logger/Run, {b-strde.str()(r)})
   r
+
+fun resume-bind/bind<a,b,e>(
+    st: step<a,e>, 
+    step-log: step-log,
+    f: stepmfn<a,b,e>,
+    b-strde: strde<b>
+  ): <pure,logger|e> b
+  match step-log
+    Step-log(_,Just(bv-strsrc),_,_,_) ->
+      match st.strde.de()(bv-strsrc())
+        Right(aa) -> 
+          // we have a bound value - no need to re-run the thunk, just the bind
+          logger/log-bound-value(bv-strsrc)
+          val r = f(aa).thunk()()
+          logger/log-complete(logger/ResumeBind, {b-strde.str()(r)})
+          r
+        Left(_err) -> 
+          // deser failed - perhaps the code no longer matches the data?
+          full/bind(st,f,b-strde)    
+
+fun resume-full/bind<a,b,e>(
+    st: step<a,e>, 
+    step-log: step-log,
+    f: stepmfn<a,b,e>,
+    b-strde: strde<b>
+  ): <pure,logger|e> b
+  match step-log
+    Step-log(_,_,_,Run,Right(r-strsrc)) ->
+      match b-strde.de()(r-strsrc())
+        Right(rr) -> 
+          // we are resuming a successful step, short-circuit straight to the result
+          logger/log-complete(logger/Resume, r-strsrc)
+          rr
+        Left(_err) -> 
+          // deser failed - perhaps the code no longer matches the data?
+          full/bind(st,f,b-strde)    
 
 pub fun bind<a,b,e>(
     st: step<a,e>, 
@@ -84,17 +119,10 @@ pub fun bind<a,b,e>(
     fn () -> 
       val rs = logger/log-enter(st.name)
       match rs
-        // if we are resuming a successful step, short-circuit to the result
-        Log(Step-log(_,_,_,Run,Right(r))) ->
-          match ?b/strde.de()(r())
-            Right(rr) -> 
-              logger/log-complete(logger/Resume, r)
-              rr
-            Left(_err) -> 
-              // deser failed - perhaps the code no longer matches the data?
-              bindcore(st,f,?b/strde)
+        Log(step-log) ->
+          resume-full/bind(st, step-log, f, ?b/strde)
         _ -> 
-          bindcore(st,f,?b/strde)
+          full/bind(st,f,?b/strde)
   )
 
 // run a step without dismissing any effects
