@@ -1,4 +1,4 @@
-module fcore
+module pure-core
 
 import std/core/list
 import logger
@@ -7,20 +7,20 @@ import steps
 // computations have a potentially effectful input step, which gathers
 // an input for a pure core step, which returns a value to a potentially 
 // effectful output step. 
-// the functional-core operation is the composed pipeline of
+// the pure-core operation is the composed pipeline of
 // input->pure->output steps
 //
 // TODO is this the best structure ? after the thunk-monad bind syntax
 // for the steps, it seems awfully constricting - but - it's just about
 // getting the input and processing the output for the core, so maybe
 // it's good
-pub struct functional-core<a,b,c,d,e>
+pub struct pure-core<a,b,c,d,e>
   input: stepmfn<a,b,e>
   core: pure-stepmfn<b,c>
   output: stepmfn<c,d,e>
 
-// compose the input, pure, output computations from a functional-core
-pub fun compose(fc: functional-core<a,b,c,d,e>): total stepmfn<a,d,e>
+// compose the input, pure, output computations from a pure-core
+pub fun compose(fc: pure-core<a,b,c,d,e>): total stepmfn<a,d,e>
   fn (a)
     val sb = fc.input()(a)
     val b = sb.run'
