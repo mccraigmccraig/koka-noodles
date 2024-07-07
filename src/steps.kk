@@ -201,7 +201,7 @@ pub fun make-test-dsl0(i: int)
   s("result") {2 * z}
 
 pub fun test-dsl0()
-  val (_, log) = make-test-dsl0(100).run-pure(logger/detailed/log-options)
+  val (_, log) = make-test-dsl0(100).run-pure(logger/default/log-options)
   logger/print-computation-log(log)
 
 pub fun make-test-dsl05(i: int)
