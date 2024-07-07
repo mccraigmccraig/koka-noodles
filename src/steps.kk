@@ -54,10 +54,10 @@ pub fun sb<a,b,e>(
 pub fun step/show(a: step<a,e>): string
   a.name ++ ": <unevaluated>"
 
-// the core binding logic - call the thunk to get a value,
+// full core binding logic - call the thunk to get a value,
 // bind that value to the next step, and call that next
 // thunk
-fun full/bind<a,b,e>(
+fun full/bindcore<a,b,e>(
     st: step<a,e>, 
     f: stepmfn<a,b,e>,
     b-strde: strde<b>
@@ -71,7 +71,10 @@ fun full/bind<a,b,e>(
   logger/log-complete(logger/Run, {b-strde.str()(r)})
   r
 
-fun resume-bind/bind<a,b,e>(
+// partial resume logic - we have a bound value logged, so no
+// need to call the thunk to get it, just bind the value to 
+// the function
+fun resume-bind/bindcore<a,b,e>(
     st: step<a,e>, 
     step-log: step-log,
     f: stepmfn<a,b,e>,
@@ -88,10 +91,11 @@ fun resume-bind/bind<a,b,e>(
           r
         Left(_err) -> 
           // deser failed - perhaps the code no longer matches the data?
-          full/bind(st,f,b-strde)    
-    _ -> full/bind(st,f,b-strde)
+          full/bindcore(st,f,b-strde)    
+    _ -> full/bindcore(st,f,b-strde)
 
-fun resume-full/bind<a,b,e>(
+// full resume logic - we have a result value logged
+fun resume-full/bindcorecore<a,b,e>(
     st: step<a,e>, 
     step-log: step-log,
     f: stepmfn<a,b,e>,
@@ -106,10 +110,10 @@ fun resume-full/bind<a,b,e>(
           rr
         Left(_err) -> 
           // deser failed - perhaps the code no longer matches the data?
-          resume-bind/bind(st,step-log,f,b-strde)
+          resume-bind/bindcore(st,step-log,f,b-strde)
     Step-log(_,Just(_bv-src),_,_,_) ->
-      resume-bind/bind(st,step-log,f,b-strde)
-    _ -> full/bind(st,f,b-strde)
+      resume-bind/bindcore(st,step-log,f,b-strde)
+    _ -> full/bindcore(st,f,b-strde)
 
 pub fun bind<a,b,e>(
     st: step<a,e>, 
@@ -124,9 +128,9 @@ pub fun bind<a,b,e>(
       val rs = logger/log-enter(st.name)
       match rs
         Log(step-log) ->
-          resume-full/bind(st, step-log, f, ?b/strde)
+          resume-full/bindcorecore(st, step-log, f, ?b/strde)
         _ -> 
-          full/bind(st,f,?b/strde)
+          full/bindcore(st,f,?b/strde)
   )
 
 // run a step without dismissing any effects
