@@ -63,13 +63,21 @@ fun full/bindcore<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
 
+  val log-bind-runs = logger/log-detail 
+
   // call the thunk to get the value to be bound
-  // val a = st.run'
-  val a = st.thunk()()
+  val a = if log-bind-runs then
+    st.run'
+  else
+    st.run''
+
   logger/log-bound-value({st.strde.str()(a)})
   // bind a new step, then call its thunk
-  // val r = f(a).run'
-  val r = f(a).thunk()()
+  val r = if log-bind-runs then
+    f(a).run'
+  else
+    f(a).run''
+
   logger/log-complete(logger/Run, {b-strde.str()(r)})
   r
 
@@ -82,14 +90,19 @@ fun resume-bind/bindcore<a,b,e>(
     f: stepmfn<a,b,e>,
     b-strde: strde<b>
   ): <pure,logger|e> b
+
+  val log-bind-runs = logger/log-detail 
+
   match step-log
     Step-log(_,Just(bv-strsrc),_,_,_) ->
       match st.strde.de()(bv-strsrc())
         Right(aa) -> 
           // we have a bound value - no need to re-run the thunk, just the bind
           logger/log-bound-value(bv-strsrc)
-          // val r = f(aa).run'
-          val r = f(aa).thunk()()
+          val r = if log-bind-runs then 
+            f(aa).run'
+          else 
+            f(aa).run''
           logger/log-complete(logger/ResumeBind, {b-strde.str()(r)})
           r
         Left(_err) -> 
@@ -136,10 +149,13 @@ pub fun bind<a,b,e>(
           full/bindcore(st,f,?b/strde)
   )
 
+pub fun run''<a,e>(st: step<a, e>): <pure,logger|e> a
+  st.thunk()()
+
 // run a step without dismissing any effects
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
   logger/log-enter("run--" ++ st.name)
-  val r = st.thunk()()
+  val r = st.run''
   logger/log-complete(logger/Run, {st.strde.str()(r)})
   r
 

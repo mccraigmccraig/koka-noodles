@@ -43,6 +43,7 @@ pub value type resumed-step
 
 // TODO distinguish between bind-steps and run-steps
 pub effect logger
+  val log-detail: bool
   // open a step-log
   fun log-enter(name: string) : resumed-step
   fun log-bound-value(value-ser: stringsrc) : ()
@@ -240,6 +241,7 @@ pub fun log-collector<v>(
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
   // the computation
   with handler
+    val log-detail = True
     fun log-enter(name)
       val state-resumed-step = state/log-enter(state, name)
       match state-resumed-step
