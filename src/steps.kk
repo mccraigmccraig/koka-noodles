@@ -64,10 +64,12 @@ fun full/bindcore<a,b,e>(
   ): <pure,logger|e> b
 
   // call the thunk to get the value to be bound
-  val a = st.run'
+  // val a = st.run'
+  val a = st.thunk()()
   logger/log-bound-value({st.strde.str()(a)})
   // bind a new step, then call its thunk
-  val r = f(a).run'
+  // val r = f(a).run'
+  val r = f(a).thunk()()
   logger/log-complete(logger/Run, {b-strde.str()(r)})
   r
 
@@ -86,7 +88,8 @@ fun resume-bind/bindcore<a,b,e>(
         Right(aa) -> 
           // we have a bound value - no need to re-run the thunk, just the bind
           logger/log-bound-value(bv-strsrc)
-          val r = f(aa).run'
+          // val r = f(aa).run'
+          val r = f(aa).thunk()()
           logger/log-complete(logger/ResumeBind, {b-strde.str()(r)})
           r
         Left(_err) -> 
