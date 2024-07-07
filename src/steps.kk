@@ -135,7 +135,10 @@ pub fun bind<a,b,e>(
 
 // run a step without dismissing any effects
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
-  st.thunk()()
+  logger/log-enter("run--" ++ st.name)
+  val r = st.thunk()()
+  logger/log-complete(logger/Run, {st.strde.str()(r)})
+  r
 
 // run a pure-step 
 pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
