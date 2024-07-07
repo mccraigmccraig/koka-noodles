@@ -221,15 +221,9 @@ pub fun test-dsl06()
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
-pub fun make-test-dsl07(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") { 10}
-  with z <- sb("z") {x + y}
-  s("result") {2 * z}
-
 pub fun test-dsl07()
-  val (_, log) = make-test-dsl05(100).run-pure(logger/default/log-options)
-  val (_, log2) = make-test-dsl0(100).rerun(log, logger/default/log-options, pure-handler)
+  val (_, log) = make-test-dsl05(100).run-pure(logger/detailed/log-options)
+  val (_, log2) = make-test-dsl0(100).rerun(log, logger/detailed/log-options, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
