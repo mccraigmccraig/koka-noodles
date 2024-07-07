@@ -95,7 +95,7 @@ fun resume-bind/bindcore<a,b,e>(
     _ -> full/bindcore(st,f,b-strde)
 
 // full resume logic - we have a result value logged
-fun resume-full/bindcorecore<a,b,e>(
+fun resume-full/bindcore<a,b,e>(
     st: step<a,e>, 
     step-log: step-log,
     f: stepmfn<a,b,e>,
@@ -128,7 +128,7 @@ pub fun bind<a,b,e>(
       val rs = logger/log-enter(st.name)
       match rs
         Log(step-log) ->
-          resume-full/bindcorecore(st, step-log, f, ?b/strde)
+          resume-full/bindcore(st, step-log, f, ?b/strde)
         _ -> 
           full/bindcore(st,f,?b/strde)
   )
