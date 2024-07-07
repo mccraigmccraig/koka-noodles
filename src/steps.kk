@@ -146,7 +146,7 @@ pub fun run<a>(
   ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(Nothing, st.name)
   with h 
-  st.thunk()()
+  st.run'
 
 pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
   th()
@@ -162,7 +162,7 @@ pub fun rerun<a>(
   ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(Just(log), st.name)
   with h 
-  st.thunk()()
+  st.run'
 
 // some examples
 
