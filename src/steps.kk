@@ -112,15 +112,19 @@ pub fun run<a>(
   with h 
   st.thunk()()
 
+pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
+  th()
+
 // convenience function for running a pure step
 pub fun run-pure(st: pure-step<a>): div (either<string,a>, logger/computation-log)
   run(st, fn (th) -> th())
 
 pub fun rerun<a>(
     st: step<a,e>,
+    log: logger/computation-log,
     h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
-  with logger/log-collector(Nothing, st.name)
+  with logger/log-collector(Just(log), st.name)
   with h 
   st.thunk()()
 
@@ -153,6 +157,24 @@ pub fun make-test-dsl05(i: int)
 pub fun test-dsl05()
   val (_, log) = make-test-dsl05(100).run-pure
   logger/print-computation-log(log)
+
+pub fun test-dsl06()
+  val (_, log) = make-test-dsl0(100).run-pure
+  val (_, log2) = make-test-dsl0(100).rerun(log, pure-handler)
+  logger/print-computation-log(log)
+  logger/print-computation-log(log2)
+
+pub fun make-test-dsl07(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") { 10}
+  with z <- sb("z") {x + y}
+  s("result") {2 * z}
+
+pub fun test-dsl07()
+  val (_, log) = make-test-dsl05(100).run-pure
+  val (_, log2) = make-test-dsl0(100).rerun(log, pure-handler)
+  logger/print-computation-log(log)
+  logger/print-computation-log(log2)
 
 
 pub fun make-test-dsl1(i: int)
