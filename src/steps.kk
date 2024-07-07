@@ -168,9 +168,10 @@ pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
 // effects allowed out are div,exn
 pub fun run<a>(
     st: step<a,e>,
+    log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
-  with logger/log-collector(Nothing, st.name)
+  with logger/log-collector(Nothing, st.name, log-options)
   with h 
   st.run'
 
@@ -178,15 +179,16 @@ pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
   th()
 
 // convenience function for running a pure step
-pub fun run-pure(st: pure-step<a>): div (either<string,a>, logger/computation-log)
-  run(st, pure-handler)
+pub fun run-pure(st: pure-step<a>, log-options: logger/log-options): div (either<string,a>, logger/computation-log)
+  run(st, log-options, pure-handler)
 
 pub fun rerun<a>(
     st: step<a,e>,
     log: logger/computation-log,
+    log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
-  with logger/log-collector(Just(log), st.name)
+  with logger/log-collector(Just(log), st.name, log-options)
   with h 
   st.run'
 
@@ -199,7 +201,7 @@ pub fun make-test-dsl0(i: int)
   s("result") {2 * z}
 
 pub fun test-dsl0()
-  val (_, log) = make-test-dsl0(100).run-pure
+  val (_, log) = make-test-dsl0(100).run-pure(logger/detailed/log-options)
   logger/print-computation-log(log)
 
 pub fun make-test-dsl05(i: int)
@@ -210,12 +212,12 @@ pub fun make-test-dsl05(i: int)
   s("result") {2 * z}
 
 pub fun test-dsl05()
-  val (_, log) = make-test-dsl05(100).run-pure
+  val (_, log) = make-test-dsl05(100).run-pure(logger/default/log-options)
   logger/print-computation-log(log)
 
 pub fun test-dsl06()
-  val (_, log) = make-test-dsl0(100).run-pure
-  val (_, log2) = make-test-dsl0(100).rerun(log, pure-handler)
+  val (_, log) = make-test-dsl0(100).run-pure(logger/default/log-options)
+  val (_, log2) = make-test-dsl0(100).rerun(log, logger/default/log-options, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
@@ -226,8 +228,8 @@ pub fun make-test-dsl07(i: int)
   s("result") {2 * z}
 
 pub fun test-dsl07()
-  val (_, log) = make-test-dsl05(100).run-pure
-  val (_, log2) = make-test-dsl0(100).rerun(log, pure-handler)
+  val (_, log) = make-test-dsl05(100).run-pure(logger/default/log-options)
+  val (_, log2) = make-test-dsl0(100).rerun(log, logger/default/log-options, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
@@ -243,7 +245,7 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
   th()
 
 pub fun test-dsl1()
-  val (_, log) = make-test-dsl1(100).run(handle-random)
+  val (_, log) = make-test-dsl1(100).run(logger/default/log-options, handle-random)
   logger/print-computation-log(log)
   
 
@@ -265,7 +267,7 @@ pub fun make-test-dsl2(i: int)
   ({aa.show ++ "/" ++ bb.show}).step("result")
 
 pub fun test-dsl2()
-  val (_, log) = make-test-dsl2(10).run(handle-random)
+  val (_, log) = make-test-dsl2(10).run(logger/default/log-options, handle-random)
   logger/print-computation-log(log)
   // val (_, log2) = make-test-dsl2(0).run-nofx
   // logger/print-computation-log(log2)
@@ -283,7 +285,7 @@ pub fun make-test-dsl3(i: int)
   s("result") {aa.show ++ "/" ++ bb.show}
 
 pub fun test-dsl3()
-  val (_, log) = make-test-dsl3(10).run(fn(th) -> pseudo-random(100, th))
+  val (_, log) = make-test-dsl3(10).run(logger/default/log-options, fn(th) -> pseudo-random(100, th))
   logger/print-computation-log(log)
   // val (_, log2) = make-test-dsl2(0).run-nofx
   // logger/print-computation-log(log2)
