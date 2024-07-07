@@ -160,13 +160,6 @@ pub fun rerun<a>(
   with h 
   st.thunk()()
 
-// pub value type resume-step-log
-//   StepLog(step-log: step-log)
-//   None
-
-// pub fun resume<a,e>(resume-step-log: resume-step-log, st: step<a,e>): e a
-//   st.thunk()()
-
 // some examples
 
 pub fun make-test-dsl0(i: int)
