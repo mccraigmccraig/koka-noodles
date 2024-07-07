@@ -89,6 +89,7 @@ fun resume-bind/bind<a,b,e>(
         Left(_err) -> 
           // deser failed - perhaps the code no longer matches the data?
           full/bind(st,f,b-strde)    
+    _ -> full/bind(st,f,b-strde)
 
 fun resume-full/bind<a,b,e>(
     st: step<a,e>, 
@@ -97,7 +98,7 @@ fun resume-full/bind<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
   match step-log
-    Step-log(_,_,_,Run,Right(r-strsrc)) ->
+    Step-log(_,_,_,_,Right(r-strsrc)) ->
       match b-strde.de()(r-strsrc())
         Right(rr) -> 
           // we are resuming a successful step, short-circuit straight to the result
@@ -105,7 +106,10 @@ fun resume-full/bind<a,b,e>(
           rr
         Left(_err) -> 
           // deser failed - perhaps the code no longer matches the data?
-          full/bind(st,f,b-strde)    
+          resume-bind/bind(st,step-log,f,b-strde)
+    Step-log(_,Just(_bv-src),_,_,_) ->
+      resume-bind/bind(st,step-log,f,b-strde)
+    _ -> full/bind(st,f,b-strde)
 
 pub fun bind<a,b,e>(
     st: step<a,e>, 

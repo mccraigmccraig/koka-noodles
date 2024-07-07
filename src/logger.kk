@@ -148,7 +148,7 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
         Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
           val maybe-sl = at(steps, next-idx)
           match maybe-sl 
-            Just(Step-log(_, _, _, StepError, _)) -> (state(resume-cursor=Nothing), NoLog)
+            // Just(Step-log(_, _, _, StepError, _)) -> (state(resume-cursor=Nothing), NoLog)
             Just(sl) ->
               // inc the next-idx counter on the current step-cursor, push a new step-cursor
               (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
