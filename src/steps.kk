@@ -62,8 +62,8 @@ fun full/bindcore<a,b,e>(
     f: stepmfn<a,b,e>,
     b-strde: strde<b>
   ): <pure,logger|e> b
-
-  val log-bind-runs = logger/log-detail 
+ 
+  val log-bind-runs = logger/options.bind-detail()
 
   // call the thunk to get the value to be bound
   val a = if log-bind-runs then
@@ -91,7 +91,7 @@ fun resume-bind/bindcore<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
 
-  val log-bind-runs = logger/log-detail 
+  val log-bind-runs = logger/options.bind-detail
 
   match step-log
     Step-log(_,Just(bv-strsrc),_,_,_) ->

@@ -41,9 +41,15 @@ pub value type resumed-step
   Log(l: step-log)
   NoLog
 
+pub struct log-options
+  bind-detail: bool
+
+pub val default/log-options = Log-options(bind-detail=False)
+pub val detailed/log-options = Log-options(bind-detail=True)
+
 // TODO distinguish between bind-steps and run-steps
 pub effect logger
-  val log-detail: bool
+  val options: log-options
   // open a step-log
   fun log-enter(name: string) : resumed-step
   fun log-bound-value(value-ser: stringsrc) : ()
@@ -214,12 +220,6 @@ fun state/log-error(state: logger-state, error-ser: stringsrc): total either<str
       Right(state(open-steps=Cons(next', rest)))
     [] -> Left("log-error: no open-step")
 
-pub struct log-options
-  bind-detail: bool
-
-pub val default/log-options = Log-options(bind-detail=False)
-pub val detailed/log-options = Log-options(bind-detail=True)
-
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect, so the 
 // return is div
@@ -248,8 +248,7 @@ pub fun log-collector<v>(
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
   // the computation
   with handler
-    val log-detail = match opts
-      Log-options(bind-detail=bind-detail) -> bind-detail
+    val options = opts
     fun log-enter(name)
       val state-resumed-step = state/log-enter(state, name)
       match state-resumed-step
