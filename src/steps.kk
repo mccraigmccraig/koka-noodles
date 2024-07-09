@@ -283,8 +283,8 @@ pub fun make-test-dsl-more-complex(i: int)
   with y <- ({ if i>5 then [10,11] else [] }).step("y").bind
   val aa' = match y
     [a, b] -> 
-      with z <- ({x + a + b}).step("z").bind
-      ({z}).step("aa'-pair", ?strde=int/strde)
+      with z: int <- ({x + a + b}).step("z").bind
+      ({z + 10}).step("aa'-pair")
     _ -> ({0}).step("aa'-default")
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
@@ -301,8 +301,8 @@ pub fun make-test-dsl-more-complex-compact(i: int)
   with y <- sb("y") { if i>5 then [10,11] else [] }
   val aa' = match y
     [a, b] -> 
-      with z <- sb("z") {x + a + b}
-      s("aa'-pair", ?strde=int/strde) {z}
+      with z: int <- sb("z") {x + a + b}
+      s("aa'-pair") {z + 10}
     _ -> s("aa'-default") {0}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
