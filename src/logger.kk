@@ -75,8 +75,10 @@ pub fun step-log/show(log: step-log): <div,indent> string
   val p = pad()
 
   val bound-value-output = match log.bound-value
-    Just(v) -> "bound-value: " ++ v()
-    Nothing -> "bound-value: Nothing"
+    Just(v) -> "\n" ++ p ++ "bound-value: " ++ v()
+    Nothing -> match log.outcome
+      StepError -> "\n" ++ p ++ "bound-value: Nothing"
+      _ -> ""
 
   val children-output = apply-indent(indent + 1)
    log.children.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
@@ -86,7 +88,7 @@ pub fun step-log/show(log: step-log): <div,indent> string
     Right(v) -> "result: " ++ v()
 
   p ++ "step: " ++ log.name ++
-  "\n" ++ p ++ bound-value-output ++
+  bound-value-output ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
   "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
   "\n" ++ p ++ step-output
