@@ -332,7 +332,7 @@ pub fun test-dsl-more-complext-compact()
 val int/strde = Strde(fn(i: int) -> serjson/json(i), fn(s) -> serjson/dejson(s))
 
 val listint/strde = Strde(
-  fn(l: list<int>) -> serjson/json(l, ?valuefn=list/make-valuefn(int/valuefn)),
+  fn(l: list<int>) -> serjson/json(l, ?vfn=list/make-vfn(int/vfn)),
   fn(s) -> serjson/dejson(s, ?pfn=list/make-pfn(int/pfn))
 )
 
