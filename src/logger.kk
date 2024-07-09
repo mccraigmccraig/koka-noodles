@@ -52,9 +52,12 @@ pub effect logger
   val options: log-options
   // open a step-log
   fun log-enter(name: string) : resumed-step
+  // capture a bound value
   fun log-bound-value(value-ser: stringsrc) : ()
   // close a step log successfully
   fun log-complete(outcome: step-outcome, result-ser: stringsrc) : ()
+  // if following a log, skip the next entry (because it's not going to be run)
+  fun log-skip() : ()
   // close a step log with an error and immediately terminate
   ctl log-error(error-ser: stringsrc) : ()
 
@@ -148,7 +151,7 @@ fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total eit
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
 // record the outcome
-fun state/log-enter(state: logger-state, step-name: string): total (logger-state, resumed-step)
+fun state/log-enter(state: logger-state, step-name: string): console (logger-state, resumed-step)
   // follow the resumed log, if it matches
   val state-resumed-step = match state.resume-cursor
     Just(lc) -> 
@@ -158,12 +161,15 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
           match maybe-sl 
             // Just(Step-log(_, _, _, StepError, _)) -> (state(resume-cursor=Nothing), NoLog)
             Just(sl) ->
+              console/println("following resume-log: " ++ sl.name)
               // inc the next-idx counter on the current step-cursor, push a new step-cursor
               (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
                                                         Cons(Step-cursor(steps, next-idx + 1), 
                                                              rest))))), 
                Log(sl))
-            _ -> (state(resume-cursor=Nothing), NoLog)
+            _ -> 
+              console/println("fell off the resume-log")
+              (state(resume-cursor=Nothing), NoLog)
         _ -> (state(resume-cursor=Nothing), NoLog)
     _ -> (state(resume-cursor=Nothing), NoLog)
     
@@ -209,6 +215,26 @@ fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser :
       Right(state(completed-steps=completed-steps', open-steps=open-steps'))
     Left(err) -> Left(err)
 
+fun state/log-skip(state: logger-state): total either<string,logger-state>
+  match state.resume-cursor
+    Just(lc) ->
+      match lc.step-cursors
+        Cons(Step-cursor(steps, next-idx), rest-step-cursors) | next-idx < length(steps) ->
+          val maybe-sl = at(steps, next-idx)
+          match maybe-sl
+            Just(sl) ->
+              val sl' = Step-Log(sl.name, sl.bound-value, sl.children, Resume, sl.result)
+              match state.open-steps
+                Nil -> 
+                  Right(state(resume-cursor=Just(Log-cursor(step-cursors=Cons(Step-cursor(steps, next-idx + 1), Nil))),
+                              completed-steps=Cons(sl', state.completed-steps)))
+                Cons(first, rest) ->
+                  Right(state(resume-cursor=Just(Log-cursor(step-cursors=Cons(Step-cursor(steps, next-idx + 1), rest-step-cursors))),
+                              open-steps=Cons(first(children=Cons(sl', first.children)), rest)))
+            _ -> Left("log-skip: fell off the resume-log")
+        _ -> Right(state(resume-cursor=Nothing))
+    _ -> Right(state(resume-cursor=Nothing))
+
 fun state/log-error(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
   match state.open-steps
     Cons(first, Nil) -> 
@@ -228,7 +254,7 @@ pub fun log-collector<v>(
     computation-name: string, 
     opts: log-options,
     action: () -> <div,exn,logger> v
-  ) : div (either<string,v>, computation-log)
+  ) : <div,console> (either<string,v>, computation-log)
 
   var state := make-logger-state(previous-log)
 
@@ -262,6 +288,11 @@ pub fun log-collector<v>(
         Right(state') -> state := state'
     fun log-complete(outcome, result-ser)
       val error-state = state/log-complete(state, outcome, result-ser)
+      match error-state
+        Left(err) -> throw(err)
+        Right(state') -> state := state'
+    fun log-skip()
+      val error-state = state/log-skip(state)
       match error-state
         Left(err) -> throw(err)
         Right(state') -> state := state'

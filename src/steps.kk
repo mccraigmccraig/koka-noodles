@@ -98,6 +98,10 @@ fun resume-bind/bindcore<a,b,e>(
       match st.strde.de()(bv-strsrc())
         Right(aa) -> 
           // we have a bound value - no need to re-run the thunk, just the bind
+          // but if we don't run a logged bind, then we must skip it to correctly
+          // tracking the log
+          if log-bind-runs then
+            logger/log-skip()            
           logger/log-bound-value(bv-strsrc)
           val r = if log-bind-runs then 
             f(aa).run'
@@ -149,15 +153,38 @@ pub fun bind<a,b,e>(
           full/bindcore(st,f,?b/strde)
   )
 
-pub fun run''<a,e>(st: step<a, e>): <pure,logger|e> a
+pub fun thunk/run''<a,e>(st: step<a, e>): <pure,logger|e> a
   st.thunk()()
+
+pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
+  match step-log
+    Step-log(_,_,_,_,Right(r-strsrc)) ->
+      match st.strde.de()(r-strsrc())
+        Right(rr) -> 
+          // we are resuming a successful step, short-circuit straight to the result
+          logger/log-complete(logger/Resume, r-strsrc)
+          rr
+        Left(_err) -> 
+          // deser failed - perhaps the code no longer matches the data?
+          val r = st.thunk/run''
+          logger/log-complete(logger/Run, {st.strde.str()(r)})
+          r
+    _ -> 
+      val r = st.thunk/run''
+      logger/log-complete(logger/Run, {st.strde.str()(r)})
+      r
+
 
 // run a step without dismissing any effects
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
-  logger/log-enter("run--" ++ st.name)
-  val r = st.run''
-  logger/log-complete(logger/Run, {st.strde.str()(r)})
-  r
+  val rs = logger/log-enter("run--" ++ st.name)
+  match rs
+    Log(step-log) ->
+      resume/run''(st, step-log)
+    _ -> 
+      val r = st.thunk/run''
+      logger/log-complete(logger/Run, {st.strde.str()(r)})
+      r
 
 // run a pure-step 
 pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
@@ -170,16 +197,16 @@ pub fun run<a>(
     st: step<a,e>,
     log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
-  ): div (either<string,a>, logger/computation-log)
+  ): <div,console> (either<string,a>, logger/computation-log)
   with logger/log-collector(Nothing, st.name, log-options)
   with h 
-  st.run'
+  st.run' 
 
 pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
   th()
 
 // convenience function for running a pure step
-pub fun run-pure(st: pure-step<a>, log-options: logger/log-options): div (either<string,a>, logger/computation-log)
+pub fun run-pure(st: pure-step<a>, log-options: logger/log-options): <div,console> (either<string,a>, logger/computation-log)
   run(st, log-options, pure-handler)
 
 pub fun rerun<a>(
@@ -187,7 +214,7 @@ pub fun rerun<a>(
     log: logger/computation-log,
     log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
-  ): div (either<string,a>, logger/computation-log)
+  ): <div,console> (either<string,a>, logger/computation-log)
   with logger/log-collector(Just(log), st.name, log-options)
   with h 
   st.run'
@@ -201,7 +228,7 @@ pub fun make-test-dsl0(i: int)
   s("result") {2 * z}
 
 pub fun test-dsl0()
-  val (_, log) = make-test-dsl0(100).run-pure(logger/default/log-options)
+  val (_, log) = make-test-dsl0(100).run-pure(logger/detailed/log-options)
   logger/print-computation-log(log)
 
 pub fun make-test-dsl05(i: int)
@@ -212,12 +239,12 @@ pub fun make-test-dsl05(i: int)
   s("result") {2 * z}
 
 pub fun test-dsl05()
-  val (_, log) = make-test-dsl05(100).run-pure(logger/default/log-options)
+  val (_, log) = make-test-dsl05(100).run-pure(logger/detailed/log-options)
   logger/print-computation-log(log)
 
 pub fun test-dsl06()
-  val (_, log) = make-test-dsl0(100).run-pure(logger/default/log-options)
-  val (_, log2) = make-test-dsl0(100).rerun(log, logger/default/log-options, pure-handler)
+  val (_, log) = make-test-dsl0(100).run-pure(logger/detailed/log-options)
+  val (_, log2) = make-test-dsl0(100).rerun(log, logger/detailed/log-options, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
