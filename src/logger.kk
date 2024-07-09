@@ -31,8 +31,12 @@ pub struct step-log
   outcome: step-outcome
   result: either<stringsrc,stringsrc>
 
+pub struct log-options
+  bind-detail: bool
+
 pub value struct computation-log
   name: string
+  options: log-options
   step-logs: list<step-log>
 
 // When resuming a computation, an existing step-log will be
@@ -41,15 +45,12 @@ pub value type resumed-step
   Log(l: step-log)
   NoLog
 
-pub struct log-options
-  bind-detail: bool
-
-pub val default/log-options = Log-options(bind-detail=False)
-pub val detailed/log-options = Log-options(bind-detail=True)
+pub val default-log-options = Log-options(bind-detail=False)
+pub val detailed-log-options = Log-options(bind-detail=True)
 
 // TODO distinguish between bind-steps and run-steps
 pub effect logger
-  val options: log-options
+  val log-options: log-options
   // open a step-log
   fun log-enter(name: string) : resumed-step
   // capture a bound value
@@ -258,7 +259,7 @@ pub fun log-collector<v>(
 
   var state := make-logger-state(previous-log)
 
-  with return(v) (v, Computation-Log(computation-name, state.completed-steps.reverse))
+  with return(v) (v, Computation-Log(computation-name, opts, state.completed-steps.reverse))
 
   // try and close out all open steps with an error, then return the error
   with handler
@@ -274,7 +275,7 @@ pub fun log-collector<v>(
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
   // the computation
   with handler
-    val options = opts
+    val log-options = opts
     fun log-enter(name)
       val state-resumed-step = state/log-enter(state, name)
       match state-resumed-step
@@ -323,7 +324,7 @@ pub fun thingz(i: int)
   o
 
 pub fun collect-test-logs()
-  with log-collector(Nothing, "test", default/log-options)
+  with log-collector(Nothing, "test", default-log-options)
   val v = stuff(5)
   val w = thingz(v)
   w
@@ -333,7 +334,7 @@ pub fun logs-an-error()
   log-error({"boo!"})
 
 pub fun collect-logs-with-error()
-  with log-collector(Nothing, "test-with-error", default/log-options)
+  with log-collector(Nothing, "test-with-error", default-log-options)
   val v = stuff(5)
   logs-an-error()
   v
@@ -343,7 +344,7 @@ pub fun throws-an-exception()
   throw("oops")
 
 pub fun collect-logs-with-exception()
-  with log-collector(Nothing, "test-with-exception", default/log-options)
+  with log-collector(Nothing, "test-with-exception", default-log-options)
   val v = stuff(5)
   throws-an-exception()
   v

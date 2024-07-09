@@ -62,7 +62,7 @@ fun full/bindcore<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
  
-  val log-bind-runs = logger/options.bind-detail
+  val log-bind-runs = logger/log-options.bind-detail
 
   // call the thunk to get the value to be bound
   val a = if log-bind-runs then
@@ -90,7 +90,7 @@ fun resume-bind/bindcore<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
 
-  val log-bind-runs = logger/options.bind-detail
+  val log-bind-runs = logger/log-options.bind-detail
 
   match step-log
     Step-log(_,Just(bv-strsrc),_,_,_) ->
@@ -212,10 +212,9 @@ pub fun run-pure(st: pure-step<a>, log-options: logger/log-options): div (either
 pub fun rerun<a>(
     st: step<a,e>,
     log: logger/computation-log,
-    log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
   ): div (either<string,a>, logger/computation-log)
-  with logger/log-collector(Just(log), st.name, log-options)
+  with logger/log-collector(Just(log), st.name, log.options)
   with h 
   st.run'
 
@@ -234,22 +233,22 @@ pub fun make-test-dsl-simple-error(i: int)
   s("result") {2 * z}
 
 pub fun test-dsl-simple()
-  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed/log-options)
+  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
 
 pub fun test-dsl-simple-error()
-  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed/log-options)
+  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
 
 pub fun test-dsl-simple-rerun()
-  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed/log-options)
-  val (_, log2) = make-test-dsl-simple(100).rerun(log, logger/detailed/log-options, pure-handler)
+  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
+  val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
 pub fun test-dsl-simple-error-fix-rerun()
-  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed/log-options)
-  val (_, log2) = make-test-dsl-simple(100).rerun(log, logger/detailed/log-options, pure-handler)
+  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
+  val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
@@ -265,7 +264,7 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
   th()
 
 pub fun test-dsl-random-effect()
-  val (_, log) = make-test-dsl-random-effect(100).run(logger/default/log-options, handle-random)
+  val (_, log) = make-test-dsl-random-effect(100).run(logger/default-log-options, handle-random)
   logger/print-computation-log(log)
   
 
@@ -287,7 +286,7 @@ pub fun make-test-dsl-more-complex(i: int)
   ({aa.show ++ "/" ++ bb.show}).step("result")
 
 pub fun test-dsl-more-complex()
-  val (_, log) = make-test-dsl-more-complex(10).run(logger/default/log-options, handle-random)
+  val (_, log) = make-test-dsl-more-complex(10).run(logger/default-log-options, handle-random)
   logger/print-computation-log(log)
   // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
   // logger/print-computation-log(log2)
@@ -305,7 +304,7 @@ pub fun make-test-dsl-more-complex-compact(i: int)
   s("result") {aa.show ++ "/" ++ bb.show}
 
 pub fun test-dsl-more-complext-compact()
-  val (_, log) = make-test-dsl-more-complex-compact(10).run(logger/default/log-options, fn(th) -> pseudo-random(100, th))
+  val (_, log) = make-test-dsl-more-complex-compact(10).run(logger/default-log-options, fn(th) -> pseudo-random(100, th))
   logger/print-computation-log(log)
   // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
   // logger/print-computation-log(log2)
