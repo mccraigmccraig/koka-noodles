@@ -248,8 +248,6 @@ pub fun test-dsl06()
   logger/print-computation-log(log2)
 
 pub fun test-dsl07()
-  // TODO the resumes are different depending on whether logging is default or detailed
-  // default looks correct - detailed looks like it abandons the resume too early
   val (_, log) = make-test-dsl05(100).run-pure(logger/detailed/log-options)
   val (_, log2) = make-test-dsl0(100).rerun(log, logger/detailed/log-options, pure-handler)
   logger/print-computation-log(log)
