@@ -151,7 +151,7 @@ fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total eit
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
 // record the outcome
-fun state/log-enter(state: logger-state, step-name: string): console (logger-state, resumed-step)
+fun state/log-enter(state: logger-state, step-name: string): total (logger-state, resumed-step)
   // follow the resumed log, if it matches
   val state-resumed-step = match state.resume-cursor
     Just(lc) -> 
@@ -161,14 +161,12 @@ fun state/log-enter(state: logger-state, step-name: string): console (logger-sta
           match maybe-sl 
             // Just(Step-log(_, _, _, StepError, _)) -> (state(resume-cursor=Nothing), NoLog)
             Just(sl) ->
-              console/println("following resume-log: " ++ sl.name)
               // inc the next-idx counter on the current step-cursor, push a new step-cursor
               (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
                                                         Cons(Step-cursor(steps, next-idx + 1), 
                                                              rest))))), 
                Log(sl))
             _ -> 
-              console/println("fell off the resume-log")
               (state(resume-cursor=Nothing), NoLog)
         _ -> (state(resume-cursor=Nothing), NoLog)
     _ -> (state(resume-cursor=Nothing), NoLog)
@@ -254,7 +252,7 @@ pub fun log-collector<v>(
     computation-name: string, 
     opts: log-options,
     action: () -> <div,exn,logger> v
-  ) : <div,console> (either<string,v>, computation-log)
+  ) : div (either<string,v>, computation-log)
 
   var state := make-logger-state(previous-log)
 

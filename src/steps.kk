@@ -1,7 +1,6 @@
 module steps
 
 import parsers/serjson/serjson
-import std/core/console
 import std/core/exn
 import std/num/random
 import std/text/parse
@@ -197,7 +196,7 @@ pub fun run<a>(
     st: step<a,e>,
     log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
-  ): <div,console> (either<string,a>, logger/computation-log)
+  ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(Nothing, st.name, log-options)
   with h 
   st.run' 
@@ -206,7 +205,7 @@ pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
   th()
 
 // convenience function for running a pure step
-pub fun run-pure(st: pure-step<a>, log-options: logger/log-options): <div,console> (either<string,a>, logger/computation-log)
+pub fun run-pure(st: pure-step<a>, log-options: logger/log-options): div (either<string,a>, logger/computation-log)
   run(st, log-options, pure-handler)
 
 pub fun rerun<a>(
@@ -214,7 +213,7 @@ pub fun rerun<a>(
     log: logger/computation-log,
     log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
-  ): <div,console> (either<string,a>, logger/computation-log)
+  ): div (either<string,a>, logger/computation-log)
   with logger/log-collector(Just(log), st.name, log-options)
   with h 
   st.run'
