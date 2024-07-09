@@ -93,7 +93,7 @@ fun resume-bind/bindcore<a,b,e>(
   val log-bind-runs = logger/log-options.bind-detail
 
   match step-log
-    Step-log(_,Just(bv-strsrc),_,_,_) ->
+    Step-log(_,_,Just(bv-strsrc),_,_,_) ->
       match st.strde.de()(bv-strsrc())
         Right(aa) -> 
           // we have a bound value - no need to re-run the thunk, just the bind
@@ -122,7 +122,7 @@ fun resume-full/bindcore<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
   match step-log
-    Step-log(_,_,_,_,Right(r-strsrc)) ->
+    Step-log(_,_,_,_,_,Right(r-strsrc)) ->
       match b-strde.de()(r-strsrc())
         Right(rr) -> 
           // we are resuming a successful step, short-circuit straight to the result
@@ -131,7 +131,7 @@ fun resume-full/bindcore<a,b,e>(
         Left(_err) -> 
           // deser failed - perhaps the code no longer matches the data?
           resume-bind/bindcore(st,step-log,f,b-strde)
-    Step-log(_,Just(_bv-src),_,_,_) ->
+    Step-log(_,_,Just(_bv-src),_,_,_) ->
       resume-bind/bindcore(st,step-log,f,b-strde)
     _ -> full/bindcore(st,f,b-strde)
 
@@ -145,7 +145,7 @@ pub fun bind<a,b,e>(
     "bind--" ++ st.name,
     ?b/strde,
     fn () -> 
-      val rs = logger/log-enter(st.name)
+      val rs = logger/log-enter(st.name, BindStep)
       match rs
         Log(step-log) ->
           resume-full/bindcore(st, step-log, f, ?b/strde)
@@ -158,7 +158,7 @@ pub fun thunk/run''<a,e>(st: step<a, e>): <pure,logger|e> a
 
 pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
   match step-log
-    Step-log(_,_,_,_,Right(r-strsrc)) ->
+    Step-log(_,_,_,_,_,Right(r-strsrc)) ->
       match st.strde.de()(r-strsrc())
         Right(rr) -> 
           // we are resuming a successful step, short-circuit straight to the result
@@ -177,7 +177,7 @@ pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
 
 // run a step without dismissing any effects
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
-  val rs = logger/log-enter("run--" ++ st.name)
+  val rs = logger/log-enter(st.name, RunStep)
   match rs
     Log(step-log) ->
       resume/run''(st, step-log)

@@ -11,6 +11,10 @@ import std/core/vector
 //  log all values if there are errors" policy
 pub alias stringsrc = () -> total string
 
+pub type step-type
+  BindStep
+  RunStep
+
 pub type step-outcome
   Exec
   Resume
@@ -26,6 +30,7 @@ pub fun step-outcome/show(outcome: step-outcome)
 
 pub struct step-log
   name: string
+  step-type: step-type
   bound-value: maybe<stringsrc>
   children: list<step-log>
   outcome: step-outcome
@@ -52,7 +57,7 @@ pub val detailed-log-options = Log-options(bind-detail=True)
 pub effect logger
   val log-options: log-options
   // open a step-log
-  fun log-enter(name: string) : resumed-step
+  fun log-enter(name: string, step-type: step-type) : resumed-step
   // capture a bound value
   fun log-bound-value(value-ser: stringsrc) : ()
   // close a step log successfully
@@ -75,11 +80,15 @@ fun pad()
 pub fun step-log/show(log: step-log): <div,indent> string
   val p = pad()
 
-  val bound-value-output = match log.bound-value
-    Just(v) -> "\n" ++ p ++ "bound-value: " ++ v()
-    Nothing -> match log.outcome
-      StepError -> "\n" ++ p ++ "bound-value: Nothing"
-      _ -> ""
+  val step-type-output = match log.step-type
+    BindStep -> "bind-step: "
+    RunStep -> "run-step: "
+
+  val bound-value-output = match log.step-type 
+    BindStep -> match log.bound-value
+      Just(v) -> "\n" ++ p ++ "bound-value: " ++ v()
+      Nothing -> "bound-value: Nothing"
+    _ -> ""
 
   val children-output = apply-indent(indent + 1)
    log.children.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
@@ -88,7 +97,7 @@ pub fun step-log/show(log: step-log): <div,indent> string
     Left(err) -> "error: " ++ err()
     Right(v) -> "result: " ++ v()
 
-  p ++ "step: " ++ log.name ++
+  p ++ step-type-output ++ log.name ++
   bound-value-output ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
   "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
@@ -113,8 +122,9 @@ value struct log-cursor
   step-cursors: list<step-cursor>
 
 // accumulating a single step
-value struct open-step
+struct open-step
   name: string
+  step-type: step-type
   bound-value: maybe<stringsrc>
   children: list<step-log>
 
@@ -142,11 +152,11 @@ fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total eit
   match state.open-steps
     [] -> Left("error-open-steps: no open-step")
     Cons(first, Nil) -> 
-      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
+      val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser))
       val completed-steps' = Cons(step-log, state.completed-steps)
       Right(state(completed-steps=completed-steps', open-steps=[]))
     Cons(first, Cons(next, rest)) -> 
-      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
+      val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser))
       val next' = next(children = Cons(step-log, next.children))
       state/error-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), error-ser)
 
@@ -154,7 +164,7 @@ fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total eit
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
 // record the outcome
-fun state/log-enter(state: logger-state, step-name: string): total (logger-state, resumed-step)
+fun state/log-enter(state: logger-state, step-name: string, step-type: step-type): total (logger-state, resumed-step)
   // follow the resumed log, if it matches
   val state-resumed-step = match state.resume-cursor
     Just(lc) -> 
@@ -178,8 +188,8 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
   match state-resumed-step
     (state', resumed-step) -> 
       val open-steps' = match state.open-steps
-        [] -> [Open-Step(step-name, Nothing, [])]
-        rest -> Cons(Open-Step(step-name, Nothing, []), rest)
+        [] -> [Open-Step(step-name, step-type, Nothing, [])]
+        rest -> Cons(Open-Step(step-name, step-type, Nothing, []), rest)
       (state'(open-steps=open-steps'), resumed-step)
 
 // returns Left if there has been a programming error and there are no open steps
@@ -202,10 +212,10 @@ fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser :
 
   val error-completed-steps-open-steps = match state.open-steps
     Cons(first, Nil) -> 
-      Right((Cons(Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser)), state.completed-steps),
+      Right((Cons(Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, outcome, Right(result-ser)), state.completed-steps),
             []))
     Cons(first, Cons(next, rest)) -> 
-      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, outcome, Right(result-ser))
+      val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, outcome, Right(result-ser))
       val next' = next(children = Cons(step-log, next.children))
       val open-steps' = Cons(next', rest)
       Right((state.completed-steps, open-steps'))
@@ -224,7 +234,7 @@ fun state/log-skip(state: logger-state): total either<string,logger-state>
           val maybe-sl = at(steps, next-idx)
           match maybe-sl
             Just(sl) ->
-              val sl' = Step-Log(sl.name, sl.bound-value, sl.children, Resume, sl.result)
+              val sl' = Step-Log(sl.name, sl.step-type, sl.bound-value, sl.children, Resume, sl.result)
               match state.open-steps
                 Nil -> 
                   Right(state(resume-cursor=Just(Log-cursor(step-cursors=Cons(Step-cursor(steps, next-idx + 1), Nil))),
@@ -239,10 +249,10 @@ fun state/log-skip(state: logger-state): total either<string,logger-state>
 fun state/log-error(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
   match state.open-steps
     Cons(first, Nil) -> 
-      val completed-steps' = Cons(Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser)), state.completed-steps)
+      val completed-steps' = Cons(Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser)), state.completed-steps)
       Right(state(completed-steps=completed-steps'))
     Cons(first, Cons(next, rest)) ->
-      val step-log = Step-Log(first.name, first.bound-value, first.children.reverse, StepError, Left(error-ser))
+      val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser))
       val next' = next(children = Cons(step-log, next.children))
       Right(state(open-steps=Cons(next', rest)))
     [] -> Left("log-error: no open-step")
@@ -276,8 +286,8 @@ pub fun log-collector<v>(
   // the computation
   with handler
     val log-options = opts
-    fun log-enter(name)
-      val state-resumed-step = state/log-enter(state, name)
+    fun log-enter(name, step-type)
+      val state-resumed-step = state/log-enter(state, name, step-type)
       match state-resumed-step
         (state', resumed-step) -> 
           state := state'
@@ -309,14 +319,14 @@ pub fun log-collector<v>(
 // test/example
 
 pub fun stuff(i: int)
-  log-enter("stuff")
+  log-enter("stuff", RunStep)
   val o = i + i
   // log-error({o.show})
   log-complete(Exec, {o.show})
   o
 
 pub fun thingz(i: int)
-  log-enter("thingz")
+  log-enter("thingz", BindStep)
   log-bound-value({i.show})
   val o = i * i
   // throw("oops: " ++ o.show)
@@ -330,7 +340,7 @@ pub fun collect-test-logs()
   w
 
 pub fun logs-an-error()
-  log-enter("logs-an-error")
+  log-enter("logs-an-error", RunStep)
   log-error({"boo!"})
 
 pub fun collect-logs-with-error()
@@ -340,7 +350,7 @@ pub fun collect-logs-with-error()
   v
 
 pub fun throws-an-exception()
-  log-enter("throws-an-exception")
+  log-enter("throws-an-exception", RunStep)
   throw("oops")
 
 pub fun collect-logs-with-exception()
