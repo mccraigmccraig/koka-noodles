@@ -21,6 +21,7 @@ pub struct pure-core<a,b,c,d,e>
 
 // compose the input, pure, output computations from a pure-core
 pub fun compose(fc: pure-core<a,b,c,d,e>): total stepmfn<a,d,e>
+  // fc.input.compose-stepmfn(fc.core).compose-stepmfn(fc.output)
   fn (a)
     val sb = fc.input()(a)
     val b = sb.run'
