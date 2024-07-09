@@ -229,8 +229,7 @@ pub fun make-test-dsl-simple(i: int)
 pub fun make-test-dsl-simple-error(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {10}
-  with z <- sb("z") {throw("hoo") ; x + y}
-  throw("boo")
+  with z <- sb("z") {throw("boo") ; x + y}
   s("result") {2 * z}
 
 pub fun test-dsl-simple()
