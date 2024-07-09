@@ -220,41 +220,41 @@ pub fun rerun<a>(
 
 // some examples
 
-pub fun make-test-dsl0(i: int)
+pub fun make-test-dsl-simple(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {10}
   with z <- sb("z") {x + y}
   s("result") {2 * z}
 
-pub fun test-dsl0()
-  val (_, log) = make-test-dsl0(100).run-pure(logger/detailed/log-options)
-  logger/print-computation-log(log)
-
-pub fun make-test-dsl05(i: int)
+pub fun make-test-dsl-simple-error(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {10}
   with z <- sb("z") {throw("hoo") ; x + y}
   throw("boo")
   s("result") {2 * z}
 
-pub fun test-dsl05()
-  val (_, log) = make-test-dsl05(100).run-pure(logger/detailed/log-options)
+pub fun test-dsl-simple()
+  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed/log-options)
   logger/print-computation-log(log)
 
-pub fun test-dsl06()
-  val (_, log) = make-test-dsl0(100).run-pure(logger/detailed/log-options)
-  val (_, log2) = make-test-dsl0(100).rerun(log, logger/detailed/log-options, pure-handler)
+pub fun test-dsl-simple-error()
+  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed/log-options)
   logger/print-computation-log(log)
-  logger/print-computation-log(log2)
 
-pub fun test-dsl07()
-  val (_, log) = make-test-dsl05(100).run-pure(logger/detailed/log-options)
-  val (_, log2) = make-test-dsl0(100).rerun(log, logger/detailed/log-options, pure-handler)
+pub fun test-dsl-simple-rerun()
+  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed/log-options)
+  val (_, log2) = make-test-dsl-simple(100).rerun(log, logger/detailed/log-options, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
+pub fun test-dsl-simple-error-fix-rerun()
+  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed/log-options)
+  val (_, log2) = make-test-dsl-simple(100).rerun(log, logger/detailed/log-options, pure-handler)
+  logger/print-computation-log(log)
+  logger/print-computation-log(log2)
 
-pub fun make-test-dsl1(i: int)
+
+pub fun make-test-dsl-random-effect(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {random-int()}
   with z <- sb("z") {x + y}
@@ -264,8 +264,8 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
   with pseudo-random(100)
   th()
 
-pub fun test-dsl1()
-  val (_, log) = make-test-dsl1(100).run(logger/default/log-options, handle-random)
+pub fun test-dsl-random-effect()
+  val (_, log) = make-test-dsl-random-effect(100).run(logger/default/log-options, handle-random)
   logger/print-computation-log(log)
   
 
@@ -274,7 +274,7 @@ fun testdsl/stuff(i: int)
   with y <- s("rand"){random-int()}.bind
   ({x + y}).step("stuff")
 
-pub fun make-test-dsl2(i: int)
+pub fun make-test-dsl-more-complex(i: int)
   with x: int <- ({i}).step("x").bind
   with y <- ({ if i>5 then [10,11] else [] }).step("y").bind
   val aa' = match y
@@ -286,13 +286,13 @@ pub fun make-test-dsl2(i: int)
   with bb: int <- testdsl/stuff(i).bind
   ({aa.show ++ "/" ++ bb.show}).step("result")
 
-pub fun test-dsl2()
-  val (_, log) = make-test-dsl2(10).run(logger/default/log-options, handle-random)
+pub fun test-dsl-more-complex()
+  val (_, log) = make-test-dsl-more-complex(10).run(logger/default/log-options, handle-random)
   logger/print-computation-log(log)
-  // val (_, log2) = make-test-dsl2(0).run-nofx
+  // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
   // logger/print-computation-log(log2)
 
-pub fun make-test-dsl3(i: int)
+pub fun make-test-dsl-more-complex-compact(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") { if i>5 then [10,11] else [] }
   val aa' = match y
@@ -304,10 +304,10 @@ pub fun make-test-dsl3(i: int)
   with bb: int <- testdsl/stuff(i).bind
   s("result") {aa.show ++ "/" ++ bb.show}
 
-pub fun test-dsl3()
-  val (_, log) = make-test-dsl3(10).run(logger/default/log-options, fn(th) -> pseudo-random(100, th))
+pub fun test-dsl-more-complext-compact()
+  val (_, log) = make-test-dsl-more-complex-compact(10).run(logger/default/log-options, fn(th) -> pseudo-random(100, th))
   logger/print-computation-log(log)
-  // val (_, log2) = make-test-dsl2(0).run-nofx
+  // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
   // logger/print-computation-log(log2)
 
 
