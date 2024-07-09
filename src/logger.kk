@@ -81,13 +81,13 @@ pub fun step-log/show(log: step-log): <div,indent> string
   val p = pad()
 
   val step-type-output = match log.step-type
-    BindStep -> "bind-step: "
-    RunStep -> "run-step: "
+    BindStep -> "bind: "
+    RunStep -> "run: "
 
   val bound-value-output = match log.step-type 
     BindStep -> match log.bound-value
       Just(v) -> "\n" ++ p ++ "bound-value: " ++ v()
-      Nothing -> "bound-value: Nothing"
+      Nothing -> "\n" ++ p ++ "bound-value: Nothing"
     _ -> ""
 
   val children-output = apply-indent(indent + 1)
