@@ -77,7 +77,7 @@ fun full/bindcore<a,b,e>(
   else
     f(a).run''
 
-  logger/log-complete(logger/Run, {b-strde.str()(r)})
+  logger/log-complete(logger/Exec, {b-strde.str()(r)})
   r
 
 // partial resume logic - we have a bound value logged, so no
@@ -167,11 +167,11 @@ pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
         Left(_err) -> 
           // deser failed - perhaps the code no longer matches the data?
           val r = st.thunk/run''
-          logger/log-complete(logger/Run, {st.strde.str()(r)})
+          logger/log-complete(logger/Exec, {st.strde.str()(r)})
           r
     _ -> 
       val r = st.thunk/run''
-      logger/log-complete(logger/Run, {st.strde.str()(r)})
+      logger/log-complete(logger/Exec, {st.strde.str()(r)})
       r
 
 
@@ -183,7 +183,7 @@ pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
       resume/run''(st, step-log)
     _ -> 
       val r = st.thunk/run''
-      logger/log-complete(logger/Run, {st.strde.str()(r)})
+      logger/log-complete(logger/Exec, {st.strde.str()(r)})
       r
 
 // run a pure-step 

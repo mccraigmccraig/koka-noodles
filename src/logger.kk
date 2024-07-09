@@ -12,14 +12,14 @@ import std/core/vector
 pub alias stringsrc = () -> total string
 
 pub type step-outcome
-  Run
+  Exec
   Resume
   ResumeBind
   StepError
 
 pub fun step-outcome/show(outcome: step-outcome)
   match outcome
-    Run -> "run"
+    Exec -> "exec"
     Resume -> "resume"
     ResumeBind -> "resume-bind"
     StepError -> "error"
@@ -312,7 +312,7 @@ pub fun stuff(i: int)
   log-enter("stuff")
   val o = i + i
   // log-error({o.show})
-  log-complete(Run, {o.show})
+  log-complete(Exec, {o.show})
   o
 
 pub fun thingz(i: int)
@@ -320,7 +320,7 @@ pub fun thingz(i: int)
   log-bound-value({i.show})
   val o = i * i
   // throw("oops: " ++ o.show)
-  log-complete(Run, {o.show})
+  log-complete(Exec, {o.show})
   o
 
 pub fun collect-test-logs()
