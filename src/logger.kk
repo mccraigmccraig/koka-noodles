@@ -13,26 +13,30 @@ import std/text/parse
 //  log all values if there are errors" policy
 pub alias stringsrc = () -> total string
 
-fun stringsrc/pfn(v: serjson/value): parse stringsrc
+pub fun stringsrc/show(a: stringsrc): string
+  a()
+pub fun stringsrc/pfn(v: serjson/value): parse stringsrc
   match v
     String(s) -> fn () -> s
     _ -> fail("invalid json: stringsrc/pfn")
-fun stringsrc/vfn(s: stringsrc): total serjson/value
+pub fun stringsrc/vfn(s: stringsrc): total serjson/value
   String(s())
 
 pub type step-type
   BindStep
   RunStep
 
-fun step-type/pfn(v: serjson/value): parse step-type
+pub fun step-type/show(a: step-type): string  
+  match a 
+    BindStep -> "BindStep"
+    RunStep -> "RunStep"
+pub fun step-type/pfn(v: serjson/value): parse step-type
   match v
     String("BindStep") -> BindStep
     String("RunStep") -> RunStep
     _ -> fail("invalid json: step-type/pfn")
-fun step-type/vfn(st: step-type): total serjson/value
-  match st
-    BindStep -> String("BindStep")
-    RunStep -> String("RunStep")
+pub fun step-type/vfn(st: step-type): total serjson/value
+  String(st.show)
 
 pub type step-outcome
   Exec
@@ -40,26 +44,21 @@ pub type step-outcome
   ResumeBind
   StepError
 
-fun step-outcome/pfn(v: serjson/value): parse step-outcome
+pub fun step-outcome/show(outcome: step-outcome) 
+  match outcome
+    Exec -> "Exec"
+    Resume -> "Resume"
+    ResumeBind -> "ResumeBind"
+    StepError -> "StepError"
+pub fun step-outcome/pfn(v: serjson/value): parse step-outcome
   match v
     String("Exec") -> Exec
     String("Resume") -> Resume
     String("ResumeBind") -> ResumeBind
     String("StepError") -> StepError
     _ -> fail("invalid json: step-outcome/pfn")
-fun step-outcome/vfn(so: step-outcome): total serjson/value
-  match so
-    Exec -> String("Exec")
-    Resume -> String("Resume")
-    ResumeBind -> String("ResumeBind")
-    StepError -> String("StepError")
-
-pub fun step-outcome/show(outcome: step-outcome)
-  match outcome
-    Exec -> "exec"
-    Resume -> "resume"
-    ResumeBind -> "resume-bind"
-    StepError -> "error"
+pub fun step-outcome/vfn(so: step-outcome): total serjson/value
+  String(so.show)
 
 pub struct step-log
   name: string
@@ -69,6 +68,9 @@ pub struct step-log
   outcome: step-outcome
   result: either<stringsrc,stringsrc>
 
+pub fun step-log/show(a: step-log): string
+  serjson/json(a, ?vfn=logger/step-log/vfn)
+  
 fun step-log/pfn'(v: serjson/value): <div,parse> step-log
   match v
     Object([Object-entry("name", String(name)), 
@@ -84,7 +86,7 @@ fun step-log/pfn'(v: serjson/value): <div,parse> step-log
         val either-result = either/make-pfn(stringsrc/pfn,stringsrc/pfn)(either-result-value)
         Step-log(name, step-type, maybe-bound-value, list-children, outcome, either-result)
     _ -> fail("invalid json: step-log/pfn")
-fun step-log/pfn(v: serjson/value): parse step-log
+pub fun step-log/pfn(v: serjson/value): parse step-log
   with pretend-no-div
   step-log/pfn'(v)
 
@@ -95,18 +97,20 @@ fun step-log/vfn'(sl: step-log): div serjson/value
           Object-entry("children", list/make-vfn(step-log/vfn')(sl.children)), 
           Object-entry("outcome", step-outcome/vfn(sl.outcome)), 
           Object-entry("result", either/make-vfn(stringsrc/vfn,stringsrc/vfn)(sl.result))])
-fun step-log/vfn(sl: step-log): total serjson/value
+pub fun step-log/vfn(sl: step-log): total serjson/value
   with pretend-no-div
   step-log/vfn'(sl)
   
 pub struct log-options
   bind-detail: bool
 
-fun log-options/pfn(v: serjson/value): parse log-options
+pub fun log-options/show(a: log-options): string
+  serjson/json(a, ?vfn=log-options/vfn)
+pub fun log-options/pfn(v: serjson/value): parse log-options
   match v
     Object([Object-entry("bind-detail", Bool(bind-detail))]) -> Log-options(bind-detail)
     _ -> fail("invalid json: log-options/pfn")
-fun log-options/vfn(lo: log-options): total serjson/value
+pub fun log-options/vfn(lo: log-options): total serjson/value
   Object([Object-entry("bind-detail", Bool(lo.bind-detail))])
 
 pub value struct computation-log
@@ -114,7 +118,9 @@ pub value struct computation-log
   options: log-options
   step-logs: list<step-log>
 
-fun computation-log/pfn(v: serjson/value): parse computation-log
+pub fun computation-log/show(a: computation-log): string
+  serjson/json(a, ?vfn=computation-log/vfn)
+pub fun computation-log/pfn(v: serjson/value): parse computation-log
   match v
     Object([Object-entry("name", String(name)), 
             Object-entry("options", log-options-value), 
@@ -123,7 +129,7 @@ fun computation-log/pfn(v: serjson/value): parse computation-log
         val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
         Computation-log(name, log-options, list-step-logs)
     _ -> fail("invalid json: computation-log/pfn")
-fun computation-log/vfn(cl: computation-log): total serjson/value
+pub fun computation-log/vfn(cl: computation-log): total serjson/value
   Object([Object-entry("name", String(cl.name)), 
           Object-entry("options", log-options/vfn(cl.options)), 
           Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs))])
@@ -161,7 +167,7 @@ fun pad()
     0 -> ""
     _ -> " " ++ repeat(" |", (indent - 1)) ++ " "
   
-pub fun step-log/show(log: step-log): <div,indent> string
+pub fun step-log/pp(log: step-log): <div,indent> string
   val p = pad()
 
   val step-type-output = match log.step-type
@@ -175,7 +181,7 @@ pub fun step-log/show(log: step-log): <div,indent> string
     _ -> ""
 
   val children-output = apply-indent(indent + 1)
-   log.children.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
+   log.children.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
   val step-output = match log.result
     Left(err) -> "error: " ++ err()
@@ -187,16 +193,16 @@ pub fun step-log/show(log: step-log): <div,indent> string
   "\n" ++ p ++ "outcome: " ++ log.outcome.show ++
   "\n" ++ p ++ step-output
 
-pub fun computation-log/show(log: computation-log)
+pub fun computation-log/pp(log: computation-log)
   with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
-  log.step-logs.map(step-log/show).joinsep/join("\n" ++ pad() ++ "--\n")
+  log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
 pub fun print-computation-log(log: computation-log)
-  println(log.show)
+  println(log.pp)
 
 pub fun computation-log/json(log: computation-log): total string
-  serjson/json(log)
+  serjson/json(log, ?vfn=computation-log/vfn)
 
 pub fun computation-log/dejson(s: string): total either<string,computation-log>
   serjson/dejson(s)

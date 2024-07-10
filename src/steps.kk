@@ -235,7 +235,12 @@ pub fun make-test-dsl-simple(i: int)
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
-  logger/computation-log/json(log)
+  val logjson = computation-log/json(log)
+  logjson
+  // val either_log3 = logger/computation-log/dejson(logjson)
+  // match either_log3
+  //   Right(_log3) -> log.show
+  //   Left(err) -> err
 
 pub fun make-test-dsl-simple-error(i: int)
   with x: int <- sb("x") {i}
