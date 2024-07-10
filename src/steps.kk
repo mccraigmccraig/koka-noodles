@@ -230,7 +230,7 @@ pub fun make-test-dsl-simple(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {10}
   with z <- sb("z") {x + y}
-  s("result") {2 * z}
+  s("result") {(2 * z).show}
 
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
@@ -241,13 +241,14 @@ pub fun make-test-dsl-simple-error(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {10}
   with z <- sb("z") {throw("boo") ; x + y}
-  s("result") {2 * z}
+  s("result") {(2 * z).show}
 
 pub fun test-dsl-simple-error-fix-rerun()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
   val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
+  logger/computation-log/json(log2)
 
 pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
