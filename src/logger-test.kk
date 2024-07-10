@@ -27,8 +27,21 @@ pub fun test-step-log-json()
   val either-sl' = serjson/dejson(slj, ?pfn=logger/step-log/pfn)
   either-sl'.show
 
+pub fun test-nested-step-log-json()
+  val slc = Step-log("baz", RunStep, Nothing, [], Exec, Right(fn () -> "qux"))
+  val sl = Step-log("fooobar", BindStep, Just(fn () -> "foo"), [slc], Exec, Right(fn () -> "bar"))
+  val slj = serjson/json(sl)
+  val either-sl' = serjson/dejson(slj, ?pfn=logger/step-log/pfn)
+  with apply-indent(0)
+  match either-sl'
+    Right(sl') -> sl'.pp
+
 pub fun test-computation-log-json()
-  val cl = Computation-log("fooobar", Log-options(False), [])
+  val slc = Step-log("baz", RunStep, Nothing, [], Exec, Right(fn () -> "qux"))
+  val sl = Step-log("fooobar", BindStep, Just(fn () -> "foo"), [slc], Exec, Right(fn () -> "bar"))
+  val cl = Computation-log("fooobar", Log-options(False), [sl])
   val clj = serjson/json(cl)
   val either-cl' = serjson/dejson(clj, ?pfn=logger/computation-log/pfn)
-  either-cl'.show
+  with apply-indent(0)
+  match either-cl'
+    Right(cl') -> cl'.pp

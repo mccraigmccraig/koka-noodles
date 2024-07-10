@@ -158,7 +158,7 @@ pub effect logger
   ctl log-error(error-ser: stringsrc) : ()
 
 effect val indent: int
-fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
+pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
   with val indent = n
   action()
 
