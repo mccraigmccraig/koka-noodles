@@ -226,6 +226,20 @@ pub fun rerun<a>(
 
 // some examples
 
+pub fun make-test-dsl-trivial(i: int)
+  with x: int <- sb("x") {i}
+  s("result") {x.show}
+
+pub fun test-dsl-trivial()
+  val (_, log) = make-test-dsl-trivial(100).run-pure(logger/default-log-options)
+  logger/print-computation-log(log)
+  val logjson = computation-log/json(log)
+  println(logjson)
+  val either-log' = computation-log/dejson(logjson)
+  match either-log'
+    Right(log') -> log'.pp
+    Left(err) -> err.show
+
 pub fun make-test-dsl-simple(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {10}
@@ -236,11 +250,11 @@ pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
   val logjson = computation-log/json(log)
-  logjson
-  // val either_log3 = logger/computation-log/dejson(logjson)
+  val either_log3 = computation-log/dejson(logjson)
   // match either_log3
   //   Right(_log3) -> log.show
   //   Left(err) -> err
+  logjson
 
 pub fun make-test-dsl-simple-error(i: int)
   with x: int <- sb("x") {i}
