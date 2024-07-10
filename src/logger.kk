@@ -1,9 +1,11 @@
 module logger
 
+import parsers/serjson/serjson
 import std/core/exn
 import std/core/string 
 import std/core/undiv
 import std/core/vector
+import std/text/parse
 
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an
@@ -11,15 +13,46 @@ import std/core/vector
 //  log all values if there are errors" policy
 pub alias stringsrc = () -> total string
 
+fun stringsrc/pfn(v: serjson/value): parse stringsrc
+  match v
+    String(s) -> fn () -> s
+    _ -> fail("invalid json: stringsrc/pfn")
+fun stringsrc/vfn(s: stringsrc): total serjson/value
+  String(s())
+
 pub type step-type
   BindStep
   RunStep
+
+fun step-type/pfn(v: serjson/value): parse step-type
+  match v
+    String("BindStep") -> BindStep
+    String("RunStep") -> RunStep
+    _ -> fail("invalid json: step-type/pfn")
+fun step-type/vfn(st: step-type): total serjson/value
+  match st
+    BindStep -> String("BindStep")
+    RunStep -> String("RunStep")
 
 pub type step-outcome
   Exec
   Resume
   ResumeBind
   StepError
+
+fun step-outcome/pfn(v: serjson/value): parse step-outcome
+  match v
+    String("Exec") -> Exec
+    String("Resume") -> Resume
+    String("ResumeBind") -> ResumeBind
+    String("StepError") -> StepError
+    _ -> fail("invalid json: step-outcome/pfn")
+fun step-outcome/vfn(so: step-outcome): total serjson/value
+  match so
+    Exec -> String("Exec")
+    Resume -> String("Resume")
+    ResumeBind -> String("ResumeBind")
+    StepError -> String("StepError")
 
 pub fun step-outcome/show(outcome: step-outcome)
   match outcome
@@ -36,13 +69,64 @@ pub struct step-log
   outcome: step-outcome
   result: either<stringsrc,stringsrc>
 
+fun step-log/pfn'(v: serjson/value): <div,parse> step-log
+  match v
+    Object([Object-entry("name", String(name)), 
+            Object-entry("step-type", step-type-value), 
+            Object-entry("bound-value", maybe-bound-value-value), 
+            Object-entry("children", list-children-value), 
+            Object-entry("outcome", outcome-object), 
+            Object-entry("result", either-result-value)]) -> 
+        val step-type = step-type/pfn(step-type-value)
+        val maybe-bound-value = maybe/make-pfn(stringsrc/pfn)(maybe-bound-value-value)
+        val list-children = list/make-pfn(step-log/pfn')(list-children-value)
+        val outcome = step-outcome/pfn(outcome-object)
+        val either-result = either/make-pfn(stringsrc/pfn,stringsrc/pfn)(either-result-value)
+        Step-log(name, step-type, maybe-bound-value, list-children, outcome, either-result)
+    _ -> fail("invalid json: step-log/pfn")
+fun step-log/pfn(v: serjson/value): parse step-log
+  with pretend-no-div
+  step-log/pfn'(v)
+
+fun step-log/vfn'(sl: step-log): div serjson/value
+  Object([Object-entry("name", String(sl.name)), 
+          Object-entry("step-type", step-type/vfn(sl.step-type)), 
+          Object-entry("bound-value", maybe/make-vfn(stringsrc/vfn)(sl.bound-value)), 
+          Object-entry("children", list/make-vfn(step-log/vfn')(sl.children)), 
+          Object-entry("outcome", step-outcome/vfn(sl.outcome)), 
+          Object-entry("result", either/make-vfn(stringsrc/vfn,stringsrc/vfn)(sl.result))])
+fun step-log/vfn(sl: step-log): total serjson/value
+  with pretend-no-div
+  step-log/vfn'(sl)
+  
 pub struct log-options
   bind-detail: bool
+
+fun log-options/pfn(v: serjson/value): parse log-options
+  match v
+    Object([Object-entry("bind-detail", Bool(bind-detail))]) -> Log-options(bind-detail)
+    _ -> fail("invalid json: log-options/pfn")
+fun log-options/vfn(lo: log-options): total serjson/value
+  Object([Object-entry("bind-detail", Bool(lo.bind-detail))])
 
 pub value struct computation-log
   name: string
   options: log-options
   step-logs: list<step-log>
+
+fun computation-log/pfn(v: serjson/value): parse computation-log
+  match v
+    Object([Object-entry("name", String(name)), 
+            Object-entry("options", log-options-value), 
+            Object-entry("step-logs", list-step-logs-value)]) -> 
+        val log-options = log-options/pfn(log-options-value)
+        val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
+        Computation-log(name, log-options, list-step-logs)
+    _ -> fail("invalid json: computation-log/pfn")
+fun computation-log/vfn(cl: computation-log): total serjson/value
+  Object([Object-entry("name", String(cl.name)), 
+          Object-entry("options", log-options/vfn(cl.options)), 
+          Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs))])
 
 // When resuming a computation, an existing step-log will be
 // given back as the result of log-enter
@@ -110,6 +194,9 @@ pub fun computation-log/show(log: computation-log)
 
 pub fun print-computation-log(log: computation-log)
   println(log.show)
+
+pub fun computation-log/json(log: computation-log): total string
+  serjson/json(log)
 
 value struct step-cursor
   steps: vector<step-log>
