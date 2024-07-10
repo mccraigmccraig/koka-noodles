@@ -198,6 +198,9 @@ pub fun print-computation-log(log: computation-log)
 pub fun computation-log/json(log: computation-log): total string
   serjson/json(log)
 
+pub fun computation-log/dejson(s: string): total either<string,computation-log>
+  serjson/dejson(s)
+
 value struct step-cursor
   steps: vector<step-log>
   next-idx: int
