@@ -396,7 +396,7 @@ pub fun log-collector<v>(
       _ -> 0 - state.pause-ignores
     (v, Computation-Log(computation-name, opts, pauses, state.completed-steps.reverse))
 
-  // try and close out all open steps with an error, then return the error
+  // close out all open steps with an error, then return
   with handler
     final ctl throw-exn(ex)
       match ex
