@@ -38,7 +38,7 @@ pub fun wrap<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<
 // merging the wrap + bind into a single function
 // giving a much more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
-pub fun step<a,b,e>(
+pub fun wbind<a,b,e>(
     name: string, 
     thunk: step-thunk<a,e>, 
     f: stepmfn<a,b,e>, 
@@ -228,7 +228,7 @@ pub fun resume-pure<a>(
 // some examples
 
 pub fun make-test-dsl-trivial(i: int)
-  with x: int <- step("x") {i}
+  with x: int <- wbind("x") {i}
   wrap("result") {x.show}
 
 pub fun test-dsl-trivial()
@@ -241,15 +241,15 @@ pub fun test-dsl-trivial()
     Left(err) -> err.show
 
 pub fun make-test-dsl-simple(i: int)
-  with x: int <- step("x") {i}
-  with y <- step("y") {10}
-  with z <- step("z") {x + y}
+  with x: int <- wbind("x") {i}
+  with y <- wbind("y") {10}
+  with z <- wbind("z") {x + y}
   wrap("result") {(2 * z).show}
 
 pub fun make-test-dsl-simple-error(i: int)
-  with x: int <- step("x") {i}
-  with y <- step("y") {10}
-  with z <- step("z") {throw("boo") ; x + y}
+  with x: int <- wbind("x") {i}
+  with y <- wbind("y") {10}
+  with z <- wbind("z") {throw("boo") ; x + y}
   wrap("result") {(2 * z).show}
 
 pub fun test-dsl-simple()
@@ -281,10 +281,10 @@ pub fun test-dsl-simple-error-fix-rerun()
     Left(err) -> err.show.println
 
 pub fun make-test-dsl-simple-pause(i: int)
-  with x: int <- step("x") {i}
+  with x: int <- wbind("x") {i}
   pause()
-  with y <- step("y") {10}
-  with z <- step("z") {pause() ; x + y}
+  with y <- wbind("y") {10}
+  with z <- wbind("z") {pause() ; x + y}
   wrap("result") {(2 * z).show}
 
 // resuming a normal computation after it was paused
@@ -321,9 +321,9 @@ pub fun test-dsl-simple-resume()
   logger/print-computation-log(log2)
 
 pub fun make-test-dsl-random-effect(i: int)
-  with x: int <- step("x") {i}
-  with y <- step("y") {random-int()}
-  with z <- step("z") {x + y}
+  with x: int <- wbind("x") {i}
+  with y <- wbind("y") {random-int()}
+  with z <- wbind("z") {x + y}
   wrap("result") {2 * z}
 
 fun handle-random<a>(th: thunk<a,<random|e>>): e a
@@ -341,11 +341,11 @@ fun testdsl/stuff(i: int)
   wrap("stuff") {x + y}
 
 pub fun make-test-dsl-more-complex-compact(i: int)
-  with x: int <- step("x") {i}
-  with y <- step("y") { if i>5 then [10,11] else [] }
+  with x: int <- wbind("x") {i}
+  with y <- wbind("y") { if i>5 then [10,11] else [] }
   val aa' = match y
     [a, b] -> 
-      with z: int <- step("z") {x + a + b}
+      with z: int <- wbind("z") {x + a + b}
       wrap("aa'-pair") {z + 10}
     _ -> wrap("aa'-default") {0}
   with aa: int <- aa'.bind
