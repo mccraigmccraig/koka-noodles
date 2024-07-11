@@ -120,6 +120,7 @@ pub fun log-options/vfn(lo: log-options): total serjson/value
 pub value struct computation-log
   name: string
   options: log-options
+  pauses: int
   step-logs: list<step-log>
 
 pub fun computation-log/show(a: computation-log): string
@@ -128,14 +129,16 @@ pub fun computation-log/pfn(v: serjson/value): parse computation-log
   match v
     Object([Object-entry("name", String(name)), 
             Object-entry("options", log-options-value), 
+            Object-entry("pauses", Int(pauses)),
             Object-entry("step-logs", list-step-logs-value)]) -> 
         val log-options = log-options/pfn(log-options-value)
         val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
-        Computation-log(name, log-options, list-step-logs)
+        Computation-log(name, log-options, pauses, list-step-logs)
     _ -> fail("invalid json: computation-log/pfn")
 pub fun computation-log/vfn(cl: computation-log): total serjson/value
   Object([Object-entry("name", String(cl.name)), 
           Object-entry("options", log-options/vfn(cl.options)), 
+          Object-entry("pauses", Int(cl.pauses)),
           Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs))])
 
 // When resuming a computation, an existing step-log will be
@@ -161,7 +164,7 @@ pub effect logger
   // close a step log with an error and immediately terminate
   ctl log-error(error-ser: stringsrc) : ()
   // pause a computation, returning a log which can be used to resume later
-  ctl pause() : ()
+  ctl log-pause() : ()
 
 effect val indent: int
 pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
@@ -233,6 +236,7 @@ struct open-step
 // all the logger state
 struct logger-state
   resume-cursor: maybe<log-cursor>
+  pause-ignores: int
   completed-steps: list<step-log>
   open-steps: list<open-step>
 
@@ -244,8 +248,8 @@ fun make-log-cursor(log: computation-log): log-cursor
 
 fun make-logger-state(previous-log: maybe<computation-log>)
   match previous-log
-    Just(pl) -> Logger-state(Just(make-log-cursor(pl)), [], [])
-    _ -> Logger-state(Nothing, [], [])
+    Just(pl) -> Logger-state(Just(make-log-cursor(pl)), pl.pauses, [], [])
+    _ -> Logger-state(Nothing, 0, [], [])
 
 // propagate an error through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree
@@ -359,6 +363,9 @@ fun state/log-error(state: logger-state, error-ser: stringsrc): total either<str
       Right(state(open-steps=Cons(next', rest)))
     [] -> Left("log-error: no open-step")
 
+fun state/log-pause(state: logger-state): total logger-state
+  state(pause-ignores=state.pause-ignores - 1)
+
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect, so the 
 // return is div
@@ -371,7 +378,11 @@ pub fun log-collector<v>(
 
   var state := make-logger-state(previous-log)
 
-  with return(v) (v, Computation-Log(computation-name, opts, state.completed-steps.reverse))
+  with return(v) 
+    val pauses = match previous-log
+      Just(pl) -> pl.pauses - state.pause-ignores
+      _ -> 0 - state.pause-ignores
+    (v, Computation-Log(computation-name, opts, pauses, state.completed-steps.reverse))
 
   // try and close out all open steps with an error, then return the error
   with handler
@@ -409,13 +420,12 @@ pub fun log-collector<v>(
         Left(err) -> throw(err)
         Right(state') -> state := state'
       throw(error-ser())
-    ctl pause()
-      // TODO need a pauses counter - so that on subsequent resumes, 
-      // the same pause call won't actually pause again - and the pause 
-      // counter must be serialised with the log state, so it gets passed
-      // along
-      throw("Paused", ExnPauseComputation)
-      
+    ctl log-pause()
+      state := state/log-pause(state)
+      if state.pause-ignores >= 0 then
+        resume(())
+      else
+        throw("Paused", ExnPauseComputation)
 
   Right(action())
 
