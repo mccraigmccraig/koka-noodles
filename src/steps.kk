@@ -286,7 +286,7 @@ pub fun test-dsl-simple-error-fix-rerun()
 pub fun make-test-dsl-simple-pause(i: int)
   with x: int <- sb("x") {i}
   with y <- sb("y") {10}
-  with z <- sb("z") {log-pause() ; x + y}
+  with z <- sb("z") {pause() ; x + y}
   s("result") {(2 * z).show}
 
 // resuming a normal computation after it was paused

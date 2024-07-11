@@ -164,7 +164,7 @@ pub effect logger
   // close a step log with an error and immediately terminate
   ctl log-error(error-ser: stringsrc) : ()
   // pause a computation, returning a log which can be used to resume later
-  ctl log-pause() : ()
+  ctl pause() : ()
 
 effect val indent: int
 pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
@@ -363,7 +363,7 @@ fun state/log-error(state: logger-state, error-ser: stringsrc): total either<str
       Right(state(open-steps=Cons(next', rest)))
     [] -> Left("log-error: no open-step")
 
-fun state/log-pause(state: logger-state): total logger-state
+fun state/pause(state: logger-state): total logger-state
   state(pause-ignores=state.pause-ignores - 1)
 
 // collect and return a computation-log from a computation
@@ -420,8 +420,8 @@ pub fun log-collector<v>(
         Left(err) -> throw(err)
         Right(state') -> state := state'
       throw(error-ser())
-    ctl log-pause()
-      state := state/log-pause(state)
+    ctl pause()
+      state := state/pause(state)
       if state.pause-ignores >= 0 then
         resume(())
       else
