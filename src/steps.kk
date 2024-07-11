@@ -293,12 +293,13 @@ pub fun make-test-dsl-simple-pause(i: int)
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
   val computation = make-test-dsl-simple-pause(100)
-  val (_, paused-log) = computation.run-pure(logger/detailed-log-options)
+  val (paused-v, paused-log) = computation.run-pure(logger/detailed-log-options)
   val paused-logj = paused-log.json
 
   // serialize the paused computation
   paused-log.print-computation-log
-
+  paused-v.show.println 
+  
   // deserialize the paused computation and carry on
   match paused-logj.dejson
     Right(paused-log') -> 

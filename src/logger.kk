@@ -52,7 +52,7 @@ pub fun computation-outcome/show<l,r>(outcome: computation-outcome<l,r>, ?l/show
   match outcome
     ComputationError(l) -> "ComputationError: " ++ l.show
     ComputationPaused -> "ComputationPaused"
-    ComputationOk(r) -> "Ok: " ++ r.show
+    ComputationOk(r) -> "ComputationOk: " ++ r.show
 
 pub type step-outcome
   Exec
