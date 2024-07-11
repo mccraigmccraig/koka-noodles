@@ -32,13 +32,13 @@ pub alias pure-stepmfn<a,b> = stepmfn<a,b,<>>
 
 // allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
-pub fun wrap<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<a,e>
+pub fun step<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
-// merging the wrap + bind into a single function
+// merging the step + bind into a single function
 // giving a much more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
-pub fun wbind<a,b,e>(
+pub fun sbind<a,b,e>(
     name: string, 
     thunk: step-thunk<a,e>, 
     f: stepmfn<a,b,e>, 
@@ -228,8 +228,8 @@ pub fun resume-pure<a>(
 // some examples
 
 pub fun make-test-dsl-trivial(i: int)
-  with x: int <- wbind("x") {i}
-  wrap("result") {x.show}
+  with x: int <- sbind("x") {i}
+  step("result") {x.show}
 
 pub fun test-dsl-trivial()
   val (_, log) = make-test-dsl-trivial(100).run-pure(logger/default-log-options)
@@ -241,16 +241,16 @@ pub fun test-dsl-trivial()
     Left(err) -> err.show
 
 pub fun make-test-dsl-simple(i: int)
-  with x: int <- wbind("x") {i}
-  with y <- wbind("y") {10}
-  with z <- wbind("z") {x + y}
-  wrap("result") {(2 * z).show}
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {x + y}
+  step("result") {(2 * z).show}
 
 pub fun make-test-dsl-simple-error(i: int)
-  with x: int <- wbind("x") {i}
-  with y <- wbind("y") {10}
-  with z <- wbind("z") {throw("boo") ; x + y}
-  wrap("result") {(2 * z).show}
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {throw("boo") ; x + y}
+  step("result") {(2 * z).show}
 
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
@@ -281,11 +281,11 @@ pub fun test-dsl-simple-error-fix-rerun()
     Left(err) -> err.show.println
 
 pub fun make-test-dsl-simple-pause(i: int)
-  with x: int <- wbind("x") {i}
+  with x: int <- sbind("x") {i}
   pause()
-  with y <- wbind("y") {10}
-  with z <- wbind("z") {pause() ; x + y}
-  wrap("result") {(2 * z).show}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {pause() ; x + y}
+  step("result") {(2 * z).show}
 
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
@@ -321,10 +321,10 @@ pub fun test-dsl-simple-resume()
   logger/print-computation-log(log2)
 
 pub fun make-test-dsl-random-effect(i: int)
-  with x: int <- wbind("x") {i}
-  with y <- wbind("y") {random-int()}
-  with z <- wbind("z") {x + y}
-  wrap("result") {2 * z}
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") {random-int()}
+  with z <- sbind("z") {x + y}
+  step("result") {2 * z}
 
 fun handle-random<a>(th: thunk<a,<random|e>>): e a
   with pseudo-random(100)
@@ -336,21 +336,21 @@ pub fun test-dsl-random-effect()
   
 
 fun testdsl/stuff(i: int)
-  with x: int <- wrap("i"){i}.bind
-  with y <- wrap("rand"){random-int()}.bind
-  wrap("stuff") {x + y}
+  with x: int <- step("i"){i}.bind
+  with y <- step("rand"){random-int()}.bind
+  step("stuff") {x + y}
 
 pub fun make-test-dsl-more-complex-compact(i: int)
-  with x: int <- wbind("x") {i}
-  with y <- wbind("y") { if i>5 then [10,11] else [] }
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") { if i>5 then [10,11] else [] }
   val aa' = match y
     [a, b] -> 
-      with z: int <- wbind("z") {x + a + b}
-      wrap("aa'-pair") {z + 10}
-    _ -> wrap("aa'-default") {0}
+      with z: int <- sbind("z") {x + a + b}
+      step("aa'-pair") {z + 10}
+    _ -> step("aa'-default") {0}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
-  wrap("result") {aa.show ++ "/" ++ bb.show}
+  step("result") {aa.show ++ "/" ++ bb.show}
 
 pub fun test-dsl-more-complext-compact()
   val (_, log) = make-test-dsl-more-complex-compact(10).run(logger/default-log-options, fn(th) -> pseudo-random(100, th))
