@@ -24,24 +24,21 @@ pub struct step<a,e>
 
 pub alias pure-step<a> = step<a,<>>
 
-pub fun step<a,e>(thunk: step-thunk<a,e>, name: string, ?strde: strde<a>): step<a,e>
-  Step(name, ?strde, thunk)
-
 // monadic fns of steps - the fns have the <pure,logger|e> effects
 // since (cf fcore.compose) we often need to *run* the step thunks
 // to compose the mfns
 pub alias stepmfn<a,b,e> = (a: a) -> <pure,logger|e> step<b,e>
 pub alias pure-stepmfn<a,b> = stepmfn<a,b,<>>
 
-// alternative allowing the thunk to be given as a trailing lambda - the
+// allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
-pub fun s<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<a,e>
+pub fun wrap<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<a,e>
   Step(name, ?strde, thunk)
 
-// another alternative - merging the step + bind into a single function
+// merging the wrap + bind into a single function
 // giving a much more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
-pub fun sb<a,b,e>(
+pub fun step<a,b,e>(
     name: string, 
     thunk: step-thunk<a,e>, 
     f: stepmfn<a,b,e>, 
@@ -231,8 +228,8 @@ pub fun resume-pure<a>(
 // some examples
 
 pub fun make-test-dsl-trivial(i: int)
-  with x: int <- sb("x") {i}
-  s("result") {x.show}
+  with x: int <- step("x") {i}
+  wrap("result") {x.show}
 
 pub fun test-dsl-trivial()
   val (_, log) = make-test-dsl-trivial(100).run-pure(logger/default-log-options)
@@ -244,16 +241,16 @@ pub fun test-dsl-trivial()
     Left(err) -> err.show
 
 pub fun make-test-dsl-simple(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") {10}
-  with z <- sb("z") {x + y}
-  s("result") {(2 * z).show}
+  with x: int <- step("x") {i}
+  with y <- step("y") {10}
+  with z <- step("z") {x + y}
+  wrap("result") {(2 * z).show}
 
 pub fun make-test-dsl-simple-error(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") {10}
-  with z <- sb("z") {throw("boo") ; x + y}
-  s("result") {(2 * z).show}
+  with x: int <- step("x") {i}
+  with y <- step("y") {10}
+  with z <- step("z") {throw("boo") ; x + y}
+  wrap("result") {(2 * z).show}
 
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
@@ -284,11 +281,11 @@ pub fun test-dsl-simple-error-fix-rerun()
     Left(err) -> err.show.println
 
 pub fun make-test-dsl-simple-pause(i: int)
-  with x: int <- sb("x") {i}
+  with x: int <- step("x") {i}
   pause()
-  with y <- sb("y") {10}
-  with z <- sb("z") {pause() ; x + y}
-  s("result") {(2 * z).show}
+  with y <- step("y") {10}
+  with z <- step("z") {pause() ; x + y}
+  wrap("result") {(2 * z).show}
 
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
@@ -324,10 +321,10 @@ pub fun test-dsl-simple-resume()
   logger/print-computation-log(log2)
 
 pub fun make-test-dsl-random-effect(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") {random-int()}
-  with z <- sb("z") {x + y}
-  s("result") {2 * z}
+  with x: int <- step("x") {i}
+  with y <- step("y") {random-int()}
+  with z <- step("z") {x + y}
+  wrap("result") {2 * z}
 
 fun handle-random<a>(th: thunk<a,<random|e>>): e a
   with pseudo-random(100)
@@ -339,39 +336,21 @@ pub fun test-dsl-random-effect()
   
 
 fun testdsl/stuff(i: int)
-  with x: int <- step({i}, "i").bind
-  with y <- s("rand"){random-int()}.bind
-  ({x + y}).step("stuff")
-
-pub fun make-test-dsl-more-complex(i: int)
-  with x: int <- ({i}).step("x").bind
-  with y <- ({ if i>5 then [10,11] else [] }).step("y").bind
-  val aa' = match y
-    [a, b] -> 
-      with z: int <- ({x + a + b}).step("z").bind
-      ({z + 10}).step("aa'-pair")
-    _ -> ({0}).step("aa'-default")
-  with aa: int <- aa'.bind
-  with bb: int <- testdsl/stuff(i).bind
-  ({aa.show ++ "/" ++ bb.show}).step("result")
-
-pub fun test-dsl-more-complex()
-  val (_, log) = make-test-dsl-more-complex(10).run(logger/default-log-options, handle-random)
-  logger/print-computation-log(log)
-  // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
-  // logger/print-computation-log(log2)
+  with x: int <- wrap("i"){i}.bind
+  with y <- wrap("rand"){random-int()}.bind
+  wrap("stuff") {x + y}
 
 pub fun make-test-dsl-more-complex-compact(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") { if i>5 then [10,11] else [] }
+  with x: int <- step("x") {i}
+  with y <- step("y") { if i>5 then [10,11] else [] }
   val aa' = match y
     [a, b] -> 
-      with z: int <- sb("z") {x + a + b}
-      s("aa'-pair") {z + 10}
-    _ -> s("aa'-default") {0}
+      with z: int <- step("z") {x + a + b}
+      wrap("aa'-pair") {z + 10}
+    _ -> wrap("aa'-default") {0}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
-  s("result") {aa.show ++ "/" ++ bb.show}
+  wrap("result") {aa.show ++ "/" ++ bb.show}
 
 pub fun test-dsl-more-complext-compact()
   val (_, log) = make-test-dsl-more-complex-compact(10).run(logger/default-log-options, fn(th) -> pseudo-random(100, th))
