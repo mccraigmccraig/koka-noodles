@@ -7,6 +7,10 @@ import std/core/undiv
 import std/core/vector
 import std/text/parse
 
+pub extend type exception-info {
+  ExnPauseComputation
+}
+
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an
 // "only log final values if there are no errors, but 
@@ -156,6 +160,8 @@ pub effect logger
   fun log-skip() : ()
   // close a step log with an error and immediately terminate
   ctl log-error(error-ser: stringsrc) : ()
+  // pause a computation, returning a log which can be used to resume later
+  ctl pause() : ()
 
 effect val indent: int
 pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
@@ -402,7 +408,14 @@ pub fun log-collector<v>(
       match state/log-error(state, error-ser)
         Left(err) -> throw(err)
         Right(state') -> state := state'
-      throw(error-ser(), ExnTodo)
+      throw(error-ser())
+    ctl pause()
+      // TODO need a pauses counter - so that on subsequent resumes, 
+      // the same pause call won't actually pause again - and the pause 
+      // counter must be serialised with the log state, so it gets passed
+      // along
+      throw("Paused", ExnPauseComputation)
+      
 
   Right(action())
 

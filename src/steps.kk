@@ -258,6 +258,13 @@ pub fun make-test-dsl-simple-error(i: int)
   with z <- sb("z") {throw("boo") ; x + y}
   s("result") {(2 * z).show}
 
+pub fun make-test-dsl-pause(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") {10}
+  with z <- sb("z") {pause() ; x + y}
+  s("result") {(2 * z).show}
+
+
 pub fun test-dsl-simple-error-fix-rerun()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
   val logj = log.json
@@ -275,6 +282,25 @@ pub fun test-dsl-simple-error-fix-rerun()
       log2j.println
       log2'.pp.println
     Left(err) -> err.show.println
+
+pub fun test-dsl-simple-pause-resume()
+  val (_, log) = make-test-dsl-pause(100).run-pure(logger/detailed-log-options)
+  val logj = log.json
+  val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
+  val log2j = log2.json
+
+  match logj.dejson
+    Right(log') -> 
+      logj.println
+      log'.pp.println
+    Left(err) -> err.show.println
+
+  match log2j.dejson
+    Right(log2') -> 
+      log2j.println
+      log2'.pp.println
+    Left(err) -> err.show.println
+
 
 pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
