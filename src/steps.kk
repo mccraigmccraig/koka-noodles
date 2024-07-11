@@ -260,10 +260,17 @@ pub fun make-test-dsl-simple-error(i: int)
 
 pub fun test-dsl-simple-error-fix-rerun()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
+  val logj = log.json
   val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
-  logger/print-computation-log(log)
-  logger/print-computation-log(log2)
-  logger/computation-log/json(log2)
+  val log2j = log2.json
+
+  match logj.dejson
+    Right(log') -> log'.pp.println
+    Left(err) -> err.show.println
+
+  match log2j.dejson
+    Right(log2') -> log2'.pp.println
+    Left(err) -> err.show.println
 
 pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
