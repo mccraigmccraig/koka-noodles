@@ -255,12 +255,6 @@ pub fun make-test-dsl-simple-error(i: int)
   with z <- sb("z") {throw("boo") ; x + y}
   s("result") {(2 * z).show}
 
-pub fun make-test-dsl-simple-pause(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") {10}
-  with z <- sb("z") {log-pause() ; x + y}
-  s("result") {(2 * z).show}
-
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
@@ -288,6 +282,12 @@ pub fun test-dsl-simple-error-fix-rerun()
       log2j.println
       log2'.pp.println
     Left(err) -> err.show.println
+
+pub fun make-test-dsl-simple-pause(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") {10}
+  with z <- sb("z") {log-pause() ; x + y}
+  s("result") {(2 * z).show}
 
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
