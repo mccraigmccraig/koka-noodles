@@ -42,6 +42,18 @@ pub fun step-type/pfn(v: serjson/value): parse step-type
 pub fun step-type/vfn(st: step-type): total serjson/value
   String(st.show)
 
+// like an either, but with a no-value Paused case
+pub value type computation-outcome<l,r>
+  ComputationError(l: l)
+  ComputationPaused
+  ComputationOk(r: r)
+
+pub fun computation-outcome/show<l,r>(outcome: computation-outcome<l,r>, ?l/show: (l)->string, ?r/show: (r)->string): string
+  match outcome
+    ComputationError(l) -> "ComputationError: " ++ l.show
+    ComputationPaused -> "ComputationPaused"
+    ComputationOk(r) -> "Ok: " ++ r.show
+
 pub type step-outcome
   Exec
   Resume
@@ -374,7 +386,7 @@ pub fun log-collector<v>(
     computation-name: string, 
     opts: log-options,
     action: () -> <div,exn,logger> v
-  ) : div (either<string,v>, computation-log)
+  ) : div (computation-outcome<string,v>, computation-log)
 
   var state := make-logger-state(previous-log)
 
@@ -387,11 +399,20 @@ pub fun log-collector<v>(
   // try and close out all open steps with an error, then return the error
   with handler
     final ctl throw-exn(ex)
-      match state/error-open-steps(state, {ex.show})
-        Left(err) -> Left("Fatal: " ++ err.show)
-        Right(state') -> 
-          state := state'
-          Left(ex.show)
+      match ex
+        Exception(_, ExnPauseComputation) -> 
+          match state/error-open-steps(state, {ex.show})
+            Left(err) -> ComputationError("Fatal: " ++ err.show)
+            Right(state') -> 
+              state := state'
+              ComputationPaused
+          
+        _ ->
+          match state/error-open-steps(state, {ex.show})
+            Left(err) -> ComputationError("Fatal: " ++ err.show)
+            Right(state') -> 
+              state := state'
+              ComputationError(ex.show)
 
   // the handler implementation fns are all total, but can return errors via either. 
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
@@ -427,7 +448,7 @@ pub fun log-collector<v>(
       else
         throw("Paused", ExnPauseComputation)
 
-  Right(action())
+  ComputationOk(action())
 
 // test/example
 
