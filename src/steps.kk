@@ -285,6 +285,7 @@ pub fun test-dsl-simple-error-fix-rerun()
 
 pub fun make-test-dsl-simple-pause(i: int)
   with x: int <- sb("x") {i}
+  pause()
   with y <- sb("y") {10}
   with z <- sb("z") {pause() ; x + y}
   s("result") {(2 * z).show}
@@ -293,17 +294,23 @@ pub fun make-test-dsl-simple-pause(i: int)
 pub fun test-dsl-simple-pause-resume()
   val computation = make-test-dsl-simple-pause(100)
   val (_, paused-log) = computation.run-pure(logger/detailed-log-options)
+  val paused-logj = paused-log.json
 
   // serialize the paused computation
-  print-computation-log(paused-log)
-  val paused-logj = paused-log.json
-  println(paused-logj)
+  paused-log.print-computation-log
 
   // deserialize the paused computation and carry on
   match paused-logj.dejson
     Right(paused-log') -> 
-      val (_, final-log) = computation.resume-pure(paused-log')
-      final-log.pp
+      val (_, intermed-log) = computation.resume-pure(paused-log')
+      val intermed-logj = intermed-log.json
+      intermed-log.print-computation-log
+      intermed-logj.println
+      match intermed-logj.dejson
+        Right(intermed-log') -> 
+          val (_, final-log) = computation.resume-pure(intermed-log')
+          final-log.pp
+        Left(err) -> err.show
     Left(err) -> err.show
 
 pub fun test-dsl-simple-error()
