@@ -145,8 +145,7 @@ pub fun bind<a,b,e>(
     "bind--" ++ st.name,
     ?b/strde,
     fn () -> 
-      val rs = logger/log-enter(st.name, BindStep)
-      match rs
+      match logger/log-enter(st.name, BindStep)
         Log(step-log) ->
           resume-full/bindcore(st, step-log, f, ?b/strde)
         _ -> 
@@ -177,8 +176,7 @@ pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
 
 // run a step without dismissing any effects
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
-  val rs = logger/log-enter(st.name, RunStep)
-  match rs
+  match logger/log-enter(st.name, RunStep)
     Log(step-log) ->
       resume/run''(st, step-log)
     _ -> 
@@ -235,8 +233,7 @@ pub fun test-dsl-trivial()
   logger/print-computation-log(log)
   val logjson = computation-log/json(log)
   println(logjson)
-  val either-log' = computation-log/dejson(logjson)
-  match either-log'
+  match computation-log/dejson(logjson)
     Right(log') -> log'.pp
     Left(err) -> err.show
 
@@ -251,8 +248,7 @@ pub fun test-dsl-simple()
   logger/print-computation-log(log)
   val logjson = computation-log/json(log)
   logjson.println
-  val either-log3 = computation-log/dejson(logjson)
-  match either-log3
+  match computation-log/dejson(logjson)
     Right(log3) -> log3.pp
     Left(err) -> err
 
