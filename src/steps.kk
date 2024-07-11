@@ -265,11 +265,15 @@ pub fun test-dsl-simple-error-fix-rerun()
   val log2j = log2.json
 
   match logj.dejson
-    Right(log') -> log'.pp.println
+    Right(log') -> 
+      logj.println
+      log'.pp.println
     Left(err) -> err.show.println
 
   match log2j.dejson
-    Right(log2') -> log2'.pp.println
+    Right(log2') -> 
+      log2j.println
+      log2'.pp.println
     Left(err) -> err.show.println
 
 pub fun test-dsl-simple-error()
