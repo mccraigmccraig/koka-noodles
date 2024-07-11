@@ -213,7 +213,7 @@ pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
 pub fun run-pure(st: pure-step<a>, log-options: logger/log-options): div (either<string,a>, logger/computation-log)
   run(st, log-options, pure-handler)
 
-pub fun rerun<a>(
+pub fun resume<a>(
     st: step<a,e>,
     log: logger/computation-log,
     h: (step-thunk<a,e>) -> <pure,logger> a
@@ -268,7 +268,7 @@ pub fun make-test-dsl-pause(i: int)
 pub fun test-dsl-simple-error-fix-rerun()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
   val logj = log.json
-  val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
+  val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
   val log2j = log2.json
 
   match logj.dejson
@@ -286,7 +286,7 @@ pub fun test-dsl-simple-error-fix-rerun()
 pub fun test-dsl-simple-pause-resume()
   val (_, log) = make-test-dsl-pause(100).run-pure(logger/detailed-log-options)
   val logj = log.json
-  val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
+  val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
   val log2j = log2.json
 
   match logj.dejson
@@ -306,9 +306,9 @@ pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
 
-pub fun test-dsl-simple-rerun()
+pub fun test-dsl-simple-resume()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
-  val (_, log2) = make-test-dsl-simple(100).rerun(log, pure-handler)
+  val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
 
