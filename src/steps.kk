@@ -249,6 +249,18 @@ pub fun make-test-dsl-simple(i: int)
   with z <- sb("z") {x + y}
   s("result") {(2 * z).show}
 
+pub fun make-test-dsl-simple-error(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") {10}
+  with z <- sb("z") {throw("boo") ; x + y}
+  s("result") {(2 * z).show}
+
+pub fun make-test-dsl-simple-pause(i: int)
+  with x: int <- sb("x") {i}
+  with y <- sb("y") {10}
+  with z <- sb("z") {log-pause() ; x + y}
+  s("result") {(2 * z).show}
+
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
@@ -258,19 +270,7 @@ pub fun test-dsl-simple()
     Right(log3) -> log3.pp
     Left(err) -> err
 
-pub fun make-test-dsl-simple-error(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") {10}
-  with z <- sb("z") {throw("boo") ; x + y}
-  s("result") {(2 * z).show}
-
-pub fun make-test-dsl-pause(i: int)
-  with x: int <- sb("x") {i}
-  with y <- sb("y") {10}
-  with z <- sb("z") {log-pause() ; x + y}
-  s("result") {(2 * z).show}
-
-
+// resuming a computation after fixing an error
 pub fun test-dsl-simple-error-fix-rerun()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
   val logj = log.json
@@ -289,25 +289,20 @@ pub fun test-dsl-simple-error-fix-rerun()
       log2'.pp.println
     Left(err) -> err.show.println
 
+// resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
-  val computation = make-test-dsl-pause(100)
-  val (_, log) = computation.run-pure(logger/detailed-log-options)
-  val logj = log.json
-  val (_, log2) = computation.resume-pure(log)
-  val log2j = log2.json
+  val computation = make-test-dsl-simple-pause(100)
+  val (_, paused-log) = computation.run-pure(logger/detailed-log-options)
 
-  match logj.dejson
-    Right(log') -> 
-      logj.println
-      log'.pp.println
-    Left(err) -> err.show.println
+  // serialize the paused computation
+  val paused-logj = paused-log.json
+  println(paused-logj)
 
-  match log2j.dejson
-    Right(log2') -> 
-      log2j.println
-      log2'.pp.println
-    Left(err) -> err.show.println
-
+  match paused-logj.dejson
+    Right(paused-log') -> 
+      val (_, final-log) = computation.resume-pure(paused-log')
+      final-log.pp
+    Left(err) -> err.show
 
 pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
