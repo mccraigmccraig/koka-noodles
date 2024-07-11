@@ -250,6 +250,7 @@ pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
   logger/print-computation-log(log)
   val logjson = computation-log/json(log)
+  logjson.println
   val either-log3 = computation-log/dejson(logjson)
   match either-log3
     Right(log3) -> log3.pp
