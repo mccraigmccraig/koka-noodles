@@ -45,3 +45,13 @@ pub fun test-computation-log-json()
   with apply-indent(0)
   match either-cl'
     Right(cl') -> cl'.pp
+
+pub fun test-double-json()
+  val src = fn () -> "foo"
+  val srcj = serjson/json(src)
+  val srcsrc = fn () -> srcj
+  val srcsrcj = serjson/json(srcsrc)
+  srcsrcj.println
+  val either-srcsrc' = serjson/dejson(srcsrcj, ?pfn=logger/stringsrc/pfn)
+  match either-srcsrc'
+    Right(srcsrc') -> "." ++ srcsrc'.show ++ "."
