@@ -222,6 +222,12 @@ pub fun resume<a>(
   with h 
   st.run'
 
+pub fun resume-pure<a>(
+    st: pure-step<a>,
+    log: logger/computation-log
+  ): div (either<string,a>, logger/computation-log)
+  resume(st, log, pure-handler)
+
 // some examples
 
 pub fun make-test-dsl-trivial(i: int)
@@ -284,9 +290,10 @@ pub fun test-dsl-simple-error-fix-rerun()
     Left(err) -> err.show.println
 
 pub fun test-dsl-simple-pause-resume()
-  val (_, log) = make-test-dsl-pause(100).run-pure(logger/detailed-log-options)
+  val computation = make-test-dsl-pause(100)
+  val (_, log) = computation.run-pure(logger/detailed-log-options)
   val logj = log.json
-  val (_, log2) = make-test-dsl-pause(100).resume(log, pure-handler)
+  val (_, log2) = computation.resume-pure(log)
   val log2j = log2.json
 
   match logj.dejson
