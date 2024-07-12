@@ -215,8 +215,8 @@ pub fun make-test-dsl-simple-pause(i: int)
   with x: int <- sbind("x") {i}
   pause()
   with y <- sbind("y") {10}
-  with z <- sbind("z") {pause() ; x + y}
-  step("result") {(2 * z).show}
+  with z <- sbind("z")  {x + y}
+  step("result") {pause() ; (2 * z).show}
 
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
