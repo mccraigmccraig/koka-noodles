@@ -38,7 +38,6 @@ pub struct computation-log
   name: string
   pauses: int
   step-logs: list<step-log>
-  final-outcome: log-outcome
 
 pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
@@ -141,19 +140,16 @@ pub fun computation-log/show(a: computation-log): string
 pub fun computation-log/vfn(cl: computation-log): total serjson/value
   Object([Object-entry("name", String(cl.name)), 
           Object-entry("pauses", Int(cl.pauses)),
-          Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs)),
-          Object-entry("final-outcome", log-outcome/vfn(cl.final-outcome))
+          Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs))
           ])
 pub fun computation-log/pfn(v: serjson/value): parse computation-log
   match v
     Object([Object-entry("name", String(name)), 
             Object-entry("pauses", Int(pauses)),
-            Object-entry("step-logs", list-step-logs-value),
-            Object-entry("final-outcome", final-outcome-value)
+            Object-entry("step-logs", list-step-logs-value)
             ]) -> 
         val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
-        val outcome = log-outcome/pfn(final-outcome-value)
-        Computation-log(name, pauses, list-step-logs, outcome)
+        Computation-log(name, pauses, list-step-logs)
     _ -> fail("invalid json: computation-log/pfn")
 
 effect val indent: int
@@ -192,8 +188,7 @@ pub fun computation-log/pp(log: computation-log): total string
   with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
   "pauses: " ++ log.pauses.show ++ "\n" ++
-  log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n") ++ "\n" ++
-  "final outcome: " ++ log.final-outcome.pp
+  log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
 pub fun print-computation-log(log: computation-log)
   println(log.pp)
@@ -359,16 +354,11 @@ pub fun log-collector<a>(
       Just(pl) -> pl.pauses - state.pause-ignores
       _ -> 0 - state.pause-ignores
 
-    val outcome = match state.completed-steps
-      Cons(first, _) -> first.outcome
-      [] -> Left(ReasonError({"No completed steps"}))
-
     (v, 
      Computation-Log(
       computation-name, 
       pauses, 
-      state.completed-steps.reverse,
-      outcome))
+      state.completed-steps.reverse))
 
   // close out all open steps with an error, then return
   with handler
