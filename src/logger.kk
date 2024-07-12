@@ -17,16 +17,16 @@ pub extend type exception-info {
 //  log all values if there are errors" policy
 pub alias stringsrc = () -> total string
 
-pub value type outcome-fail-reason<a>
+pub value type fail-reason<a>
   ReasonError(a: a)
   ReasonPaused
 
-pub value type outcome-success-reason<a>
+pub value type success-reason<a>
   ReasonExec(a: a)
   ReasonResume(a: a)
 
-pub alias outcome<a,b> = either<outcome-fail-reason<a>,b>
-pub alias log-outcome = either<outcome-fail-reason<stringsrc>, outcome-success-reason<stringsrc>>
+pub alias outcome<a,b> = either<fail-reason<a>,b>
+pub alias log-outcome = either<fail-reason<stringsrc>, success-reason<stringsrc>>
 
 pub struct step-log
   name: string
@@ -43,7 +43,7 @@ pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
   fun log-enter(name: string) : maybe<step-log>
   // close a step-log successfully
-  fun log-complete(success-reason: outcome-success-reason<stringsrc>) : ()
+  fun log-complete(success-reason: success-reason<stringsrc>) : ()
   // if following a log, skip the next entry (because it's not going to be run)
   fun log-skip() : ()
   // close a step log with an error and immediately terminate
@@ -55,44 +55,44 @@ pub effect logger
 
 pub fun stringsrc/show(a: stringsrc): string
   a()
+pub fun stringsrc/vfn(s: stringsrc): total serjson/value
+  String(s())
 pub fun stringsrc/pfn(v: serjson/value): parse stringsrc
   match v
     String(s) -> fn () -> s
     _ -> fail("invalid json: stringsrc/pfn")
-pub fun stringsrc/vfn(s: stringsrc): total serjson/value
-  String(s())
 
-pub fun outcome-fail-reason/show<a>(reason: outcome-fail-reason<a>, ?a/show: (a)->string): string
+pub fun fail-reason/show<a>(reason: fail-reason<a>, ?a/show: (a)->string): string
   match reason
     ReasonError(a) -> "ReasonError: " ++ a.show
     ReasonPaused -> "ReasonPaused"
-pub fun outcome-fail-reason/make-vfn<a>(a-vfn: pvfn<a,e>): pvfn<outcome-fail-reason<a>,e>
+pub fun fail-reason/make-vfn<a>(a-vfn: pvfn<a,e>): pvfn<fail-reason<a>,e>
   fn(reason)
     match reason
       ReasonError(a) -> Object([Object-entry("ReasonError", a-vfn(a))])
       ReasonPaused -> Object([Object-entry("ReasonPaused", Null)])
-pub fun outcome-fail-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<outcome-fail-reason<a>,e>
+pub fun fail-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<fail-reason<a>,e>
   fn (v)
     match v
       Object([Object-entry("ReasonError", a)]) -> ReasonError(a-pfn(a))
       Object([Object-entry("ReasonPaused", Null)]) -> ReasonPaused
-      _ -> fail("invalid json: outcome-fail-reason/pfn")
+      _ -> fail("invalid json: fail-reason")
 
-pub fun outcome-success-reason/show<a>(reason: outcome-success-reason<a>, ?a/show: (a)->string): string
+pub fun success-reason/show<a>(reason: success-reason<a>, ?a/show: (a)->string): string
   match reason
     ReasonExec(a) -> "ReasonExec("  ++ ?a/show(a) ++ ")"
     ReasonResume(a) -> "ReasonResume(" ++ ?a/show(a) ++ ")"
-pub fun outcome-success-reason/make-vfn<a>(a-vfn: pvfn<a,e>): pvfn<outcome-success-reason<a>,e>
+pub fun success-reason/make-vfn<a>(a-vfn: pvfn<a,e>): pvfn<success-reason<a>,e>
   fn(reason)
     match reason
       ReasonExec(a) -> Object([Object-entry("ReasonExec", a-vfn(a))])
       ReasonResume(a) -> Object([Object-entry("ReasonResume", a-vfn(a))])
-pub fun outcome-success-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<outcome-success-reason<a>,e>
+pub fun success-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<success-reason<a>,e>
   fn(v)
     match v
       Object([Object-entry("ReasonExec", a)]) -> ReasonExec(a-pfn(a))
       Object([Object-entry("ReasonResume", a)]) -> ReasonResume(a-pfn(a))
-      _ -> fail("invalid json: outcome-success-reason/pfn")
+      _ -> fail("invalid json: success-reason")
 
 pub fun outcome/show<a,b>(outcome: outcome<a,b>, ?a/show: (a)->string, ?b/show: (b)->string): string
   match outcome
@@ -100,16 +100,16 @@ pub fun outcome/show<a,b>(outcome: outcome<a,b>, ?a/show: (a)->string, ?b/show: 
     Left(ReasonPaused) -> "Left(ReasonPaused)"
     Right(b) -> "Right(" ++ b.show ++ ")"
 pub fun outcome/make-vfn<a,b>(a-vfn: pvfn<a,e>, b-vfn: pvfn<b,e>): pvfn<outcome<a,b>,e>
-  either/make-vfn(outcome-fail-reason/make-vfn(a-vfn), b-vfn)
+  either/make-vfn(fail-reason/make-vfn(a-vfn), b-vfn)
 pub fun outcome/make-pfn<a,b>(a-pfn: ppfn<a,e>, b-pfn: ppfn<b,e>): ppfn<outcome<a,b>,e>
-  either/make-pfn(outcome-fail-reason/make-pfn(a-pfn), b-pfn)
+  either/make-pfn(fail-reason/make-pfn(a-pfn), b-pfn)
 
 pub fun log-outcome/show(outcome: log-outcome): string
   outcome/show(outcome)
 pub fun log-outcome/vfn(a: log-outcome): total serjson/value
-  either/make-vfn(outcome-fail-reason/make-vfn(stringsrc/vfn), outcome-success-reason/make-vfn(stringsrc/vfn))(a)
+  either/make-vfn(fail-reason/make-vfn(stringsrc/vfn), success-reason/make-vfn(stringsrc/vfn))(a)
 pub fun log-outcome/pfn(v: serjson/value): parse log-outcome
-  either/make-pfn(outcome-fail-reason/make-pfn(stringsrc/pfn), outcome-success-reason/make-pfn(stringsrc/pfn))(v)
+  either/make-pfn(fail-reason/make-pfn(stringsrc/pfn), success-reason/make-pfn(stringsrc/pfn))(v)
 
 pub fun step-log/show(a: step-log): string
   with apply-indent(0)
@@ -173,10 +173,10 @@ pub fun step-log/pp'(log: step-log): <div,indent> string
    log.children.map(step-log/pp').joinsep/join("\n" ++ pad() ++ "--\n")
 
   val outcome-output = match log.outcome
-    Left(outcome-fail-reason) -> match outcome-fail-reason
+    Left(fail-reason) -> match fail-reason
       ReasonError(v) -> "error: " ++ v()
       ReasonPaused -> "paused"
-    Right(outcome-success-reason) -> match outcome-success-reason
+    Right(success-reason) -> match success-reason
       ReasonExec(v) -> "exec: " ++ v()
       ReasonResume(v) -> "resume: " ++ v()
 
@@ -238,7 +238,7 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 // propagate an error through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree
 // propagate an error to a state
-fun state/error-open-steps(state: logger-state, fail-reason: outcome-fail-reason<stringsrc>): total either<string,logger-state>
+fun state/error-open-steps(state: logger-state, fail-reason: fail-reason<stringsrc>): total either<string,logger-state>
   match state.open-steps
     [] -> Left("error-open-steps: no open-step")
     Cons(first, Nil) -> 
@@ -280,7 +280,7 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
         rest -> Cons(Open-Step(step-name, []), rest)
       (state'(open-steps=open-steps'), resumed-step)
   
-fun state/log-complete(state: logger-state, success-reason: outcome-success-reason<stringsrc>): total either<string,logger-state>
+fun state/log-complete(state: logger-state, success-reason: success-reason<stringsrc>): total either<string,logger-state>
   // first pop a step off the cursor
   val state' = match state.resume-cursor
     Just(lc) ->
@@ -327,7 +327,7 @@ fun state/log-skip(state: logger-state): total either<string,logger-state>
         _ -> Right(state(resume-cursor=Nothing))
     _ -> Right(state(resume-cursor=Nothing))
 
-fun state/log-error(state: logger-state, fail-reason: outcome-fail-reason<stringsrc>): total either<string,logger-state>
+fun state/log-error(state: logger-state, fail-reason: fail-reason<stringsrc>): total either<string,logger-state>
   match state.open-steps
     Cons(first, Nil) -> 
       val completed-steps' = Cons(Step-Log(first.name, first.children.reverse, Left(fail-reason)), state.completed-steps)
