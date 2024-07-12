@@ -17,6 +17,42 @@ pub extend type exception-info {
 //  log all values if there are errors" policy
 pub alias stringsrc = () -> total string
 
+pub value type outcome-fail-reason<a>
+  ReasonError(a: a)
+  ReasonPaused
+
+pub value type outcome-success-reason<a>
+  ReasonExec(a: a)
+  ReasonResume(a: a)
+
+pub alias outcome<a,b> = either<outcome-fail-reason<a>,b>
+pub alias log-outcome = either<outcome-fail-reason<stringsrc>, outcome-success-reason<stringsrc>>
+
+pub struct step-log
+  name: string
+  children: list<step-log>
+  outcome: log-outcome
+
+pub struct computation-log
+  name: string
+  pauses: int
+  step-logs: list<step-log>
+  // outcome: log-outcome
+
+pub effect logger
+  // open a step-log. If following a log, returns the corresponding step-log
+  fun log-enter(name: string) : maybe<step-log>
+  // close a step-log successfully
+  fun log-complete(success-reason: outcome-success-reason<stringsrc>) : ()
+  // if following a log, skip the next entry (because it's not going to be run)
+  fun log-skip() : ()
+  // close a step log with an error and immediately terminate
+  ctl log-error(err: stringsrc) : ()
+  // pause a computation, returning a log which can be used to resume later
+  ctl pause() : ()
+
+
+
 pub fun stringsrc/show(a: stringsrc): string
   a()
 pub fun stringsrc/pfn(v: serjson/value): parse stringsrc
@@ -25,10 +61,6 @@ pub fun stringsrc/pfn(v: serjson/value): parse stringsrc
     _ -> fail("invalid json: stringsrc/pfn")
 pub fun stringsrc/vfn(s: stringsrc): total serjson/value
   String(s())
-
-pub value type outcome-fail-reason<a>
-  ReasonError(a: a)
-  ReasonPaused
 
 pub fun outcome-fail-reason/show<a>(reason: outcome-fail-reason<a>, ?a/show: (a)->string): string
   match reason
@@ -46,10 +78,6 @@ pub fun outcome-fail-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<outcome-fail-rea
       Object([Object-entry("ReasonPaused", Null)]) -> ReasonPaused
       _ -> fail("invalid json: outcome-fail-reason/pfn")
 
-pub value type outcome-success-reason<a>
-  ReasonExec(a: a)
-  ReasonResume(a: a)
-
 pub fun outcome-success-reason/show<a>(reason: outcome-success-reason<a>, ?a/show: (a)->string): string
   match reason
     ReasonExec(a) -> "ReasonExec("  ++ ?a/show(a) ++ ")"
@@ -66,9 +94,6 @@ pub fun outcome-success-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<outcome-succe
       Object([Object-entry("ReasonResume", a)]) -> ReasonResume(a-pfn(a))
       _ -> fail("invalid json: outcome-success-reason/pfn")
 
-
-pub alias outcome<a,b> = either<outcome-fail-reason<a>,b>
-
 pub fun outcome/show<a,b>(outcome: outcome<a,b>, ?a/show: (a)->string, ?b/show: (b)->string): string
   match outcome
     Left(ReasonError(a)) -> "Left(ReasonError(" ++ a.show ++ "))"
@@ -79,8 +104,6 @@ pub fun outcome/make-vfn<a,b>(a-vfn: pvfn<a,e>, b-vfn: pvfn<b,e>): pvfn<outcome<
 pub fun outcome/make-pfn<a,b>(a-pfn: ppfn<a,e>, b-pfn: ppfn<b,e>): ppfn<outcome<a,b>,e>
   either/make-pfn(outcome-fail-reason/make-pfn(a-pfn), b-pfn)
 
-pub alias log-outcome = either<outcome-fail-reason<stringsrc>, outcome-success-reason<stringsrc>>
-
 pub fun log-outcome/show(outcome: log-outcome): string
   outcome/show(outcome)
 pub fun log-outcome/vfn(a: log-outcome): total serjson/value
@@ -88,13 +111,9 @@ pub fun log-outcome/vfn(a: log-outcome): total serjson/value
 pub fun log-outcome/pfn(v: serjson/value): parse log-outcome
   either/make-pfn(outcome-fail-reason/make-pfn(stringsrc/pfn), outcome-success-reason/make-pfn(stringsrc/pfn))(v)
 
-pub struct step-log
-  name: string
-  children: list<step-log>
-  outcome: log-outcome
-
 pub fun step-log/show(a: step-log): string
-  serjson/json(a, ?vfn=logger/step-log/vfn)
+  with apply-indent(0)
+  a.pp
 fun step-log/vfn'(sl: step-log): div serjson/value
   Object([Object-entry("name", String(sl.name)), 
           Object-entry("children", list/make-vfn(step-log/vfn')(sl.children)), 
@@ -115,14 +134,9 @@ pub fun step-log/pfn(v: serjson/value): parse step-log
   with pretend-no-div
   step-log/pfn'(v)
 
-pub struct computation-log
-  name: string
-  pauses: int
-  step-logs: list<step-log>
-  // outcome: log-outcome
-
 pub fun computation-log/show(a: computation-log): string
-  serjson/json(a, ?vfn=computation-log/vfn)
+  with apply-indent(0)
+  a.pp
 pub fun computation-log/vfn(cl: computation-log): total serjson/value
   Object([Object-entry("name", String(cl.name)), 
           Object-entry("pauses", Int(cl.pauses)),
@@ -134,24 +148,13 @@ pub fun computation-log/pfn(v: serjson/value): parse computation-log
     Object([Object-entry("name", String(name)), 
             Object-entry("pauses", Int(pauses)),
             Object-entry("step-logs", list-step-logs-value),
-            Object-entry("outcome", outcome-value)]) -> 
+            // Object-entry("outcome", outcome-value)
+            ]) -> 
         val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
-        val outcome = log-outcome/pfn(outcome-value)
+        // val outcome = log-outcome/pfn(outcome-value)
         // Computation-log(name, pauses, list-step-logs, outcome)
         Computation-log(name, pauses, list-step-logs)
     _ -> fail("invalid json: computation-log/pfn")
-
-pub effect logger
-  // open a step-log. If following a log, returns the corresponding step-log
-  fun log-enter(name: string) : maybe<step-log>
-  // close a step-log successfully
-  fun log-complete(success-reason: outcome-success-reason<stringsrc>) : ()
-  // if following a log, skip the next entry (because it's not going to be run)
-  fun log-skip() : ()
-  // close a step log with an error and immediately terminate
-  ctl log-error(err: stringsrc) : ()
-  // pause a computation, returning a log which can be used to resume later
-  ctl pause() : ()
 
 effect val indent: int
 pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
@@ -163,11 +166,11 @@ fun pad()
     0 -> ""
     _ -> " " ++ repeat(" |", (indent - 1)) ++ " "
   
-pub fun step-log/pp(log: step-log): <div,indent> string
+pub fun step-log/pp'(log: step-log): <div,indent> string
   val p = pad()
 
   val children-output = apply-indent(indent + 1)
-   log.children.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
+   log.children.map(step-log/pp').joinsep/join("\n" ++ pad() ++ "--\n")
 
   val outcome-output = match log.outcome
     Left(outcome-fail-reason) -> match outcome-fail-reason
@@ -180,6 +183,9 @@ pub fun step-log/pp(log: step-log): <div,indent> string
   p ++ "run: " ++ log.name ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
   "\n" ++ p ++ "outcome: " ++ outcome-output
+pub fun step-log/pp(log: step-log): indent string
+  with pretend-no-div
+  log.pp'
 
 pub fun computation-log/pp(log: computation-log)
   with apply-indent(1)
