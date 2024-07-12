@@ -237,17 +237,17 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 // propagate an error through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree
 // propagate an error to a state
-fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
+fun state/error-open-steps(state: logger-state, fail-reason: outcome-fail-reason<stringsrc>): total either<string,logger-state>
   match state.open-steps
     [] -> Left("error-open-steps: no open-step")
     Cons(first, Nil) -> 
-      val step-log = Step-Log(first.name, first.children.reverse, Left(ReasonError(error-ser)))
+      val step-log = Step-Log(first.name, first.children.reverse, Left(fail-reason))
       val completed-steps' = Cons(step-log, state.completed-steps)
       Right(state(completed-steps=completed-steps', open-steps=[]))
     Cons(first, Cons(next, rest)) -> 
-      val step-log = Step-Log(first.name, first.children.reverse, Left(ReasonError(error-ser)))
+      val step-log = Step-Log(first.name, first.children.reverse, Left(fail-reason))
       val next' = next(children = Cons(step-log, next.children))
-      state/error-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), error-ser)
+      state/error-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), fail-reason)
 
 
 // if we are following a log and have a step to enter, update the log cursor
@@ -362,14 +362,14 @@ pub fun log-collector<v>(
     final ctl throw-exn(ex)
       match ex
         Exception(_, ExnPauseComputation) -> 
-          match state/error-open-steps(state, {ex.show})
+          match state/error-open-steps(state, ReasonPaused)
             Left(err) -> Left(ReasonError("Fatal: " ++ err.show))
             Right(state') -> 
               state := state'
               Left(ReasonPaused)
           
         _ ->
-          match state/error-open-steps(state, {ex.show})
+          match state/error-open-steps(state, ReasonError({ex.show}))
             Left(err) -> Left(ReasonError("Fatal: " ++ err.show))
             Right(state') -> 
               state := state'
