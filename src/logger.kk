@@ -402,57 +402,56 @@ pub fun log-collector<v>(
 
 // // test/example
 
-// pub fun stuff(i: int)
-//   log-enter("stuff", RunStep)
-//   val o = i + i
-//   // log-error({o.show})
-//   log-complete(Exec, {o.show})
-//   o
+pub fun stuff(i: int)
+  log-enter("stuff")
+  val o = i + i
+  // log-error({o.show})
+  log-complete(ReasonExec({o.show}))
+  o
 
-// pub fun thingz(i: int)
-//   log-enter("thingz", BindStep)
-//   log-bound-value({i.show})
-//   val o = i * i
-//   // throw("oops: " ++ o.show)
-//   log-complete(Exec, {o.show})
-//   o
+pub fun thingz(i: int)
+  log-enter("thingz")
+  val o = i * i
+  // throw("oops: " ++ o.show)
+  log-complete(ReasonExec({o.show}))
+  o
 
-// pub fun collect-test-logs()
-//   with log-collector(Nothing, "test", default-log-options)
-//   val v = stuff(5)
-//   val w = thingz(v)
-//   w
+pub fun collect-test-logs()
+  with log-collector(Nothing, "test")
+  val v = stuff(5)
+  val w = thingz(v)
+  w
 
-// pub fun logs-an-error()
-//   log-enter("logs-an-error", RunStep)
-//   log-error({"boo!"})
+pub fun logs-an-error()
+  log-enter("logs-an-error")
+  log-error({"boo!"})
 
-// pub fun collect-logs-with-error()
-//   with log-collector(Nothing, "test-with-error", default-log-options)
-//   val v = stuff(5)
-//   logs-an-error()
-//   v
+pub fun collect-logs-with-error()
+  with log-collector(Nothing, "test-with-error")
+  val v = stuff(5)
+  logs-an-error()
+  v
 
-// pub fun throws-an-exception()
-//   log-enter("throws-an-exception", RunStep)
-//   throw("oops")
+pub fun throws-an-exception()
+  log-enter("throws-an-exception")
+  throw("oops")
 
-// pub fun collect-logs-with-exception()
-//   with log-collector(Nothing, "test-with-exception", default-log-options)
-//   val v = stuff(5)
-//   throws-an-exception()
-//   v
+pub fun collect-logs-with-exception()
+  with log-collector(Nothing, "test-with-exception")
+  val v = stuff(5)
+  throws-an-exception()
+  v
 
-// pub fun test-collect-logs()
-//   match collect-test-logs()
-//     (v, log) -> 
-//       print-computation-log(log)
-//       println("Result: " ++ v.show)
-//   match collect-logs-with-error()
-//     (v, log) -> 
-//       print-computation-log(log)
-//       println("Result: " ++ v.show)
-//   match collect-logs-with-exception()
-//     (v, log) -> 
-//       print-computation-log(log)
-//       println("Result: " ++ v.show)
+pub fun test-collect-logs()
+  match collect-test-logs()
+    (v, log) -> 
+      print-computation-log(log)
+      println("Result: " ++ v.show)
+  match collect-logs-with-error()
+    (v, log) -> 
+      print-computation-log(log)
+      println("Result: " ++ v.show)
+  match collect-logs-with-exception()
+    (v, log) -> 
+      print-computation-log(log)
+      println("Result: " ++ v.show)
