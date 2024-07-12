@@ -119,7 +119,7 @@ pub struct computation-log
   name: string
   pauses: int
   step-logs: list<step-log>
-  outcome: log-outcome
+  // outcome: log-outcome
 
 pub fun computation-log/show(a: computation-log): string
   serjson/json(a, ?vfn=computation-log/vfn)
@@ -127,7 +127,8 @@ pub fun computation-log/vfn(cl: computation-log): total serjson/value
   Object([Object-entry("name", String(cl.name)), 
           Object-entry("pauses", Int(cl.pauses)),
           Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs)),
-          Object-entry("outcome", log-outcome/vfn(cl.outcome))])
+          // Object-entry("outcome", log-outcome/vfn(cl.outcome))
+          ])
 pub fun computation-log/pfn(v: serjson/value): parse computation-log
   match v
     Object([Object-entry("name", String(name)), 
@@ -136,18 +137,19 @@ pub fun computation-log/pfn(v: serjson/value): parse computation-log
             Object-entry("outcome", outcome-value)]) -> 
         val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
         val outcome = log-outcome/pfn(outcome-value)
-        Computation-log(name, pauses, list-step-logs, outcome)
+        // Computation-log(name, pauses, list-step-logs, outcome)
+        Computation-log(name, pauses, list-step-logs)
     _ -> fail("invalid json: computation-log/pfn")
 
 pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
   fun log-enter(name: string) : maybe<step-log>
   // close a step-log successfully
-  fun log-complete(outcome: log-outcome) : ()
+  fun log-complete(success-reason: outcome-success-reason<stringsrc>) : ()
   // if following a log, skip the next entry (because it's not going to be run)
   fun log-skip() : ()
   // close a step log with an error and immediately terminate
-  ctl log-error(error-ser: stringsrc) : ()
+  ctl log-error(err: stringsrc) : ()
   // pause a computation, returning a log which can be used to resume later
   ctl pause() : ()
 
@@ -226,192 +228,177 @@ fun make-logger-state(previous-log: maybe<computation-log>)
     Just(pl) -> Logger-state(Just(make-log-cursor(pl)), pl.pauses, [], [])
     _ -> Logger-state(Nothing, 0, [], [])
 
-// // propagate an error through the open-steps, closing them all and 
-// // returning a single step-log representing the whole closed tree
-// // propagate an error to a state
-// fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
-//   match state.open-steps
-//     [] -> Left("error-open-steps: no open-step")
-//     Cons(first, Nil) -> 
-//       val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser))
-//       val completed-steps' = Cons(step-log, state.completed-steps)
-//       Right(state(completed-steps=completed-steps', open-steps=[]))
-//     Cons(first, Cons(next, rest)) -> 
-//       val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser))
-//       val next' = next(children = Cons(step-log, next.children))
-//       state/error-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), error-ser)
+// propagate an error through the open-steps, closing them all and 
+// returning a single step-log representing the whole closed tree
+// propagate an error to a state
+fun state/error-open-steps(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
+  match state.open-steps
+    [] -> Left("error-open-steps: no open-step")
+    Cons(first, Nil) -> 
+      val step-log = Step-Log(first.name, first.children.reverse, Left(ReasonError(error-ser)))
+      val completed-steps' = Cons(step-log, state.completed-steps)
+      Right(state(completed-steps=completed-steps', open-steps=[]))
+    Cons(first, Cons(next, rest)) -> 
+      val step-log = Step-Log(first.name, first.children.reverse, Left(ReasonError(error-ser)))
+      val next' = next(children = Cons(step-log, next.children))
+      state/error-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), error-ser)
 
 
-// // if we are following a log and have a step to enter, update the log cursor
-// // and return the logged step. either way, create a new `open-step` to 
-// // record the outcome
-// fun state/log-enter(state: logger-state, step-name: string, step-type: step-type): total (logger-state, resumed-step)
-//   // follow the resumed log, if it matches
-//   val state-resumed-step = match state.resume-cursor
-//     Just(lc) -> 
-//       match lc.step-cursors
-//         Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
-//           val maybe-sl = at(steps, next-idx)
-//           match maybe-sl 
-//             // Just(Step-log(_, _, _, StepError, _)) -> (state(resume-cursor=Nothing), NoLog)
-//             Just(sl) ->
-//               // inc the next-idx counter on the current step-cursor, push a new step-cursor
-//               (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
-//                                                         Cons(Step-cursor(steps, next-idx + 1), 
-//                                                              rest))))), 
-//                Log(sl))
-//             _ -> 
-//               (state(resume-cursor=Nothing), NoLog)
-//         _ -> (state(resume-cursor=Nothing), NoLog)
-//     _ -> (state(resume-cursor=Nothing), NoLog)
+// if we are following a log and have a step to enter, update the log cursor
+// and return the logged step. either way, create a new `open-step` to 
+// record the outcome
+fun state/log-enter(state: logger-state, step-name: string): total (logger-state, maybe<step-log>)
+  // follow the resumed log, if it matches
+  val state-resumed-step = match state.resume-cursor
+    Just(lc) -> 
+      match lc.step-cursors
+        Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
+          val maybe-sl = at(steps, next-idx)
+          match maybe-sl 
+            Just(sl) ->
+              // inc the next-idx counter on the current step-cursor, push a new step-cursor
+              (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
+                                                        Cons(Step-cursor(steps, next-idx + 1), 
+                                                             rest))))), 
+               Just(sl))
+            _ -> (state(resume-cursor=Nothing), Nothing)
+        _ -> (state(resume-cursor=Nothing), Nothing)
+    _ -> (state(resume-cursor=Nothing), Nothing)
     
-//   // always accumulate a new open-step
-//   match state-resumed-step
-//     (state', resumed-step) -> 
-//       val open-steps' = match state.open-steps
-//         [] -> [Open-Step(step-name, step-type, Nothing, [])]
-//         rest -> Cons(Open-Step(step-name, step-type, Nothing, []), rest)
-//       (state'(open-steps=open-steps'), resumed-step)
-
-// // returns Left if there has been a programming error and there are no open steps
-// fun state/log-bound-value(state: logger-state, value-ser: stringsrc): total either<string,logger-state>
-//   match state.open-steps
-//     Cons(first, rest) -> 
-//       val open-steps' = Cons(first(bound-value=Just(value-ser)), rest)
-//       Right(state(open-steps=open-steps'))
-//     [] -> 
-//       Left("log-bound-value: no open-step")
+  // always accumulate a new open-step
+  match state-resumed-step
+    (state', resumed-step) -> 
+      val open-steps' = match state.open-steps
+        [] -> [Open-Step(step-name, [])]
+        rest -> Cons(Open-Step(step-name, []), rest)
+      (state'(open-steps=open-steps'), resumed-step)
   
-// fun state/log-complete(state: logger-state, outcome : step-outcome, result-ser : stringsrc): total either<string,logger-state>
-//   val state' = match state.resume-cursor
-//     Just(lc) ->
-//       match lc.step-cursors
-//         Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
-//           state(resume-cursor=Just(Log-cursor(rest)))
-//         _ -> state(resume-cursor=Nothing)
-//     _ -> state(resume-cursor=Nothing)
+fun state/log-complete(state: logger-state, success-reason: outcome-success-reason<stringsrc>): total either<string,logger-state>
+  // first pop a step off the cursor
+  val state' = match state.resume-cursor
+    Just(lc) ->
+      match lc.step-cursors
+        Cons(Step-cursor(steps, next-idx), rest) | next-idx == length(steps) ->
+          state(resume-cursor=Just(Log-cursor(rest)))
+        _ -> state(resume-cursor=Nothing)
+    _ -> state(resume-cursor=Nothing)
 
-//   val error-completed-steps-open-steps = match state.open-steps
-//     Cons(first, Nil) -> 
-//       Right((Cons(Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, outcome, Right(result-ser)), state.completed-steps),
-//             []))
-//     Cons(first, Cons(next, rest)) -> 
-//       val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, outcome, Right(result-ser))
-//       val next' = next(children = Cons(step-log, next.children))
-//       val open-steps' = Cons(next', rest)
-//       Right((state.completed-steps, open-steps'))
-//     [] -> Left("log-complete: no open-step")
+  // then update the completed-steps / open-steps
+  val error-completed-steps-open-steps = match state.open-steps
+    Cons(first, Nil) -> 
+      Right((Cons(Step-Log(first.name, first.children.reverse, Right(success-reason)), state.completed-steps),
+            []))
+    Cons(first, Cons(next, rest)) -> 
+      val step-log = Step-Log(first.name, first.children.reverse, Right(success-reason))
+      val next' = next(children = Cons(step-log, next.children))
+      val open-steps' = Cons(next', rest)
+      Right((state.completed-steps, open-steps'))
+    [] -> Left("log-complete: no open-step")
 
-//   match error-completed-steps-open-steps
-//     Right((completed-steps', open-steps')) ->
-//       Right(state(completed-steps=completed-steps', open-steps=open-steps'))
-//     Left(err) -> Left(err)
+  match error-completed-steps-open-steps
+    Right((completed-steps', open-steps')) ->
+      Right(state'(completed-steps=completed-steps', open-steps=open-steps'))
+    Left(err) -> Left(err)
 
-// fun state/log-skip(state: logger-state): total either<string,logger-state>
-//   match state.resume-cursor
-//     Just(lc) ->
-//       match lc.step-cursors
-//         Cons(Step-cursor(steps, next-idx), rest-step-cursors) | next-idx < length(steps) ->
-//           val maybe-sl = at(steps, next-idx)
-//           match maybe-sl
-//             Just(sl) ->
-//               val sl' = Step-Log(sl.name, sl.step-type, sl.bound-value, sl.children, Resume, sl.result)
-//               match state.open-steps
-//                 Nil -> 
-//                   Right(state(resume-cursor=Just(Log-cursor(step-cursors=Cons(Step-cursor(steps, next-idx + 1), Nil))),
-//                               completed-steps=Cons(sl', state.completed-steps)))
-//                 Cons(first, rest) ->
-//                   Right(state(resume-cursor=Just(Log-cursor(step-cursors=Cons(Step-cursor(steps, next-idx + 1), rest-step-cursors))),
-//                               open-steps=Cons(first(children=Cons(sl', first.children)), rest)))
-//             _ -> Left("log-skip: fell off the resume-log")
-//         _ -> Right(state(resume-cursor=Nothing))
-//     _ -> Right(state(resume-cursor=Nothing))
+fun state/log-skip(state: logger-state): total either<string,logger-state>
+  match state.resume-cursor
+    Just(lc) ->
+      match lc.step-cursors
+        Cons(Step-cursor(steps, next-idx), rest-step-cursors) | next-idx < length(steps) ->
+          val maybe-sl = at(steps, next-idx)
+          match maybe-sl
+            Just(sl) ->
+              val sl' = Step-Log(sl.name, sl.children, sl.outcome)
+              match state.open-steps
+                Nil -> 
+                  Right(state(resume-cursor=Just(Log-cursor(step-cursors=Cons(Step-cursor(steps, next-idx + 1), Nil))),
+                              completed-steps=Cons(sl', state.completed-steps)))
+                Cons(first, rest) ->
+                  Right(state(resume-cursor=Just(Log-cursor(step-cursors=Cons(Step-cursor(steps, next-idx + 1), rest-step-cursors))),
+                              open-steps=Cons(first(children=Cons(sl', first.children)), rest)))
+            _ -> Left("log-skip: fell off the resume-log")
+        _ -> Right(state(resume-cursor=Nothing))
+    _ -> Right(state(resume-cursor=Nothing))
 
-// fun state/log-error(state: logger-state, error-ser: stringsrc): total either<string,logger-state>
-//   match state.open-steps
-//     Cons(first, Nil) -> 
-//       val completed-steps' = Cons(Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser)), state.completed-steps)
-//       Right(state(completed-steps=completed-steps'))
-//     Cons(first, Cons(next, rest)) ->
-//       val step-log = Step-Log(first.name, first.step-type, first.bound-value, first.children.reverse, StepError, Left(error-ser))
-//       val next' = next(children = Cons(step-log, next.children))
-//       Right(state(open-steps=Cons(next', rest)))
-//     [] -> Left("log-error: no open-step")
+fun state/log-error(state: logger-state, fail-reason: outcome-fail-reason<stringsrc>): total either<string,logger-state>
+  match state.open-steps
+    Cons(first, Nil) -> 
+      val completed-steps' = Cons(Step-Log(first.name, first.children.reverse, Left(fail-reason)), state.completed-steps)
+      Right(state(completed-steps=completed-steps'))
+    Cons(first, Cons(next, rest)) ->
+      val step-log = Step-Log(first.name, first.children.reverse, Left(fail-reason))
+      val next' = next(children = Cons(step-log, next.children))
+      Right(state(open-steps=Cons(next', rest)))
+    [] -> Left("log-error: no open-step")
 
-// fun state/pause(state: logger-state): total logger-state
-//   state(pause-ignores=state.pause-ignores - 1)
+fun state/pause(state: logger-state): total logger-state
+  state(pause-ignores=state.pause-ignores - 1)
 
-// // collect and return a computation-log from a computation
-// // this handler also handles any exn effect, so the 
-// // return is div
-// pub fun log-collector<v>(
-//     previous-log: maybe<computation-log>, 
-//     computation-name: string, 
-//     opts: log-options,
-//     action: () -> <div,exn,logger> v
-//   ) : div (outcome<string,v>, computation-log)
+// collect and return a computation-log from a computation
+// this handler also handles any exn effect, so the 
+// return is div
+pub fun log-collector<v>(
+    previous-log: maybe<computation-log>, 
+    computation-name: string, 
+    action: () -> <div,exn,logger> v
+  ) : div (outcome<string,v>, computation-log)
 
-//   var state := make-logger-state(previous-log)
+  var state := make-logger-state(previous-log)
 
-//   with return(v) 
-//     val pauses = match previous-log
-//       Just(pl) -> pl.pauses - state.pause-ignores
-//       _ -> 0 - state.pause-ignores
-//     (v, Computation-Log(computation-name, opts, pauses, state.completed-steps.reverse))
+  with return(v) 
+    val pauses = match previous-log
+      Just(pl) -> pl.pauses - state.pause-ignores
+      _ -> 0 - state.pause-ignores
+    (v, Computation-Log(computation-name, pauses, state.completed-steps.reverse))
 
-//   // close out all open steps with an error, then return
-//   with handler
-//     final ctl throw-exn(ex)
-//       match ex
-//         Exception(_, ExnPauseComputation) -> 
-//           match state/error-open-steps(state, {ex.show})
-//             Left(err) -> OutcomeError("Fatal: " ++ err.show)
-//             Right(state') -> 
-//               state := state'
-//               OutcomePaused
+  // close out all open steps with an error, then return
+  with handler
+    final ctl throw-exn(ex)
+      match ex
+        Exception(_, ExnPauseComputation) -> 
+          match state/error-open-steps(state, {ex.show})
+            Left(err) -> Left(ReasonError("Fatal: " ++ err.show))
+            Right(state') -> 
+              state := state'
+              Left(ReasonPaused)
           
-//         _ ->
-//           match state/error-open-steps(state, {ex.show})
-//             Left(err) -> OutcomeError("Fatal: " ++ err.show)
-//             Right(state') -> 
-//               state := state'
-//               OutcomeError(ex.show)
+        _ ->
+          match state/error-open-steps(state, {ex.show})
+            Left(err) -> Left(ReasonError("Fatal: " ++ err.show))
+            Right(state') -> 
+              state := state'
+              Left(ReasonError(ex.show))
 
-//   // the handler implementation fns are all total, but can return errors via either. 
-//   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
-//   // the computation
-//   with handler
-//     val log-options = opts
-//     fun log-enter(name, step-type)
-//       match state/log-enter(state, name, step-type)
-//         (state', resumed-step) -> 
-//           state := state'
-//           resumed-step
-//     fun log-bound-value(value-ser)
-//       match state/log-bound-value(state, value-ser)
-//         Left(err) -> throw(err)
-//         Right(state') -> state := state'
-//     fun log-complete(outcome, result-ser)
-//       match state/log-complete(state, outcome, result-ser)
-//         Left(err) -> throw(err)
-//         Right(state') -> state := state'
-//     fun log-skip()
-//       match state/log-skip(state)
-//         Left(err) -> throw(err)
-//         Right(state') -> state := state'
-//     ctl log-error(error-ser)
-//       match state/log-error(state, error-ser)
-//         Left(err) -> throw(err)
-//         Right(state') -> state := state'
-//       throw(error-ser())
-//     ctl pause()
-//       state := state/pause(state)
-//       if state.pause-ignores >= 0 then
-//         resume(())
-//       else
-//         throw("Paused", ExnPauseComputation)
+  // the handler implementation fns are all total, but can return errors via either. 
+  // Such errors will be thrown to the throw-exn handler, to immediately terminate 
+  // the computation
+  with handler
+    fun log-enter(name)
+      match state/log-enter(state, name)
+        (state', resumed-step) -> 
+          state := state'
+          resumed-step
+    fun log-complete(success-reason)
+      match state/log-complete(state, success-reason)
+        Left(err) -> throw(err)
+        Right(state') -> state := state'
+    fun log-skip()
+      match state/log-skip(state)
+        Left(err) -> throw(err)
+        Right(state') -> state := state'
+    ctl log-error(error-ser)
+      match state/log-error(state, ReasonError(error-ser))
+        Left(err) -> throw(err)
+        Right(state') -> state := state'
+      throw(error-ser())
+    ctl pause()
+      state := state/pause(state)
+      if state.pause-ignores >= 0 then
+        resume(())
+      else
+        throw("Paused", ExnPauseComputation)
 
-//   OutcomeOk(action())
+  Right(action())
 
 // // test/example
 
