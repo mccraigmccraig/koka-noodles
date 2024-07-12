@@ -407,7 +407,7 @@ pub fun log-collector<v>(
 
   Right(action())
 
-// // test/example
+// test/example
 
 pub fun stuff(i: int)
   log-enter("stuff")

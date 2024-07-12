@@ -59,13 +59,9 @@ fun full/bindcore<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
  
-  // call the thunk to get the value to be bound
-  val a = st.run'
-
-  // bind a new step, then call its thunk
-  val r = f(a).run'
-  r
-
+  // run, bind, run
+  st.run'.f.run'
+  
 pub fun bind<a,b,e>(
     st: step<a,e>, 
     f: stepmfn<a,b,e>,
@@ -105,7 +101,7 @@ pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
       logger/log-complete(ReasonExec({st.strde.str()(r)}))
       r
 
-// // run a step without dismissing any effects
+// run a step without dismissing any effects
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
   match logger/log-enter(st.name)
     Just(step-log) ->
@@ -160,7 +156,7 @@ pub fun resume-pure<a>(
   ): div (outcome<string,a>, logger/computation-log)
   resume(st, log, pure-handler)
 
-// // some examples
+// some examples
 
 pub fun make-test-dsl-trivial(i: int)
   with x: int <- sbind("x") {i}
@@ -196,7 +192,7 @@ pub fun test-dsl-simple()
     Right(log3) -> log3.pp
     Left(err) -> err
 
-// // resuming a computation after fixing an error
+// resuming a computation after fixing an error
 pub fun test-dsl-simple-error-fix-rerun()
   val (_, log) = make-test-dsl-simple-error(100).run-pure
   val logj = log.json
