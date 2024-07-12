@@ -1,43 +1,43 @@
 module steps
 
-// import parsers/serjson/serjson
-// import std/core/exn
-// import std/num/random
-// import std/text/parse
-// import logger
+import parsers/serjson/serjson
+import std/core/exn
+import std/num/random
+import std/text/parse
+import logger
 
-// pub value struct strde<a>
-//   str: (a) -> total string
-//   de: (string) -> total either<string,a>
+pub value struct strde<a>
+  str: (a) -> total string
+  de: (string) -> total either<string,a>
 
-// pub alias thunk<a,e> = () -> e a
-// pub alias step-thunk<a,e> = thunk<a,<pure,logger|e>>
+pub alias thunk<a,e> = () -> e a
+pub alias step-thunk<a,e> = thunk<a,<pure,logger|e>>
 
-// // steps are a name, a thunk and a de/serializer for the thunk value.
-// // this is enough to control execution of a computation and to 
-// // serialize bound values and outputs to a log so that computations 
-// // can be resumed and failures inspected from the log
-// pub struct step<a,e>
-//   name: string
-//   strde: strde<a>
-//   thunk: step-thunk<a,e>
+// steps are a name, a thunk and a de/serializer for the thunk value.
+// this is enough to control execution of a computation and to 
+// serialize bound values and outputs to a log so that computations 
+// can be resumed and failures inspected from the log
+pub struct step<a,e>
+  name: string
+  strde: strde<a>
+  thunk: step-thunk<a,e>
 
-// pub alias pure-step<a> = step<a,<>>
+pub alias pure-step<a> = step<a,<>>
 
-// // monadic fns of steps - the fns have the <pure,logger|e> effects
-// // since (cf fcore.compose) we often need to *run* the step thunks
-// // to compose the mfns
-// pub alias stepmfn<a,b,e> = (a: a) -> <pure,logger|e> step<b,e>
-// pub alias pure-stepmfn<a,b> = stepmfn<a,b,<>>
+// monadic fns of steps - the fns have the <pure,logger|e> effects
+// since (cf fcore.compose) we often need to *run* the step thunks
+// to compose the mfns
+pub alias stepmfn<a,b,e> = (a: a) -> <pure,logger|e> step<b,e>
+pub alias pure-stepmfn<a,b> = stepmfn<a,b,<>>
 
-// // allowing the thunk to be given as a trailing lambda - the
-// // desugaring puts the trailing lambda before the implicit args!
-// pub fun step<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<a,e>
-//   Step(name, ?strde, thunk)
+// allowing the thunk to be given as a trailing lambda - the
+// desugaring puts the trailing lambda before the implicit args!
+pub fun step<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<a,e>
+  Step(name, ?strde, thunk)
 
-// // merging the step + bind into a single function
-// // giving a much more compact DSL syntax... the trailing lambda and 
-// // the with lambda are desugared into the desired positions
+// merging the step + bind into a single function
+// giving a much more compact DSL syntax... the trailing lambda and 
+// the with lambda are desugared into the desired positions
 // pub fun sbind<a,b,e>(
 //     name: string, 
 //     thunk: step-thunk<a,e>, 
@@ -47,149 +47,83 @@ module steps
 //   ): step<b,e>
 //   Step(name, ?a/strde, thunk).bind(f, ?b/strde=?b/strde)
 
-// pub fun step/show(a: step<a,e>): string
-//   a.name ++ ": <unevaluated>"
+pub fun step/show(a: step<a,e>): string
+  a.name ++ ": <unevaluated>"
 
-// // full core binding logic - call the thunk to get a value,
-// // bind that value to the next step, and call that next
-// // thunk
-// fun full/bindcore<a,b,e>(
-//     st: step<a,e>, 
-//     f: stepmfn<a,b,e>,
-//     b-strde: strde<b>
-//   ): <pure,logger|e> b
+// full core binding logic - call the thunk to get a value,
+// bind that value to the next step, and call that next
+// thunk
+fun full/bindcore<a,b,e>(
+    st: step<a,e>, 
+    f: stepmfn<a,b,e>,
+    b-strde: strde<b>
+  ): <pure,logger|e> b
  
-//   val log-bind-runs = logger/log-options.bind-detail
+  // call the thunk to get the value to be bound
+  val a = st.run'
 
-//   // call the thunk to get the value to be bound
-//   val a = if log-bind-runs then
-//     st.run'
-//   else
-//     st.run''
+  // bind a new step, then call its thunk
+  val r = f(a).run'
+  r
 
-//   // logger/log-bound-value({st.strde.str()(a)})
-//   // bind a new step, then call its thunk
-//   val r = if log-bind-runs then
-//     f(a).run'
-//   else
-//     f(a).run''
+pub fun bind<a,b,e>(
+    st: step<a,e>, 
+    f: stepmfn<a,b,e>,
+    ?b/strde: strde<b>
+  ): total step<b,e>
 
-//   // logger/log-complete(logger/Exec, {b-strde.str()(r)})
-//   r
+  Step(
+    "bind--" ++ st.name,
+    ?b/strde,
+    fn () -> 
+      full/bindcore(st,f,?b/strde)
+  )
 
-// // partial resume logic - we have a bound value logged, so no
-// // need to call the thunk to get it, just bind the value to 
-// // the function
-// fun resume-bind/bindcore<a,b,e>(
-//     st: step<a,e>, 
-//     step-log: step-log,
-//     f: stepmfn<a,b,e>,
-//     b-strde: strde<b>
-//   ): <pure,logger|e> b
+pub fun thunk/run''<a,e>(st: step<a, e>): <pure,logger|e> a
+  st.thunk()()
 
-//   val log-bind-runs = logger/log-options.bind-detail
+pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
+  match step-log
+    Step-log(_,_,Right(success-reason)) ->
+      val ssrc = match success-reason
+        ReasonExec(essrc) -> essrc
+        ReasonResume(rssrc) -> rssrc
 
-//   match step-log
-//     Step-log(_,_,Just(bv-strsrc),_,_,_) ->
-//       match st.strde.de()(bv-strsrc())
-//         Right(aa) -> 
-//           // we have a bound value - no need to re-run the thunk, just the bind
-//           // but if we don't run a logged bind, then we must skip it to correctly
-//           // tracking the log
-//           if log-bind-runs then
-//             logger/log-skip()            
-//           logger/log-bound-value(bv-strsrc)
-//           val r = if log-bind-runs then 
-//             f(aa).run'
-//           else 
-//             f(aa).run''
-//           logger/log-complete(logger/ResumeBind, {b-strde.str()(r)})
-//           r
-//         Left(_err) -> 
-//           // deser failed - perhaps the code no longer matches the data?
-//           full/bindcore(st,f,b-strde)    
-//     _ -> full/bindcore(st,f,b-strde)
-
-// // full resume logic - if we have a result value logged, then
-// // return with the logged result, otherwise try for a resume-bind
-// fun resume-full/bindcore<a,b,e>(
-//     st: step<a,e>, 
-//     step-log: step-log,
-//     f: stepmfn<a,b,e>,
-//     b-strde: strde<b>
-//   ): <pure,logger|e> b
-//   match step-log
-//     Step-log(_,_,_,_,_,Right(r-strsrc)) ->
-//       match b-strde.de()(r-strsrc())
-//         Right(rr) -> 
-//           // we are resuming a successful step, short-circuit straight to the result
-//           logger/log-complete(logger/Resume, r-strsrc)
-//           rr
-//         Left(_err) -> 
-//           // deser failed - perhaps the code no longer matches the data?
-//           resume-bind/bindcore(st,step-log,f,b-strde)
-//     Step-log(_,_,Just(_bv-src),_,_,_) ->
-//       resume-bind/bindcore(st,step-log,f,b-strde)
-//     _ -> full/bindcore(st,f,b-strde)
-
-// pub fun bind<a,b,e>(
-//     st: step<a,e>, 
-//     f: stepmfn<a,b,e>,
-//     ?b/strde: strde<b>
-//   ): total step<b,e>
-
-//   Step(
-//     "bind--" ++ st.name,
-//     ?b/strde,
-//     fn () -> 
-//       // match logger/log-enter(st.name, BindStep)
-//       //   Log(step-log) ->
-//       //     resume-full/bindcore(st, step-log, f, ?b/strde)
-//       //   _ -> 
-//           full/bindcore(st,f,?b/strde)
-//   )
-
-// pub fun thunk/run''<a,e>(st: step<a, e>): <pure,logger|e> a
-//   st.thunk()()
-
-// pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
-//   match step-log
-//     Step-log(_,_,_,_,_,Right(r-strsrc)) ->
-//       match st.strde.de()(r-strsrc())
-//         Right(rr) -> 
-//           // we are resuming a successful step, short-circuit straight to the result
-//           logger/log-complete(logger/Resume, r-strsrc)
-//           rr
-//         Left(_err) -> 
-//           // deser failed - perhaps the code no longer matches the data?
-//           val r = st.thunk/run''
-//           logger/log-complete(logger/Exec, {st.strde.str()(r)})
-//           r
-//     _ -> 
-//       val r = st.thunk/run''
-//       logger/log-complete(logger/Exec, {st.strde.str()(r)})
-//       r
-
+      val r-str = ssrc()
+      match st.strde.de()(r-str)
+        Right(rr) -> 
+          // we are resuming a successful step, short-circuit straight to the result
+          logger/log-complete(ReasonResume({r-str}))
+          rr
+        Left(_err) -> 
+          // deser failed - perhaps the code no longer matches the data?
+          val r = st.thunk/run''
+          logger/log-complete(ReasonExec({st.strde.str()(r)}))
+          r
+    _ -> 
+      val r = st.thunk/run''
+      logger/log-complete(ReasonExec({st.strde.str()(r)}))
+      r
 
 // // run a step without dismissing any effects
-// pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
-//   match logger/log-enter(st.name, RunStep)
-//     Log(step-log) ->
-//       resume/run''(st, step-log)
-//     _ -> 
-//       val r = st.thunk/run''
-//       logger/log-complete(logger/Exec, {st.strde.str()(r)})
-//       r
+pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
+  match logger/log-enter(st.name)
+    Just(step-log) ->
+      resume/run''(st, step-log)
+    _ -> 
+      val r = st.thunk/run''
+      logger/log-complete(ReasonExec({st.strde.str()(r)}))
+      r
 
-// // run a pure-step 
-// pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
-//   st.run'
+// run a pure-step 
+pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
+  st.run'
 
-// pub fun compose-stepmfn(fa: stepmfn<a,b,e>, fb: stepmfn<b,c,e>): stepmfn<a,c,e>
-//   fn (a)
-//     val sb = fa(a)
-//     val b = sb.run'
-//     fb(b)
+pub fun compose-stepmfn(fa: stepmfn<a,b,e>, fb: stepmfn<b,c,e>): stepmfn<a,c,e>
+  fn (a)
+    val sb = fa(a)
+    val b = sb.run'
+    fb(b)
 
 // // run a step, returning an either result and the computation-log
 // // h must handle any non-logger effects from the step - the only 
