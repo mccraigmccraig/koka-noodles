@@ -38,14 +38,14 @@ pub fun step<a,e>(name: string, thunk: step-thunk<a,e>, ?strde: strde<a>): step<
 // merging the step + bind into a single function
 // giving a much more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
-// pub fun sbind<a,b,e>(
-//     name: string, 
-//     thunk: step-thunk<a,e>, 
-//     f: stepmfn<a,b,e>, 
-//     ?a/strde: strde<a>,
-//     ?b/strde: strde<b>
-//   ): step<b,e>
-//   Step(name, ?a/strde, thunk).bind(f, ?b/strde=?b/strde)
+pub fun sbind<a,b,e>(
+    name: string, 
+    thunk: step-thunk<a,e>, 
+    f: stepmfn<a,b,e>, 
+    ?a/strde: strde<a>,
+    ?b/strde: strde<b>
+  ): step<b,e>
+  Step(name, ?a/strde, thunk).bind(f, ?b/strde=?b/strde)
 
 pub fun step/show(a: step<a,e>): string
   a.name ++ ": <unevaluated>"
