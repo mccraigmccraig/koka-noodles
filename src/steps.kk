@@ -244,7 +244,8 @@ pub fun test-dsl-simple-pause-resume()
       match intermed-logj.dejson
         Right(intermed-log') -> 
           val (_, final-log) = computation.resume-pure(intermed-log')
-          final-log.pp
+          final-log.pp.println
+          final-log.json
         Left(err) -> err.show
     Left(err) -> err.show
 
