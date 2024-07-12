@@ -164,7 +164,7 @@ pub fun make-test-dsl-trivial(i: int)
 
 pub fun test-dsl-trivial()
   val (_, log) = make-test-dsl-trivial(100).run-pure
-  logger/print-computation-log(log)
+  log.pp.println
   val logjson = computation-log/json(log)
   println(logjson)
   match computation-log/dejson(logjson)
@@ -185,7 +185,7 @@ pub fun make-test-dsl-simple-error(i: int)
 
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-pure
-  logger/print-computation-log(log)
+  log.pp.println
   val logjson = computation-log/json(log)
   logjson.println
   match computation-log/dejson(logjson)
@@ -225,7 +225,7 @@ pub fun test-dsl-simple-pause-resume()
   val paused-logj = paused-log.json
 
   // serialize the paused computation
-  paused-log.print-computation-log
+  paused-log.pp.println
   paused-logj.println
   paused-v.show.println 
 
@@ -239,7 +239,7 @@ pub fun test-dsl-simple-pause-resume()
     Right(paused-log') -> 
       val (_, intermed-log) = computation.resume-pure(paused-log')
       val intermed-logj = intermed-log.json
-      intermed-log.print-computation-log
+      intermed-log.pp.println
       intermed-logj.println
       match intermed-logj.dejson
         Right(intermed-log') -> 
@@ -251,13 +251,13 @@ pub fun test-dsl-simple-pause-resume()
 
 pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure
-  logger/print-computation-log(log)
+  log.pp.println
 
 pub fun test-dsl-simple-resume()
   val (_, log) = make-test-dsl-simple(100).run-pure
   val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
-  logger/print-computation-log(log)
-  logger/print-computation-log(log2)
+  log.pp.println
+  log2.pp.println
 
 pub fun make-test-dsl-random-effect(i: int)
   with x: int <- sbind("x") {i}
@@ -271,7 +271,7 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
 
 pub fun test-dsl-random-effect()
   val (_, log) = make-test-dsl-random-effect(100).run(handle-random)
-  logger/print-computation-log(log)
+  log.pp.println
   
 
 fun testdsl/stuff(i: int)
@@ -293,7 +293,7 @@ pub fun make-test-dsl-more-complex-compact(i: int)
 
 pub fun test-dsl-more-complext-compact()
   val (_, log) = make-test-dsl-more-complex-compact(10).run(fn(th) -> pseudo-random(100, th))
-  logger/print-computation-log(log)
+  log.pp.println
   // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
   // logger/print-computation-log(log2)
 
