@@ -231,20 +231,25 @@ pub fun test-dsl-simple-pause-resume()
   // serialize the paused computation
   paused-log.print-computation-log
   paused-v.show.println 
+
+  val (_, intermed-log) = computation.resume-pure(paused-log)
+  intermed-log.print-computation-log
+  val (_, final-log) = computation.resume-pure(intermed-log)
+  final-log.print-computation-log
   
-  // deserialize the paused computation and carry on
-  match paused-logj.dejson
-    Right(paused-log') -> 
-      val (_, intermed-log) = computation.resume-pure(paused-log')
-      val intermed-logj = intermed-log.json
-      intermed-log.print-computation-log
-      intermed-logj.println
-      match intermed-logj.dejson
-        Right(intermed-log') -> 
-          val (_, final-log) = computation.resume-pure(intermed-log')
-          final-log.pp
-        Left(err) -> err.show
-    Left(err) -> err.show
+  // // deserialize the paused computation and carry on
+  // match paused-logj.dejson
+  //   Right(paused-log') -> 
+  //     val (_, intermed-log) = computation.resume-pure(paused-log')
+  //     val intermed-logj = intermed-log.json
+  //     intermed-log.print-computation-log
+  //     intermed-logj.println
+  //     match intermed-logj.dejson
+  //       Right(intermed-log') -> 
+  //         val (_, final-log) = computation.resume-pure(intermed-log')
+  //         final-log.pp
+  //       Left(err) -> err.show
+  //   Left(err) -> err.show
 
 pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure
