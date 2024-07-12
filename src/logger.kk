@@ -33,6 +33,7 @@ pub struct step-log
   children: list<step-log>
   outcome: log-outcome
 
+// TODO this is almost the same as the step-log...
 pub struct computation-log
   name: string
   pauses: int
