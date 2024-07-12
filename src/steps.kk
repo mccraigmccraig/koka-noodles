@@ -125,42 +125,40 @@ pub fun compose-stepmfn(fa: stepmfn<a,b,e>, fb: stepmfn<b,c,e>): stepmfn<a,c,e>
     val b = sb.run'
     fb(b)
 
-// // run a step, returning an either result and the computation-log
-// // h must handle any non-logger effects from the step - the only 
-// // effects allowed out are div,exn
-// pub fun run<a>(
-//     st: step<a,e>,
-//     log-options: logger/log-options,
-//     h: (step-thunk<a,e>) -> <pure,logger> a
-//   ): div (computation-outcome<string,a>, logger/computation-log)
-//   with logger/log-collector(Nothing, st.name, log-options)
-//   with h 
-//   st.run' 
+// run a step, returning an either result and the computation-log
+// h must handle any non-logger effects from the step - the only 
+// effects allowed out are div,exn
+pub fun run<a>(
+    st: step<a,e>,
+    h: (step-thunk<a,e>) -> <pure,logger> a
+  ): div (outcome<string,a>, logger/computation-log)
+  with logger/log-collector(Nothing, st.name)
+  with h 
+  st.run' 
 
-// pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
-//   th()
+pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
+  th()
 
-// // convenience function for running a pure step
-// pub fun run-pure(
-//     st: pure-step<a>, 
-//     log-options: logger/log-options
-//   ): div (computation-outcome<string,a>, logger/computation-log)
-//   run(st, log-options, pure-handler)
+// convenience function for running a pure step
+pub fun run-pure(
+    st: pure-step<a> 
+  ): div (outcome<string,a>, logger/computation-log)
+  run(st, pure-handler)
 
-// pub fun resume<a>(
-//     st: step<a,e>,
-//     log: logger/computation-log,
-//     h: (step-thunk<a,e>) -> <pure,logger> a
-//   ): div (computation-outcome<string,a>, logger/computation-log)
-//   with logger/log-collector(Just(log), st.name, log.options)
-//   with h 
-//   st.run'
+pub fun resume<a>(
+    st: step<a,e>,
+    log: logger/computation-log,
+    h: (step-thunk<a,e>) -> <pure,logger> a
+  ): div (outcome<string,a>, logger/computation-log)
+  with logger/log-collector(Just(log), st.name)
+  with h 
+  st.run'
 
-// pub fun resume-pure<a>(
-//     st: pure-step<a>,
-//     log: logger/computation-log
-//   ): div (computation-outcome<string,a>, logger/computation-log)
-//   resume(st, log, pure-handler)
+pub fun resume-pure<a>(
+    st: pure-step<a>,
+    log: logger/computation-log
+  ): div (outcome<string,a>, logger/computation-log)
+  resume(st, log, pure-handler)
 
 // // some examples
 
