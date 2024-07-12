@@ -187,9 +187,10 @@ pub fun step-log/pp(log: step-log): indent string
   with pretend-no-div
   log.pp'
 
-pub fun computation-log/pp(log: computation-log)
+pub fun computation-log/pp(log: computation-log): total string
   with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
+  "pauses: " ++ log.pauses.show ++ "\n" ++
   log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
 pub fun print-computation-log(log: computation-log)
