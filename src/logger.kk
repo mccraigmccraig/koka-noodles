@@ -37,7 +37,7 @@ pub struct computation-log
   name: string
   pauses: int
   step-logs: list<step-log>
-  // outcome: log-outcome
+  final-outcome: log-outcome
 
 pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
@@ -141,19 +141,18 @@ pub fun computation-log/vfn(cl: computation-log): total serjson/value
   Object([Object-entry("name", String(cl.name)), 
           Object-entry("pauses", Int(cl.pauses)),
           Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs)),
-          // Object-entry("outcome", log-outcome/vfn(cl.outcome))
+          Object-entry("final-outcome", log-outcome/vfn(cl.final-outcome))
           ])
 pub fun computation-log/pfn(v: serjson/value): parse computation-log
   match v
     Object([Object-entry("name", String(name)), 
             Object-entry("pauses", Int(pauses)),
             Object-entry("step-logs", list-step-logs-value),
-            // Object-entry("outcome", outcome-value)
+            Object-entry("final-outcome", final-outcome-value)
             ]) -> 
         val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
-        // val outcome = log-outcome/pfn(outcome-value)
-        // Computation-log(name, pauses, list-step-logs, outcome)
-        Computation-log(name, pauses, list-step-logs)
+        val outcome = log-outcome/pfn(final-outcome-value)
+        Computation-log(name, pauses, list-step-logs, outcome)
     _ -> fail("invalid json: computation-log/pfn")
 
 effect val indent: int
@@ -165,14 +164,9 @@ fun pad()
   match indent 
     0 -> ""
     _ -> " " ++ repeat(" |", (indent - 1)) ++ " "
-  
-pub fun step-log/pp'(log: step-log): <div,indent> string
-  val p = pad()
 
-  val children-output = apply-indent(indent + 1)
-   log.children.map(step-log/pp').joinsep/join("\n" ++ pad() ++ "--\n")
-
-  val outcome-output = match log.outcome
+pub fun log-outcome/pp(outcome: log-outcome): string
+  match outcome
     Left(fail-reason) -> match fail-reason
       ReasonError(v) -> "error: " ++ v()
       ReasonPaused -> "paused"
@@ -180,9 +174,15 @@ pub fun step-log/pp'(log: step-log): <div,indent> string
       ReasonExec(v) -> "exec: " ++ v()
       ReasonResume(v) -> "resume: " ++ v()
 
+pub fun step-log/pp'(log: step-log): <div,indent> string
+  val p = pad()
+
+  val children-output = apply-indent(indent + 1)
+   log.children.map(step-log/pp').joinsep/join("\n" ++ pad() ++ "--\n")
+
   p ++ "run: " ++ log.name ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
-  "\n" ++ p ++ "outcome: " ++ outcome-output
+  "\n" ++ p ++ "outcome: " ++ log.outcome.pp
 pub fun step-log/pp(log: step-log): indent string
   with pretend-no-div
   log.pp'
@@ -191,7 +191,8 @@ pub fun computation-log/pp(log: computation-log): total string
   with apply-indent(1)
   "computation: " ++ log.name ++ "\n" ++
   "pauses: " ++ log.pauses.show ++ "\n" ++
-  log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
+  log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n") ++ "\n" ++
+  "final outcome: " ++ log.final-outcome.pp
 
 pub fun print-computation-log(log: computation-log)
   println(log.pp)
@@ -344,11 +345,11 @@ fun state/pause(state: logger-state): total logger-state
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect, so the 
 // return is div
-pub fun log-collector<v>(
+pub fun log-collector<a>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
-    action: () -> <div,exn,logger> v
-  ) : div (outcome<string,v>, computation-log)
+    action: () -> <div,exn,logger> a
+  ) : div (outcome<string,a>, computation-log)
 
   var state := make-logger-state(previous-log)
 
@@ -356,7 +357,17 @@ pub fun log-collector<v>(
     val pauses = match previous-log
       Just(pl) -> pl.pauses - state.pause-ignores
       _ -> 0 - state.pause-ignores
-    (v, Computation-Log(computation-name, pauses, state.completed-steps.reverse))
+
+    val outcome = match state.completed-steps
+      Cons(first, _) -> first.outcome
+      [] -> Left(ReasonError({"No completed steps"}))
+
+    (v, 
+     Computation-Log(
+      computation-name, 
+      pauses, 
+      state.completed-steps.reverse,
+      outcome))
 
   // close out all open steps with an error, then return
   with handler
