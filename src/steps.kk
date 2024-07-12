@@ -59,78 +59,12 @@ fun full/bindcore<a,b,e>(
     b-strde: strde<b>
   ): <pure,logger|e> b
  
-  val log-bind-runs = logger/log-options.bind-detail
-
   // call the thunk to get the value to be bound
-  val a = if log-bind-runs then
-    st.run'
-  else
-    st.run''
+  val a = st.run'
 
-  logger/log-bound-value({st.strde.str()(a)})
   // bind a new step, then call its thunk
-  val r = if log-bind-runs then
-    f(a).run'
-  else
-    f(a).run''
-
-  logger/log-complete(logger/Exec, {b-strde.str()(r)})
+  val r = f(a).run'
   r
-
-// partial resume logic - we have a bound value logged, so no
-// need to call the thunk to get it, just bind the value to 
-// the function
-fun resume-bind/bindcore<a,b,e>(
-    st: step<a,e>, 
-    step-log: step-log,
-    f: stepmfn<a,b,e>,
-    b-strde: strde<b>
-  ): <pure,logger|e> b
-
-  val log-bind-runs = logger/log-options.bind-detail
-
-  match step-log
-    Step-log(_,_,Just(bv-strsrc),_,_,_) ->
-      match st.strde.de()(bv-strsrc())
-        Right(aa) -> 
-          // we have a bound value - no need to re-run the thunk, just the bind
-          // but if we don't run a logged bind, then we must skip it to correctly
-          // tracking the log
-          if log-bind-runs then
-            logger/log-skip()            
-          logger/log-bound-value(bv-strsrc)
-          val r = if log-bind-runs then 
-            f(aa).run'
-          else 
-            f(aa).run''
-          logger/log-complete(logger/ResumeBind, {b-strde.str()(r)})
-          r
-        Left(_err) -> 
-          // deser failed - perhaps the code no longer matches the data?
-          full/bindcore(st,f,b-strde)    
-    _ -> full/bindcore(st,f,b-strde)
-
-// full resume logic - if we have a result value logged, then
-// return with the logged result, otherwise try for a resume-bind
-fun resume-full/bindcore<a,b,e>(
-    st: step<a,e>, 
-    step-log: step-log,
-    f: stepmfn<a,b,e>,
-    b-strde: strde<b>
-  ): <pure,logger|e> b
-  match step-log
-    Step-log(_,_,_,_,_,Right(r-strsrc)) ->
-      match b-strde.de()(r-strsrc())
-        Right(rr) -> 
-          // we are resuming a successful step, short-circuit straight to the result
-          logger/log-complete(logger/Resume, r-strsrc)
-          rr
-        Left(_err) -> 
-          // deser failed - perhaps the code no longer matches the data?
-          resume-bind/bindcore(st,step-log,f,b-strde)
-    Step-log(_,_,Just(_bv-src),_,_,_) ->
-      resume-bind/bindcore(st,step-log,f,b-strde)
-    _ -> full/bindcore(st,f,b-strde)
 
 pub fun bind<a,b,e>(
     st: step<a,e>, 
@@ -142,11 +76,7 @@ pub fun bind<a,b,e>(
     "bind--" ++ st.name,
     ?b/strde,
     fn () -> 
-      match logger/log-enter(st.name, BindStep)
-        Log(step-log) ->
-          resume-full/bindcore(st, step-log, f, ?b/strde)
-        _ -> 
-          full/bindcore(st,f,?b/strde)
+      full/bindcore(st,f,?b/strde)
   )
 
 pub fun thunk/run''<a,e>(st: step<a, e>): <pure,logger|e> a
@@ -154,31 +84,35 @@ pub fun thunk/run''<a,e>(st: step<a, e>): <pure,logger|e> a
 
 pub fun resume/run''<a,e>(st: step<a, e>, step-log: step-log): <pure,logger|e> a
   match step-log
-    Step-log(_,_,_,_,_,Right(r-strsrc)) ->
-      match st.strde.de()(r-strsrc())
+    Step-log(_,_,Right(success-reason)) ->
+      val ssrc = match success-reason
+        ReasonExec(essrc) -> essrc
+        ReasonResume(rssrc) -> rssrc
+
+      val r-str = ssrc()
+      match st.strde.de()(r-str)
         Right(rr) -> 
           // we are resuming a successful step, short-circuit straight to the result
-          logger/log-complete(logger/Resume, r-strsrc)
+          logger/log-complete(ReasonResume({r-str}))
           rr
         Left(_err) -> 
           // deser failed - perhaps the code no longer matches the data?
           val r = st.thunk/run''
-          logger/log-complete(logger/Exec, {st.strde.str()(r)})
+          logger/log-complete(ReasonExec({st.strde.str()(r)}))
           r
     _ -> 
       val r = st.thunk/run''
-      logger/log-complete(logger/Exec, {st.strde.str()(r)})
+      logger/log-complete(ReasonExec({st.strde.str()(r)}))
       r
 
-
-// run a step without dismissing any effects
+// // run a step without dismissing any effects
 pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
-  match logger/log-enter(st.name, RunStep)
-    Log(step-log) ->
+  match logger/log-enter(st.name)
+    Just(step-log) ->
       resume/run''(st, step-log)
     _ -> 
       val r = st.thunk/run''
-      logger/log-complete(logger/Exec, {st.strde.str()(r)})
+      logger/log-complete(ReasonExec({st.strde.str()(r)}))
       r
 
 // run a pure-step 
@@ -196,10 +130,9 @@ pub fun compose-stepmfn(fa: stepmfn<a,b,e>, fb: stepmfn<b,c,e>): stepmfn<a,c,e>
 // effects allowed out are div,exn
 pub fun run<a>(
     st: step<a,e>,
-    log-options: logger/log-options,
     h: (step-thunk<a,e>) -> <pure,logger> a
-  ): div (computation-outcome<string,a>, logger/computation-log)
-  with logger/log-collector(Nothing, st.name, log-options)
+  ): div (outcome<string,a>, logger/computation-log)
+  with logger/log-collector(Nothing, st.name)
   with h 
   st.run' 
 
@@ -208,34 +141,33 @@ pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
 
 // convenience function for running a pure step
 pub fun run-pure(
-    st: pure-step<a>, 
-    log-options: logger/log-options
-  ): div (computation-outcome<string,a>, logger/computation-log)
-  run(st, log-options, pure-handler)
+    st: pure-step<a> 
+  ): div (outcome<string,a>, logger/computation-log)
+  run(st, pure-handler)
 
 pub fun resume<a>(
     st: step<a,e>,
     log: logger/computation-log,
     h: (step-thunk<a,e>) -> <pure,logger> a
-  ): div (computation-outcome<string,a>, logger/computation-log)
-  with logger/log-collector(Just(log), st.name, log.options)
+  ): div (outcome<string,a>, logger/computation-log)
+  with logger/log-collector(Just(log), st.name)
   with h 
   st.run'
 
 pub fun resume-pure<a>(
     st: pure-step<a>,
     log: logger/computation-log
-  ): div (computation-outcome<string,a>, logger/computation-log)
+  ): div (outcome<string,a>, logger/computation-log)
   resume(st, log, pure-handler)
 
-// some examples
+// // some examples
 
 pub fun make-test-dsl-trivial(i: int)
   with x: int <- sbind("x") {i}
   step("result") {x.show}
 
 pub fun test-dsl-trivial()
-  val (_, log) = make-test-dsl-trivial(100).run-pure(logger/default-log-options)
+  val (_, log) = make-test-dsl-trivial(100).run-pure
   logger/print-computation-log(log)
   val logjson = computation-log/json(log)
   println(logjson)
@@ -256,7 +188,7 @@ pub fun make-test-dsl-simple-error(i: int)
   step("result") {(2 * z).show}
 
 pub fun test-dsl-simple()
-  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
+  val (_, log) = make-test-dsl-simple(100).run-pure
   logger/print-computation-log(log)
   val logjson = computation-log/json(log)
   logjson.println
@@ -264,9 +196,9 @@ pub fun test-dsl-simple()
     Right(log3) -> log3.pp
     Left(err) -> err
 
-// resuming a computation after fixing an error
+// // resuming a computation after fixing an error
 pub fun test-dsl-simple-error-fix-rerun()
-  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
+  val (_, log) = make-test-dsl-simple-error(100).run-pure
   val logj = log.json
   val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
   val log2j = log2.json
@@ -293,12 +225,18 @@ pub fun make-test-dsl-simple-pause(i: int)
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
   val computation = make-test-dsl-simple-pause(100)
-  val (paused-v, paused-log) = computation.run-pure(logger/detailed-log-options)
+  val (paused-v, paused-log) = computation.run-pure
   val paused-logj = paused-log.json
 
   // serialize the paused computation
   paused-log.print-computation-log
+  paused-logj.println
   paused-v.show.println 
+
+  // val (_, intermed-log) = computation.resume-pure(paused-log)
+  // intermed-log.print-computation-log
+  // val (_, final-log) = computation.resume-pure(intermed-log)
+  // final-log.print-computation-log
   
   // deserialize the paused computation and carry on
   match paused-logj.dejson
@@ -315,11 +253,11 @@ pub fun test-dsl-simple-pause-resume()
     Left(err) -> err.show
 
 pub fun test-dsl-simple-error()
-  val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
+  val (_, log) = make-test-dsl-simple-error(100).run-pure
   logger/print-computation-log(log)
 
 pub fun test-dsl-simple-resume()
-  val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
+  val (_, log) = make-test-dsl-simple(100).run-pure
   val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
   logger/print-computation-log(log)
   logger/print-computation-log(log2)
@@ -335,7 +273,7 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
   th()
 
 pub fun test-dsl-random-effect()
-  val (_, log) = make-test-dsl-random-effect(100).run(logger/default-log-options, handle-random)
+  val (_, log) = make-test-dsl-random-effect(100).run(handle-random)
   logger/print-computation-log(log)
   
 
@@ -357,7 +295,7 @@ pub fun make-test-dsl-more-complex-compact(i: int)
   step("result") {aa.show ++ "/" ++ bb.show}
 
 pub fun test-dsl-more-complext-compact()
-  val (_, log) = make-test-dsl-more-complex-compact(10).run(logger/default-log-options, fn(th) -> pseudo-random(100, th))
+  val (_, log) = make-test-dsl-more-complex-compact(10).run(fn(th) -> pseudo-random(100, th))
   logger/print-computation-log(log)
   // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
   // logger/print-computation-log(log2)
