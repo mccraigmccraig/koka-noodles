@@ -162,139 +162,137 @@ pub fun resume-pure<a>(
 
 // // some examples
 
-// pub fun make-test-dsl-trivial(i: int)
-//   with x: int <- sbind("x") {i}
-//   step("result") {x.show}
+pub fun make-test-dsl-trivial(i: int)
+  with x: int <- sbind("x") {i}
+  step("result") {x.show}
 
-// pub fun test-dsl-trivial()
-//   val (_, log) = make-test-dsl-trivial(100).run-pure(logger/detailed-log-options)
-//   logger/print-computation-log(log)
-//   val logjson = computation-log/json(log)
-//   println(logjson)
-//   match computation-log/dejson(logjson)
-//     Right(log') -> log'.pp
-//     Left(err) -> err.show
+pub fun test-dsl-trivial()
+  val (_, log) = make-test-dsl-trivial(100).run-pure
+  logger/print-computation-log(log)
+  val logjson = computation-log/json(log)
+  println(logjson)
+  match computation-log/dejson(logjson)
+    Right(log') -> log'.pp
+    Left(err) -> err.show
 
-// pub fun make-test-dsl-simple(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {x + y}
-//   step("result") {(2 * z).show}
+pub fun make-test-dsl-simple(i: int)
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {x + y}
+  step("result") {(2 * z).show}
 
-// pub fun make-test-dsl-simple-error(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {throw("boo") ; x + y}
-//   step("result") {(2 * z).show}
+pub fun make-test-dsl-simple-error(i: int)
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {throw("boo") ; x + y}
+  step("result") {(2 * z).show}
 
-// pub fun test-dsl-simple()
-//   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
-//   logger/print-computation-log(log)
-//   val logjson = computation-log/json(log)
-//   logjson.println
-//   match computation-log/dejson(logjson)
-//     Right(log3) -> log3.pp
-//     Left(err) -> err
+pub fun test-dsl-simple()
+  val (_, log) = make-test-dsl-simple(100).run-pure
+  logger/print-computation-log(log)
+  val logjson = computation-log/json(log)
+  logjson.println
+  match computation-log/dejson(logjson)
+    Right(log3) -> log3.pp
+    Left(err) -> err
 
 // // resuming a computation after fixing an error
-// pub fun test-dsl-simple-error-fix-rerun()
-//   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
-//   val logj = log.json
-//   val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
-//   val log2j = log2.json
+pub fun test-dsl-simple-error-fix-rerun()
+  val (_, log) = make-test-dsl-simple-error(100).run-pure
+  val logj = log.json
+  val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
+  val log2j = log2.json
 
-//   match logj.dejson
-//     Right(log') -> 
-//       logj.println
-//       log'.pp.println
-//     Left(err) -> err.show.println
+  match logj.dejson
+    Right(log') -> 
+      logj.println
+      log'.pp.println
+    Left(err) -> err.show.println
 
-//   match log2j.dejson
-//     Right(log2') -> 
-//       log2j.println
-//       log2'.pp.println
-//     Left(err) -> err.show.println
+  match log2j.dejson
+    Right(log2') -> 
+      log2j.println
+      log2'.pp.println
+    Left(err) -> err.show.println
 
-// pub fun make-test-dsl-simple-pause(i: int)
-//   with x: int <- sbind("x") {i}
-//   pause()
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {pause() ; x + y}
-//   step("result") {(2 * z).show}
+pub fun make-test-dsl-simple-pause(i: int)
+  with x: int <- sbind("x") {i}
+  pause()
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {pause() ; x + y}
+  step("result") {(2 * z).show}
 
-// // resuming a normal computation after it was paused
-// pub fun test-dsl-simple-pause-resume()
-//   val computation = make-test-dsl-simple-pause(100)
-//   val (paused-v, paused-log) = computation.run-pure(logger/detailed-log-options)
-//   val paused-logj = paused-log.json
+// resuming a normal computation after it was paused
+pub fun test-dsl-simple-pause-resume()
+  val computation = make-test-dsl-simple-pause(100)
+  val (paused-v, paused-log) = computation.run-pure
+  val paused-logj = paused-log.json
 
-//   // serialize the paused computation
-//   paused-log.print-computation-log
-//   paused-v.show.println 
+  // serialize the paused computation
+  paused-log.print-computation-log
+  paused-v.show.println 
   
-//   // deserialize the paused computation and carry on
-//   match paused-logj.dejson
-//     Right(paused-log') -> 
-//       val (_, intermed-log) = computation.resume-pure(paused-log')
-//       val intermed-logj = intermed-log.json
-//       intermed-log.print-computation-log
-//       intermed-logj.println
-//       match intermed-logj.dejson
-//         Right(intermed-log') -> 
-//           val (_, final-log) = computation.resume-pure(intermed-log')
-//           final-log.pp
-//         Left(err) -> err.show
-//     Left(err) -> err.show
+  // deserialize the paused computation and carry on
+  match paused-logj.dejson
+    Right(paused-log') -> 
+      val (_, intermed-log) = computation.resume-pure(paused-log')
+      val intermed-logj = intermed-log.json
+      intermed-log.print-computation-log
+      intermed-logj.println
+      match intermed-logj.dejson
+        Right(intermed-log') -> 
+          val (_, final-log) = computation.resume-pure(intermed-log')
+          final-log.pp
+        Left(err) -> err.show
+    Left(err) -> err.show
 
-// pub fun test-dsl-simple-error()
-//   val (_, log) = make-test-dsl-simple-error(100).run-pure(logger/detailed-log-options)
-//   logger/print-computation-log(log)
+pub fun test-dsl-simple-error()
+  val (_, log) = make-test-dsl-simple-error(100).run-pure
+  logger/print-computation-log(log)
 
-// pub fun test-dsl-simple-resume()
-//   val (_, log) = make-test-dsl-simple(100).run-pure(logger/detailed-log-options)
-//   val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
-//   logger/print-computation-log(log)
-//   logger/print-computation-log(log2)
+pub fun test-dsl-simple-resume()
+  val (_, log) = make-test-dsl-simple(100).run-pure
+  val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
+  logger/print-computation-log(log)
+  logger/print-computation-log(log2)
 
-// pub fun make-test-dsl-random-effect(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") {random-int()}
-//   with z <- sbind("z") {x + y}
-//   step("result") {2 * z}
+pub fun make-test-dsl-random-effect(i: int)
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") {random-int()}
+  with z <- sbind("z") {x + y}
+  step("result") {2 * z}
 
-// fun handle-random<a>(th: thunk<a,<random|e>>): e a
-//   with pseudo-random(100)
-//   th()
+fun handle-random<a>(th: thunk<a,<random|e>>): e a
+  with pseudo-random(100)
+  th()
 
-// pub fun test-dsl-random-effect()
-//   val (_, log) = make-test-dsl-random-effect(100).run(logger/default-log-options, handle-random)
-//   logger/print-computation-log(log)
+pub fun test-dsl-random-effect()
+  val (_, log) = make-test-dsl-random-effect(100).run(handle-random)
+  logger/print-computation-log(log)
   
 
-// fun testdsl/stuff(i: int)
-//   with x: int <- step("i"){i}.bind
-//   with y <- step("rand"){random-int()}.bind
-//   step("stuff") {x + y}
+fun testdsl/stuff(i: int)
+  with x: int <- step("i"){i}.bind
+  with y <- step("rand"){random-int()}.bind
+  step("stuff") {x + y}
 
-// pub fun make-test-dsl-more-complex-compact(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") { if i>5 then [10,11] else [] }
-//   val aa' = match y
-//     [a, b] -> 
-//       with z: int <- sbind("z") {x + a + b}
-//       step("aa'-pair") {z + 10}
-//     _ -> step("aa'-default") {0}
-//   with aa: int <- aa'.bind
-//   with bb: int <- testdsl/stuff(i).bind
-//   step("result") {aa.show ++ "/" ++ bb.show}
+pub fun make-test-dsl-more-complex-compact(i: int)
+  with x: int <- sbind("x") {i}
+  with y <- sbind("y") { if i>5 then [10,11] else [] }
+  val aa' = match y
+    [a, b] -> 
+      with z: int <- sbind("z") {x + a + b}
+      step("aa'-pair") {z + 10}
+    _ -> step("aa'-default") {0}
+  with aa: int <- aa'.bind
+  with bb: int <- testdsl/stuff(i).bind
+  step("result") {aa.show ++ "/" ++ bb.show}
 
-// pub fun test-dsl-more-complext-compact()
-//   val (_, log) = make-test-dsl-more-complex-compact(10).run(logger/default-log-options, fn(th) -> pseudo-random(100, th))
-//   logger/print-computation-log(log)
-//   // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
-//   // logger/print-computation-log(log2)
-
-
+pub fun test-dsl-more-complext-compact()
+  val (_, log) = make-test-dsl-more-complex-compact(10).run(fn(th) -> pseudo-random(100, th))
+  logger/print-computation-log(log)
+  // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
+  // logger/print-computation-log(log2)
 
 
 
@@ -307,13 +305,15 @@ pub fun resume-pure<a>(
 
 
 
-// // serialize/deserialize int and list<int>
 
-// val int/strde = Strde(fn(i: int) -> serjson/json(i), fn(s) -> serjson/dejson(s))
 
-// val listint/strde = Strde(
-//   fn(l: list<int>) -> serjson/json(l, ?vfn=list/make-vfn(int/vfn)),
-//   fn(s) -> serjson/dejson(s, ?pfn=list/make-pfn(int/pfn))
-// )
+// serialize/deserialize int and list<int>
 
-// val string/strde = Strde(fn(s: string) -> serjson/json(s), fn(s) -> serjson/dejson(s))
+val int/strde = Strde(fn(i: int) -> serjson/json(i), fn(s) -> serjson/dejson(s))
+
+val listint/strde = Strde(
+  fn(l: list<int>) -> serjson/json(l, ?vfn=list/make-vfn(int/vfn)),
+  fn(s) -> serjson/dejson(s, ?pfn=list/make-pfn(int/pfn))
+)
+
+val string/strde = Strde(fn(s: string) -> serjson/json(s), fn(s) -> serjson/dejson(s))
