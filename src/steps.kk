@@ -49,18 +49,6 @@ pub fun sbind<a,b,e>(
 
 pub fun step/show(a: step<a,e>): string
   a.name ++ ": <unevaluated>"
-
-// full core binding logic - call the thunk to get a value,
-// bind that value to the next step, and call that next
-// thunk
-fun full/bindcore<a,b,e>(
-    st: step<a,e>, 
-    f: stepmfn<a,b,e>,
-    b-strde: strde<b>
-  ): <pure,logger|e> b
- 
-  // run, bind, run
-  st.run'.f.run'
   
 pub fun bind<a,b,e>(
     st: step<a,e>, 
@@ -72,7 +60,7 @@ pub fun bind<a,b,e>(
     "bind--" ++ st.name,
     ?b/strde,
     fn () -> 
-      full/bindcore(st,f,?b/strde)
+      st.run'.f.run'
   )
 
 pub fun thunk/run''<a,e>(st: step<a, e>): <pure,logger|e> a
