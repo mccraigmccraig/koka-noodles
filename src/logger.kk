@@ -5,6 +5,7 @@ import std/core/exn
 import std/core/string 
 import std/core/undiv
 import std/core/vector
+import std/data/json
 import std/text/parse
 
 // a custom exception-info for pausing a computation
@@ -281,6 +282,14 @@ pub fun stringsrc/pfn(v: serjson/value): parse stringsrc
     String(s) -> fn () -> s
     _ -> fail("invalid json: stringsrc/pfn")
 
+pub fun stringsrc/to-json(s: stringsrc): json
+  JSString(s())
+pub fun stringssrc/from-json(j: json, path: string): pure stringsrc
+  match j
+    JSString(s) -> fn () -> s
+    _ -> throw("Expecting stringsrc, got " ++ j.show, info=JsonDeserializationException(j, path))
+
+
 pub fun fail-reason/show<a>(reason: fail-reason<a>, ?a/show: (a)->string): string
   match reason
     ReasonError(a) -> "ReasonError: " ++ a.show
@@ -296,6 +305,21 @@ pub fun fail-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<fail-reason<a>,e>
       Object([Object-entry("ReasonError", a)]) -> ReasonError(a-pfn(a))
       Object([Object-entry("ReasonPaused", Null)]) -> ReasonPaused
       _ -> fail("invalid json: fail-reason")
+
+pub fun fail-reason/to-json(fr: fail-reason<a>, ?a/to-json: a -> e json): e json
+  match fr
+    ReasonError(a) -> JSObj([("ReasonError", a/to-json(a))])
+    ReasonPaused -> JSObj([("ReasonPaused", JSNull)])
+pub fun fail-reason/from-json(j: json, path: string, ?a/from-json: (j: json, path: string) -> pure a): pure fail-reason<a>
+// l: list<(string,json)>
+  match j
+    JSObj(l) ->
+      match l.lookup(fn (k) k=="ReasonError")
+        Just(jj) -> ReasonError(?a/from-json(jj, path ++ "->ReasonError"))
+        _ -> match l.lookup(fn (k) k=="ReasonPaused")
+          Just(JSNull) -> ReasonPaused
+          _ -> throw("Expecting fail-reason, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
+    _ -> throw("Expecting fail-reason, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun success-reason/show<a>(reason: success-reason<a>, ?a/show: (a)->string): string
   match reason
@@ -313,6 +337,20 @@ pub fun success-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<success-reason<a>,e>
       Object([Object-entry("ReasonResume", a)]) -> ReasonResume(a-pfn(a))
       _ -> fail("invalid json: success-reason")
 
+pub fun success-reason/to-json(sr: success-reason<a>, ?a/to-json: a -> e json): e json
+  match sr
+    ReasonExec(a) -> JSObj([("ReasonExec", a/to-json(a))])
+    ReasonResume(a) -> JSObj([("ReasonResume", a/to-json(a))])
+pub fun success-reason/from-json(j: json, path: string, ?a/from-json: (j: json, path: string) -> pure a): pure success-reason<a>
+  match j
+    JSObj(l) ->
+      match l.lookup(fn (k) k=="ReasonExec")
+        Just(jj) -> ReasonExec(?a/from-json(jj, path ++ "->ReasonExec"))
+        _ -> match l.lookup(fn (k) k=="ReasonResume")
+          Just(jjj) -> ReasonResume(?a/from-json(jjj, path ++ "->ReasonResume"))
+          _ -> throw("Expecting success-reason, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
+    _ -> throw("Expecting success-reason, got " ++ j.show, info=JsonDeserializationException(j, path))
+
 pub fun outcome/show<a,b>(outcome: outcome<a,b>, ?a/show: (a)->string, ?b/show: (b)->string): string
   match outcome
     Left(ReasonError(a)) -> "Left(ReasonError(" ++ a.show ++ "))"
@@ -323,12 +361,40 @@ pub fun outcome/make-vfn<a,b>(a-vfn: pvfn<a,e>, b-vfn: pvfn<b,e>): pvfn<outcome<
 pub fun outcome/make-pfn<a,b>(a-pfn: ppfn<a,e>, b-pfn: ppfn<b,e>): ppfn<outcome<a,b>,e>
   either/make-pfn(fail-reason/make-pfn(a-pfn), b-pfn)
 
+pub fun outcome/to-json<a,b>(o: outcome<a,b>, ?a/to-json: a -> e json, ?b/to-json: b -> e json): e json
+  match o
+    Left(fa) -> JSObj([("Left", fail-reason/to-json(fa))])
+    Right(b) -> JSObj([("Right", b/to-json(b))])
+pub fun outcome/from-json<a,b>(j: json, path: string, ?a/from-json: (j: json, path: string) -> pure a, ?b/from-json: (j: json, path: string) -> pure b): pure outcome<a,b>
+  match j
+    JSObj(l) ->
+      match l.lookup(fn (k) k=="Left")
+        Just(fr) -> Left(fail-reason/from-json(fr, path ++ "->Left"))
+        _ -> match l.lookup(fn (k) k=="Right")
+          Just(jj) -> Right(?b/from-json(jj, path ++ "->Right"))
+          _ -> throw("Expecting outcome, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
+    _ -> throw("Expecting outcome, got " ++ j.show, info=JsonDeserializationException(j, path))
+
 pub fun log-outcome/show(outcome: log-outcome): string
   outcome/show(outcome)
 pub fun log-outcome/vfn(a: log-outcome): total serjson/value
   either/make-vfn(fail-reason/make-vfn(stringsrc/vfn), success-reason/make-vfn(stringsrc/vfn))(a)
 pub fun log-outcome/pfn(v: serjson/value): parse log-outcome
   either/make-pfn(fail-reason/make-pfn(stringsrc/pfn), success-reason/make-pfn(stringsrc/pfn))(v)
+
+pub fun log-outcome/to-json(o: log-outcome): pure json
+  match o
+    Left(fa) -> JSObj([("Left", fail-reason/to-json(fa))])
+    Right(sb) -> JSObj([("Right", success-reason/to-json(sb))])
+pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
+  match j
+    JSObj(l) ->
+      match l.lookup(fn (k) k=="Left")
+        Just(fr) -> Left(fail-reason/from-json(fr, path ++ "->Left"))
+        _ -> match l.lookup(fn (k) k=="Right")
+          Just(sr) -> Right(success-reason/from-json(sr, path ++ "->Right"))
+          _ -> throw("Expecting log-outcome, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
+    _ -> throw("Expecting log-outcome, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun step-log/show(a: step-log): string
   with apply-indent(0)
@@ -353,6 +419,26 @@ pub fun step-log/pfn(v: serjson/value): parse step-log
   with pretend-no-div
   step-log/pfn'(v)
 
+pub fun step-log/to-json(sl: step-log): pure json
+  JSObj([("name", JSString(sl.name)),
+         ("children", JSList(sl.children.map(to-json))), 
+         ("outcome", sl.outcome.log-outcome/to-json)])
+pub fun step-log/from-json(j: json, path: string): pure step-log
+  match j
+    JSObj(m) -> 
+      match m.lookup(fn(k)->k=="name")
+        Just(JSString(name)) -> 
+          match m.lookup(fn(k)->k=="children")
+            Just(JSList(children)) -> 
+              match m.lookup(fn(k)->k=="outcome")
+                Just(o) -> 
+                  Step-log(name, children.map(fn (jj) from-json(jj, path ++ "->children")), 
+                           from-json(o, path ++ "->outcome"))
+                _ -> throw("Expecting outcome in step-log", info=JsonDeserializationException(j, path))
+            _ -> throw("Expecting children in step-log", info=JsonDeserializationException(j, path))
+        _ -> throw("Expecting name in step-log", info=JsonDeserializationException(j, path))
+    _ -> throw("Expecting step-log, got " ++ j.show, info=JsonDeserializationException(j, path))
+
 pub fun computation-log/show(a: computation-log): string
   with apply-indent(0)
   a.pp
@@ -370,6 +456,25 @@ pub fun computation-log/pfn(v: serjson/value): parse computation-log
         val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
         Computation-log(name, pauses, list-step-logs)
     _ -> fail("invalid json: computation-log/pfn")
+
+pub fun computation-log/to-json(cl: computation-log): pure json
+  JSObj([("name", JSString(cl.name)),
+         ("pauses", JSInt(cl.pauses)),
+         ("step-logs", JSList(cl.step-logs.map(to-json)))])
+pub fun computation-log/from-json(j: json, path: string): pure computation-log
+  match j
+    JSObj(m) -> 
+      match m.lookup(fn(k)->k=="name")
+        Just(JSString(name)) -> 
+          match m.lookup(fn(k)->k=="pauses")
+            Just(JSInt(pauses)) -> 
+              match m.lookup(fn(k)->k=="step-logs")
+                Just(JSList(step-logs)) -> 
+                  Computation-log(name, pauses, step-logs.map(fn (jj) from-json(jj, path ++ "->step-logs")))
+                _ -> throw("Expecting step-logs in computation-log", info=JsonDeserializationException(j, path))
+            _ -> throw("Expecting pauses in computation-log", info=JsonDeserializationException(j, path))
+        _ -> throw("Expecting name in computation-log", info=JsonDeserializationException(j, path))
+    _ -> throw("Expecting computation-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 effect val indent: int
 pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
