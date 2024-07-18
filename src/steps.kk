@@ -4,6 +4,7 @@ import std/core/exn
 import std/core/undiv
 import std/data/json
 import std/num/random
+import std/pretty/pprint
 import logger
 
 // TODO think about error channels - the thunk can throw, 
@@ -218,19 +219,21 @@ pub fun test-dsl-simple-pause-resume()
   val (paused-v, paused-log) = computation.run-pure
   val paused-logj = paused-log.to-json
 
-  // serialize the paused computation
   paused-log.pp.println
-  paused-logj.println
+  paused-logj.to-json.pretty.show.println
   paused-v.show.println 
 
   val paused-log' = paused-logj.computation-log/from-json("")
   val (_, intermed-log) = computation.resume-pure(paused-log')
-  intermed-log.pp.println
+  // intermed-log.pp.println
+  intermed-log.to-json.pretty.show.println
   val intermed-logj = intermed-log.to-json
+
   val intermed-log' = intermed-logj.computation-log/from-json("")
   val (_, final-log) = computation.resume-pure(intermed-log')
   final-log.pp.println
-  
+  final-log.to-json.println
+
 pub fun test-dsl-simple-error()
   val (_, log) = make-test-dsl-simple-error(100).run-pure
   log.pp.println
