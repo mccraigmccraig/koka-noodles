@@ -1,13 +1,32 @@
 module logger-test
 
 import logger
+import parsers/regex/json-fast
 import parsers/serjson/serjson
+import std/data/json
 
 pub fun test-stringsrc-json()
   val src = fn () -> "foo"
   val j = serjson/json(src)
   val src' = serjson/dejson(j, ?pfn=logger/stringsrc/pfn)
   src'.show
+
+pub fun test-stringsrc-datajson()
+  val src = fn () -> "f\"o\no"
+  val j = src.to-json.show
+  j.list.println
+  match j.str/parse 
+    JSString(s) -> s.list.println
+    _ -> "error".println
+
+pub fun test-unquote()
+  val s = "\\\"f\\\"o\\\no\\\""
+  s.list.println
+  s.unquote.list.println
+
+pub fun test-string()
+  r#""[^\\\"]*(?:\\.[^"\\]*)*""#.list
+
 
 pub fun test-log-outcome-json()
   val ofailpause = Left(ReasonPaused)
