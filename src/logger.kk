@@ -17,7 +17,8 @@ pub extend type exception-info {
 // serialize or deserialise all values, e.g. we might have an
 // "only log final values if there are no errors, but 
 //  log all values if there are errors" policy
-pub alias stringsrc = () -> total string
+pub alias json-src = () -> total json
+pub alias string-src = () -> total string
 
 pub value type fail-reason<a>
   ReasonError(a: a)
@@ -28,7 +29,7 @@ pub value type success-reason<a>
   ReasonResume(a: a)
 
 pub alias outcome<a,b> = either<fail-reason<a>,b>
-pub alias log-outcome = either<fail-reason<stringsrc>, success-reason<stringsrc>>
+pub alias log-outcome = either<fail-reason<string-src>, success-reason<json-src>>
 
 pub struct step-log
   name: string
@@ -41,21 +42,15 @@ pub struct computation-log
   pauses: int
   step-logs: list<step-log>
 
-pub fun computation-log/json(log: computation-log): total string
-  serjson/json(log, ?vfn=computation-log/vfn)
-
-pub fun computation-log/dejson(s: string): total either<string,computation-log>
-  serjson/dejson(s, ?pfn=computation-log/pfn)
-
 pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
   fun log-enter(name: string) : maybe<step-log>
   // close a step-log successfully
-  fun log-complete(success-reason: success-reason<stringsrc>) : ()
+  fun log-complete(success-reason: success-reason<json-src>) : ()
   // if following a log, skip the next entry (because it's not going to be run)
   fun log-skip() : ()
   // close a step log with an error and immediately terminate
-  ctl log-error(err: stringsrc) : ()
+  ctl log-error(err: string-src) : ()
   // pause a computation, returning a log which can be used to resume later
   ctl pause() : ()
 
@@ -164,7 +159,7 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 // propagate an error through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree
 // propagate an error to a state
-fun state/fail-open-steps(state: logger-state, fail-reason: fail-reason<stringsrc>): total either<string,logger-state>
+fun state/fail-open-steps(state: logger-state, fail-reason: fail-reason<string-src>): total either<string,logger-state>
   match state.open-steps
     [] -> Left("fail-open-steps: no open-step")
     Cons(first, Nil) -> 
@@ -206,7 +201,7 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
         rest -> Cons(Open-Step(step-name, []), rest)
       (state'(open-steps=open-steps'), resumed-step)
   
-fun state/log-complete(state: logger-state, success-reason: success-reason<stringsrc>): total either<string,logger-state>
+fun state/log-complete(state: logger-state, success-reason: success-reason<json-src>): total either<string,logger-state>
   // first pop a step off the cursor
   val state' = match state.resume-cursor
     Just(lc) ->
@@ -253,7 +248,7 @@ fun state/log-skip(state: logger-state): total either<string,logger-state>
         _ -> Right(state(resume-cursor=Nothing))
     _ -> Right(state(resume-cursor=Nothing))
 
-fun state/log-error(state: logger-state, fail-reason: fail-reason<stringsrc>): total either<string,logger-state>
+fun state/log-error(state: logger-state, fail-reason: fail-reason<string-src>): total either<string,logger-state>
   match state.open-steps
     Cons(first, Nil) -> 
       val completed-steps' = Cons(Step-Log(first.name, first.children.reverse, Left(fail-reason)), state.completed-steps)
@@ -273,45 +268,31 @@ fun state/pause(state: logger-state): total logger-state
 
 // printing and JSON serialisation
 
-pub fun stringsrc/show(a: stringsrc): string
-  a()
-pub fun stringsrc/vfn(s: stringsrc): total serjson/value
-  String(s())
-pub fun stringsrc/pfn(v: serjson/value): parse stringsrc
-  match v
-    String(s) -> fn () -> s
-    _ -> fail("invalid json: stringsrc/pfn")
-
-pub fun stringsrc/to-json(s: stringsrc): json
+pub fun string-src/show(s: string-src): string
+  s()
+pub fun string-src/to-json(s: string-src): json
   JSString(s())
-pub fun stringssrc/from-json(j: json, path: string): pure stringsrc
+pub fun string-src/from-json(j: json, path: string): pure string-src
   match j
     JSString(s) -> fn () -> s
-    _ -> throw("Expecting stringsrc, got " ++ j.show, info=JsonDeserializationException(j, path))
+    _ -> throw("Expecting string-src, got " ++ j.show, info=JsonDeserializationException(j, path))
 
+pub fun json-src/show(a: json-src): string
+  a().show
+pub fun json-src/to-json(s: json-src): json
+  s()
+pub fun json-src/from-json(j: json, path: string): pure json-src
+  fn () -> j
 
 pub fun fail-reason/show<a>(reason: fail-reason<a>, ?a/show: (a)->string): string
   match reason
     ReasonError(a) -> "ReasonError: " ++ a.show
     ReasonPaused -> "ReasonPaused"
-pub fun fail-reason/make-vfn<a>(a-vfn: pvfn<a,e>): pvfn<fail-reason<a>,e>
-  fn(reason)
-    match reason
-      ReasonError(a) -> Object([Object-entry("ReasonError", a-vfn(a))])
-      ReasonPaused -> Object([Object-entry("ReasonPaused", Null)])
-pub fun fail-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<fail-reason<a>,e>
-  fn (v)
-    match v
-      Object([Object-entry("ReasonError", a)]) -> ReasonError(a-pfn(a))
-      Object([Object-entry("ReasonPaused", Null)]) -> ReasonPaused
-      _ -> fail("invalid json: fail-reason")
-
 pub fun fail-reason/to-json(fr: fail-reason<a>, ?a/to-json: a -> e json): e json
   match fr
     ReasonError(a) -> JSObj([("ReasonError", a/to-json(a))])
     ReasonPaused -> JSObj([("ReasonPaused", JSNull)])
 pub fun fail-reason/from-json(j: json, path: string, ?a/from-json: (j: json, path: string) -> pure a): pure fail-reason<a>
-// l: list<(string,json)>
   match j
     JSObj(l) ->
       match l.lookup(fn (k) k=="ReasonError")
@@ -325,18 +306,6 @@ pub fun success-reason/show<a>(reason: success-reason<a>, ?a/show: (a)->string):
   match reason
     ReasonExec(a) -> "ReasonExec("  ++ ?a/show(a) ++ ")"
     ReasonResume(a) -> "ReasonResume(" ++ ?a/show(a) ++ ")"
-pub fun success-reason/make-vfn<a>(a-vfn: pvfn<a,e>): pvfn<success-reason<a>,e>
-  fn(reason)
-    match reason
-      ReasonExec(a) -> Object([Object-entry("ReasonExec", a-vfn(a))])
-      ReasonResume(a) -> Object([Object-entry("ReasonResume", a-vfn(a))])
-pub fun success-reason/make-pfn<a>(a-pfn: ppfn<a,e>): ppfn<success-reason<a>,e>
-  fn(v)
-    match v
-      Object([Object-entry("ReasonExec", a)]) -> ReasonExec(a-pfn(a))
-      Object([Object-entry("ReasonResume", a)]) -> ReasonResume(a-pfn(a))
-      _ -> fail("invalid json: success-reason")
-
 pub fun success-reason/to-json(sr: success-reason<a>, ?a/to-json: a -> e json): e json
   match sr
     ReasonExec(a) -> JSObj([("ReasonExec", a/to-json(a))])
@@ -356,11 +325,6 @@ pub fun outcome/show<a,b>(outcome: outcome<a,b>, ?a/show: (a)->string, ?b/show: 
     Left(ReasonError(a)) -> "Left(ReasonError(" ++ a.show ++ "))"
     Left(ReasonPaused) -> "Left(ReasonPaused)"
     Right(b) -> "Right(" ++ b.show ++ ")"
-pub fun outcome/make-vfn<a,b>(a-vfn: pvfn<a,e>, b-vfn: pvfn<b,e>): pvfn<outcome<a,b>,e>
-  either/make-vfn(fail-reason/make-vfn(a-vfn), b-vfn)
-pub fun outcome/make-pfn<a,b>(a-pfn: ppfn<a,e>, b-pfn: ppfn<b,e>): ppfn<outcome<a,b>,e>
-  either/make-pfn(fail-reason/make-pfn(a-pfn), b-pfn)
-
 pub fun outcome/to-json<a,b>(o: outcome<a,b>, ?a/to-json: a -> e json, ?b/to-json: b -> e json): e json
   match o
     Left(fa) -> JSObj([("Left", fail-reason/to-json(fa))])
@@ -376,16 +340,11 @@ pub fun outcome/from-json<a,b>(j: json, path: string, ?a/from-json: (j: json, pa
     _ -> throw("Expecting outcome, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun log-outcome/show(outcome: log-outcome): string
-  outcome/show(outcome)
-pub fun log-outcome/vfn(a: log-outcome): total serjson/value
-  either/make-vfn(fail-reason/make-vfn(stringsrc/vfn), success-reason/make-vfn(stringsrc/vfn))(a)
-pub fun log-outcome/pfn(v: serjson/value): parse log-outcome
-  either/make-pfn(fail-reason/make-pfn(stringsrc/pfn), success-reason/make-pfn(stringsrc/pfn))(v)
-
+  outcome.outcome/show(?a/show=string-src/show, ?b/show=fn (sr) -> sr.show)
 pub fun log-outcome/to-json(o: log-outcome): pure json
   match o
-    Left(fa) -> JSObj([("Left", fail-reason/to-json(fa))])
-    Right(sb) -> JSObj([("Right", success-reason/to-json(sb))])
+    Left(fa) -> JSObj([("Left", fa.fail-reason/to-json)])
+    Right(sb) -> JSObj([("Right", sb.success-reason/to-json)])
 pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
   match j
     JSObj(l) ->
@@ -399,26 +358,6 @@ pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
 pub fun step-log/show(a: step-log): string
   with apply-indent(0)
   a.pp
-fun step-log/vfn'(sl: step-log): div serjson/value
-  Object([Object-entry("name", String(sl.name)), 
-          Object-entry("children", list/make-vfn(step-log/vfn')(sl.children)), 
-          Object-entry("outcome", log-outcome/vfn(sl.outcome))])
-pub fun step-log/vfn(sl: step-log): total serjson/value
-  with pretend-no-div
-  step-log/vfn'(sl)
-fun step-log/pfn'(v: serjson/value): <div,parse> step-log
-  match v
-    Object([Object-entry("name", String(name)), 
-            Object-entry("children", list-children-value), 
-            Object-entry("outcome", outcome-object)]) -> 
-        val list-children = list/make-pfn(step-log/pfn')(list-children-value)
-        val outcome = log-outcome/pfn(outcome-object)
-        Step-log(name, list-children, outcome)
-    _ -> fail("invalid json: step-log/pfn")
-pub fun step-log/pfn(v: serjson/value): parse step-log
-  with pretend-no-div
-  step-log/pfn'(v)
-
 pub fun step-log/to-json(sl: step-log): pure json
   JSObj([("name", JSString(sl.name)),
          ("children", JSList(sl.children.map(to-json))), 
@@ -442,21 +381,6 @@ pub fun step-log/from-json(j: json, path: string): pure step-log
 pub fun computation-log/show(a: computation-log): string
   with apply-indent(0)
   a.pp
-pub fun computation-log/vfn(cl: computation-log): total serjson/value
-  Object([Object-entry("name", String(cl.name)), 
-          Object-entry("pauses", Int(cl.pauses)),
-          Object-entry("step-logs", list/make-vfn(step-log/vfn)(cl.step-logs))
-          ])
-pub fun computation-log/pfn(v: serjson/value): parse computation-log
-  match v
-    Object([Object-entry("name", String(name)), 
-            Object-entry("pauses", Int(pauses)),
-            Object-entry("step-logs", list-step-logs-value)
-            ]) -> 
-        val list-step-logs = list/make-pfn(step-log/pfn)(list-step-logs-value)
-        Computation-log(name, pauses, list-step-logs)
-    _ -> fail("invalid json: computation-log/pfn")
-
 pub fun computation-log/to-json(cl: computation-log): pure json
   JSObj([("name", JSString(cl.name)),
          ("pauses", JSInt(cl.pauses)),
@@ -489,11 +413,11 @@ fun pad()
 pub fun log-outcome/pp(outcome: log-outcome): string
   match outcome
     Left(fail-reason) -> match fail-reason
-      ReasonError(v) -> "error: " ++ v()
+      ReasonError(v) -> "error: " ++ v().show
       ReasonPaused -> "paused"
     Right(success-reason) -> match success-reason
-      ReasonExec(v) -> "exec: " ++ v()
-      ReasonResume(v) -> "resume: " ++ v()
+      ReasonExec(v) -> "exec: " ++ v().show
+      ReasonResume(v) -> "resume: " ++ v().show
 
 pub fun step-log/pp'(log: step-log): <div,indent> string
   val p = pad()
@@ -524,14 +448,14 @@ pub fun stuff(i: int)
   log-enter("stuff")
   val o = i + i
   // log-error({o.show})
-  log-complete(ReasonExec({o.show}))
+  log-complete(ReasonExec({o.to-json}))
   o
 
 pub fun thingz(i: int)
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
-  log-complete(ReasonExec({o.show}))
+  log-complete(ReasonExec({o.to-json}))
   o
 
 pub fun collect-test-logs()
