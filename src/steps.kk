@@ -279,8 +279,7 @@ pub fun make-test-dsl-more-complex-compact(i: int)
 pub fun test-dsl-more-complext-compact()
   val (_, log) = make-test-dsl-more-complex-compact(10).run(fn(th) -> pseudo-random(100, th))
   log.pp.println
-  // val (_, log2) = make-test-dsl-more-complex(0).run-nofx
-  // logger/print-computation-log(log2)
+  log.to-json.show.println
 
 
 
@@ -309,7 +308,7 @@ val int/jsonde = Jsonde(
 
 val listint/jsonde = Jsonde(
   fn(l: list<int>) -> l.to-json(),
-  fn(j: json) -> j.parse-json(fn (jj, path) -> jj.list/from-json("")))
+  fn(j: json) -> j.parse-json(fn (jj, path) -> jj.list/from-json(path)))
 
 val string/jsonde = Jsonde(
   string/to-json, 
