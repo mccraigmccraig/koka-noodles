@@ -1,12 +1,10 @@
 module logger
 
-import parsers/serjson/serjson
 import std/core/exn
 import std/core/string 
 import std/core/undiv
 import std/core/vector
 import std/data/json
-import std/text/parse
 
 // a custom exception-info for pausing a computation
 pub extend type exception-info {
