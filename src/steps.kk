@@ -1,6 +1,8 @@
 module steps
 
 import std/core/exn
+import std/core/list
+import std/core/string
 import std/core/undiv
 import std/data/json
 import std/num/random
@@ -213,6 +215,8 @@ pub fun make-test-dsl-simple-pause(i: int)
   with z <- sbind("z")  {x + y}
   step("result") {pause() ; (2 * z).show}
 
+val rule = string/repeat("-", 20)
+
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
   val computation = make-test-dsl-simple-pause(100)
@@ -220,18 +224,23 @@ pub fun test-dsl-simple-pause-resume()
   val paused-logj = paused-log.to-json
 
   paused-log.pp.println
+  rule.println
   paused-logj.to-json.pretty.show.println
+  rule.println
   paused-v.show.println 
+  rule.println
 
   val paused-log' = paused-logj.computation-log/from-json("")
   val (_, intermed-log) = computation.resume-pure(paused-log')
   // intermed-log.pp.println
   intermed-log.to-json.pretty.show.println
+  rule.println
   val intermed-logj = intermed-log.to-json
 
   val intermed-log' = intermed-logj.computation-log/from-json("")
   val (_, final-log) = computation.resume-pure(intermed-log')
   final-log.pp.println
+  rule.println
   final-log.to-json.println
 
 pub fun test-dsl-simple-error()
