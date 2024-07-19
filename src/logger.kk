@@ -362,18 +362,12 @@ pub fun step-log/to-json(sl: step-log): pure json
          ("outcome", sl.outcome.log-outcome/to-json)])
 pub fun step-log/from-json(j: json, path: string): pure step-log
   match j
-    JSObj(m) -> 
-      match m.lookup(fn(k)->k=="name")
-        Just(JSString(name)) -> 
-          match m.lookup(fn(k)->k=="children")
-            Just(JSList(children)) -> 
-              match m.lookup(fn(k)->k=="outcome")
-                Just(o) -> 
-                  Step-log(name, children.map(fn (jj) from-json(jj, path ++ "->children")), 
-                           from-json(o, path ++ "->outcome"))
-                _ -> throw("Expecting outcome in step-log", info=JsonDeserializationException(j, path))
-            _ -> throw("Expecting children in step-log", info=JsonDeserializationException(j, path))
-        _ -> throw("Expecting name in step-log", info=JsonDeserializationException(j, path))
+    JSObj(l) -> 
+      Step-log(
+        l.from-json("name", path),
+        l.from-json("children", path),
+        l.from-json("outcome", path)
+      )
     _ -> throw("Expecting step-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun computation-log/show(a: computation-log): string
@@ -385,17 +379,12 @@ pub fun computation-log/to-json(cl: computation-log): pure json
          ("step-logs", JSList(cl.step-logs.map(to-json)))])
 pub fun computation-log/from-json(j: json, path: string): pure computation-log
   match j
-    JSObj(m) -> 
-      match m.lookup(fn(k)->k=="name")
-        Just(JSString(name)) -> 
-          match m.lookup(fn(k)->k=="pauses")
-            Just(JSInt(pauses)) -> 
-              match m.lookup(fn(k)->k=="step-logs")
-                Just(JSList(step-logs)) -> 
-                  Computation-log(name, pauses, step-logs.map(fn (jj) from-json(jj, path ++ "->step-logs")))
-                _ -> throw("Expecting step-logs in computation-log", info=JsonDeserializationException(j, path))
-            _ -> throw("Expecting pauses in computation-log", info=JsonDeserializationException(j, path))
-        _ -> throw("Expecting name in computation-log", info=JsonDeserializationException(j, path))
+    JSObj(l) -> 
+      Computation-log(
+        l.from-json("name", path),
+        l.from-json("pauses", path),
+        l.from-json("step-logs", path)
+      )
     _ -> throw("Expecting computation-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 effect val indent: int
