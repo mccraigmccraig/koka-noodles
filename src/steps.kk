@@ -19,9 +19,29 @@ import logger
 // some handler combinators to modify the left channel...
 // could build either into the result type too, so there are 
 // options
-pub effect step-control<a>
-  ctl ctl-stop(a: a): ()
-  ctl ctl-pause(): ()
+// TODO - should pause get a data parameter to allow coordination
+// code to make decisions ? step-thunks could then be:
+//   step-thunk< either<a,c>, <step-ctl<a,b,c>|e> >
+//     a - failure channel
+//     b - pause channel
+//     c - success value
+//     e - polymorphic effects
+// and we could offer a step-ctl effect with short-circuits for 
+// failure, success and pause, with a 3-way final result, 
+// like an either with an additional pause channel
+//
+// there will still be a polymorphic effect, but we won't allow 
+// it to propagate an exn out of the caller's handler, so the 
+// result will be well-typed
+pub effect step-ctl<a,b,c>
+  ctl fail(a: a): ()
+  ctl pause(b: b): ()
+  ctl ok(c: c): ()
+
+pub value type run-step-result<a,b,c>
+  StepFail(a: a)
+  StepPause(b: b)
+  StepOk(c: c)
 
 pub value struct jsonde<a>
   json: (a) -> total json
