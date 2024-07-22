@@ -26,7 +26,6 @@ pub fun jsond/parse-json<a>(j: json, path: string, p: (j: json, path: string) ->
 
 // matches the run-step-result
 pub value type outcome<a,b,c>
-  ReasonFatal(msg: string)
   ReasonFail(a: a)
   ReasonPaused(b: b)
   ReasonExec(c: c)
@@ -102,19 +101,19 @@ pub fun log-collector<a,b,c>(
 
   with handler
     final ctl throw-exn(ex)
-      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(ex.show.handle-fatal-error)}))
+      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(ex.show.handle-fatal-error)}), handle-fatal-error, a-json-tofrom)
       ReasonFail(handle-fatal-error(ex.show))
 
   with handler
     final ctl log-fail(a)
-      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}))
+      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}), handle-fatal-error, a-json-tofrom)
       ReasonFail(a)
     ctl log-pause(b)
       if state.pause-ignores >= 1 then
         state := state(pause-ignores=state.pause-ignores - 1)
         resume(())
       else
-        val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}))
+        val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}), handle-fatal-error, a-json-tofrom)
         state := state'(pause-ignores=state.pause-ignores - 1)
         ReasonPaused(b)
 
@@ -152,12 +151,12 @@ fun make-logger-state(previous-log: maybe<computation-log>)
     _ -> Logger-state(Nothing, 0, [], [])
 
 // propagate an outcome through the open-steps, closing them all and 
-// returning a single step-log representing the whole closed tree. Add a 
-// step with ReasonFatal if there are no open steps
-fun state/close-open-steps(state: logger-state, outcome: log-outcome): total logger-state
+// returning a single step-log representing the whole closed tree. Add a
+// fatal error if there are no open-steps
+fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-tofrom: json-tofrom<a>): total logger-state
   match state.open-steps
     [] -> 
-      val fatal-step = Step-Log("error", [], ReasonFatal("no open steps"))
+      val fatal-step = Step-Log("error", [], ReasonFail({a-json-tofrom.to-json()("no open steps".handle-fatal-error)}))
       val completed-steps' = Cons(fatal-step, state.completed-steps)
       state(completed-steps=completed-steps')
     Cons(first, Nil) -> 
@@ -167,7 +166,7 @@ fun state/close-open-steps(state: logger-state, outcome: log-outcome): total log
     Cons(first, Cons(next, rest)) -> 
       val step-log = Step-Log(first.name, first.children.reverse, outcome)
       val next' = next(children = Cons(step-log, next.children))
-      state/close-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), outcome)
+      state/close-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), outcome, handle-fatal-error, a-json-tofrom)
 
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
@@ -265,7 +264,6 @@ pub fun either/make-json-tofrom<a,b>(a-json-tofrom: json-tofrom<a>, b-json-tofro
 
 pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
   match outcome
-    ReasonFatal(msg) -> "fatal: " ++ msg
     ReasonFail(a) -> "error: " ++ a.?a/show
     ReasonPaused(b) -> "paused: " ++ b.?b/show
     ReasonExec(c) -> "exec: " ++ c.?c/show
@@ -273,14 +271,12 @@ pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/sh
 
 pub fun log-outcome/show(outcome: log-outcome): string
   match outcome
-    ReasonFatal(msg) -> "fatal: " ++ msg
     ReasonFail(a) -> "error: " ++ a().show
     ReasonPaused(b) -> "paused: " ++ b().show
     ReasonExec(c) -> "exec: " ++ c().show
     ReasonResume(c) -> "resume: " ++ c().show
 pub fun log-outcome/to-json(o: log-outcome): pure json
   match o
-    ReasonFatal(msg) -> JSObj([("ReasonFatal", JSString(msg))])
     ReasonFail(a) -> JSObj([("ReasonFail", a().to-json)])
     ReasonPaused(b) -> JSObj([("ReasonPaused", b().to-json)])
     ReasonExec(c) -> JSObj([("ReasonExec", c().to-json)])
@@ -288,17 +284,15 @@ pub fun log-outcome/to-json(o: log-outcome): pure json
 pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
   match j
     JSObj(l) -> 
-      match l.lookup(fn (k) k=="ReasonFatal")
-        Just(JSString(msg)) -> ReasonFatal(msg)
-        _ -> match l.lookup(fn (k) k=="ReasonFail")
-          Just(fa) -> ReasonFail(json-src/from-json(fa, path ++ "->ReasonFail"))
-          _ -> match l.lookup(fn (k) k=="ReasonPaused")
-            Just(pa) -> ReasonPaused(json-src/from-json(pa, path ++ "->ReasonPaused"))
-            _ -> match l.lookup(fn (k) k=="ReasonExec")
-              Just(ea) -> ReasonExec(json-src/from-json(ea, path ++ "->ReasonExec"))
-              _ -> match l.lookup(fn (k) k=="ReasonResume")
-                Just(ra) -> ReasonResume(json-src/from-json(ra, path ++ "->ReasonResume"))
-                _ -> throw("Expecting log-outcome, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
+      match l.lookup(fn (k) k=="ReasonFail")
+        Just(fa) -> ReasonFail(json-src/from-json(fa, path ++ "->ReasonFail"))
+        _ -> match l.lookup(fn (k) k=="ReasonPaused")
+          Just(pa) -> ReasonPaused(json-src/from-json(pa, path ++ "->ReasonPaused"))
+          _ -> match l.lookup(fn (k) k=="ReasonExec")
+            Just(ea) -> ReasonExec(json-src/from-json(ea, path ++ "->ReasonExec"))
+            _ -> match l.lookup(fn (k) k=="ReasonResume")
+              Just(ra) -> ReasonResume(json-src/from-json(ra, path ++ "->ReasonResume"))
+              _ -> throw("Expecting log-outcome, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
     _ -> throw("Expecting log-outcome, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun step-log/show(a: step-log): string
