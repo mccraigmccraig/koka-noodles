@@ -275,7 +275,7 @@ pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/sh
   match outcome
     ReasonFatal(msg) -> "fatal: " ++ msg
     ReasonFail(a) -> "error: " ++ a.?a/show
-    ReasonPaused(b) -> "paused" ++ b.?b/show
+    ReasonPaused(b) -> "paused: " ++ b.?b/show
     ReasonExec(c) -> "exec: " ++ c.?c/show
     ReasonResume(c) -> "resume: " ++ c.?c/show
 
@@ -283,7 +283,7 @@ pub fun log-outcome/show(outcome: log-outcome): string
   match outcome
     ReasonFatal(msg) -> "fatal: " ++ msg
     ReasonFail(a) -> "error: " ++ a().show
-    ReasonPaused(b) -> "paused" ++ b().show
+    ReasonPaused(b) -> "paused: " ++ b().show
     ReasonExec(c) -> "exec: " ++ c().show
     ReasonResume(c) -> "resume: " ++ c().show
 pub fun log-outcome/to-json(o: log-outcome): pure json

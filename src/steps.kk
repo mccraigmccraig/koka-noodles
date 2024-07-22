@@ -261,6 +261,7 @@ pub fun make-test-dsl-simple(i: int): pure-step<string,string,string>
 pub fun make-test-dsl-simple-left(i: int): pure-step<string,string,string>
   with x <- sbind("x") {i.Right}
   with y <- sbind("y") {10.Right}
+  // TODO - a bit awkward - if we return a Left, inference can't get the Right type without help
   with z <- step("z") {val r: either<string,int> = "foo".Left ; r}.bind
   step("result") {(2 * z).show.Right}
 
@@ -285,40 +286,40 @@ pub fun test-dsl-simple-error-fix-rerun()
   val log2' = log2j.computation-log/from-json("")
   log2'.pp.println
 
-// pub fun make-test-dsl-simple-pause(i: int)
-//   with x: int <- sbind("x") {i}
-//   pause()
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z")  {x + y}
-//   step("result") {pause() ; (2 * z).show}
+pub fun make-test-dsl-simple-pause(i: int): pure-step<string,string,string>
+  with x: int <- sbind("x") {i.Right}
+  pause("pause")
+  with y <- sbind("y") {10.Right}
+  with z <- sbind("z")  {(x + y).Right}
+  step("result") {pause("again") ; (2 * z).show.Right}
 
-// val rule = string/repeat("-", 20)
+val rule = string/repeat("-", 20)
 
 // // resuming a normal computation after it was paused
-// pub fun test-dsl-simple-pause-resume()
-//   val computation = make-test-dsl-simple-pause(100)
-//   val (paused-v, paused-log) = computation.run-pure
-//   val paused-logj = paused-log.to-json
+pub fun test-dsl-simple-pause-resume()
+  val computation = make-test-dsl-simple-pause(100)
+  val (paused-v, paused-log) = computation.run-pure(id)
+  val paused-logj = paused-log.to-json
 
-//   paused-log.pp.println
-//   rule.println
-//   paused-logj.to-json.pretty.show.println
-//   rule.println
-//   paused-v.show.println 
-//   rule.println
+  paused-log.pp.println
+  rule.println
+  paused-logj.to-json.pretty.show.println
+  rule.println
+  paused-v.show.println 
+  rule.println
 
-//   val paused-log' = paused-logj.computation-log/from-json("")
-//   val (_, intermed-log) = computation.resume-pure(paused-log')
-//   // intermed-log.pp.println
-//   intermed-log.to-json.pretty.show.println
-//   rule.println
-//   val intermed-logj = intermed-log.to-json
+  val paused-log' = paused-logj.computation-log/from-json("")
+  val (_, intermed-log) = computation.resume-pure(paused-log',id)
+  // intermed-log.pp.println
+  intermed-log.to-json.pretty.show.println
+  rule.println
+  val intermed-logj = intermed-log.to-json
 
-//   val intermed-log' = intermed-logj.computation-log/from-json("")
-//   val (_, final-log) = computation.resume-pure(intermed-log')
-//   final-log.pp.println
-//   rule.println
-//   final-log.to-json.println
+  val intermed-log' = intermed-logj.computation-log/from-json("")
+  val (_, final-log) = computation.resume-pure(intermed-log',id)
+  final-log.pp.println
+  rule.println
+  final-log.to-json.println
 
 // pub fun test-dsl-simple-error()
 //   val (_, log) = make-test-dsl-simple-error(100).run-pure
