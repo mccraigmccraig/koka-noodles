@@ -7,7 +7,7 @@ import std/core/undiv
 import std/data/json
 import std/num/random
 import std/pretty/pprint
-import logger
+import steps/logger
 
 // TODO think about error channels - the thunk can throw, 
 // but what about a left/right channel ?
