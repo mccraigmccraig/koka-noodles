@@ -37,14 +37,14 @@ import steps/logger
 // like an either, but with a typed pause... like
 // either makes left-to-right wrong-to-right
 pub value type run-step-result<a,b,c>
-  StepFailed(a: a)
-  StepPaused(b: b)
+  StepFail(a: a)
+  StepPause(b: b)
   StepOk(c: c)
 
 pub fun run-step-result/show<a,b,c>(r: run-step-result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
   match r
-    StepFailed(a) -> "Failed: " ++ a.?a/show
-    StepPaused(b) -> "Paused: " ++ b.?b/show
+    StepFail(a) -> "Failed: " ++ a.?a/show
+    StepPause(b) -> "Paused: " ++ b.?b/show
     StepOk(c) -> "Ok: " ++ c.?c/show
 
 effect no-return
@@ -201,6 +201,7 @@ pub fun step-ctl-handler<a,b,c,e>(
       resume(())
   th()
 
+// handle all the effects! (apart from div)
 pub fun handle-run-resume<a>(
     st: step<a,b,c,e>,
     maybe-log: maybe<logger/computation-log>,
@@ -221,8 +222,8 @@ pub fun run-resume<a>(
   match handle-run-resume(st, maybe-log, handle-fatal-error, h)
     (outcome, log) -> 
       match outcome
-        ReasonFail(a) -> (StepFailed(a), log)
-        ReasonPaused(b) -> (StepPaused(b), log)
+        ReasonFail(a) -> (StepFail(a), log)
+        ReasonPause(b) -> (StepPause(b), log)
         ReasonExec(c) -> (StepOk(c), log)
         ReasonResume(c) -> (StepOk(c), log)
 

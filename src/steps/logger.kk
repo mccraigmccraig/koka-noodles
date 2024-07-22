@@ -27,7 +27,7 @@ pub fun jsond/parse-json<a>(j: json, path: string, p: (j: json, path: string) ->
 // matches the run-step-result
 pub value type outcome<a,b,c>
   ReasonFail(a: a)
-  ReasonPaused(b: b)
+  ReasonPause(b: b)
   ReasonExec(c: c)
   ReasonResume(c: c)
 
@@ -113,9 +113,9 @@ pub fun log-collector<a,b,c>(
         state := state(pause-ignores=state.pause-ignores - 1)
         resume(())
       else
-        val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}), handle-fatal-error, a-json-tofrom)
+        val state' = state/close-open-steps(state, ReasonPause({b-json-tofrom.to-json()(b)}), handle-fatal-error, a-json-tofrom)
         state := state'(pause-ignores=state.pause-ignores - 1)
-        ReasonPaused(b)
+        ReasonPause(b)
 
   // the handler implementation fns are all total, but can return errors via either. 
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
@@ -265,20 +265,20 @@ pub fun either/make-json-tofrom<a,b>(a-json-tofrom: json-tofrom<a>, b-json-tofro
 pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
   match outcome
     ReasonFail(a) -> "error: " ++ a.?a/show
-    ReasonPaused(b) -> "paused: " ++ b.?b/show
+    ReasonPause(b) -> "paused: " ++ b.?b/show
     ReasonExec(c) -> "exec: " ++ c.?c/show
     ReasonResume(c) -> "resume: " ++ c.?c/show
 
 pub fun log-outcome/show(outcome: log-outcome): string
   match outcome
     ReasonFail(a) -> "error: " ++ a().show
-    ReasonPaused(b) -> "paused: " ++ b().show
+    ReasonPause(b) -> "paused: " ++ b().show
     ReasonExec(c) -> "exec: " ++ c().show
     ReasonResume(c) -> "resume: " ++ c().show
 pub fun log-outcome/to-json(o: log-outcome): pure json
   match o
     ReasonFail(a) -> JSObj([("ReasonFail", a().to-json)])
-    ReasonPaused(b) -> JSObj([("ReasonPaused", b().to-json)])
+    ReasonPause(b) -> JSObj([("ReasonPause", b().to-json)])
     ReasonExec(c) -> JSObj([("ReasonExec", c().to-json)])
     ReasonResume(c) -> JSObj([("ReasonResume", c().to-json)])
 pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
@@ -286,8 +286,8 @@ pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
     JSObj(l) -> 
       match l.lookup(fn (k) k=="ReasonFail")
         Just(fa) -> ReasonFail(json-src/from-json(fa, path ++ "->ReasonFail"))
-        _ -> match l.lookup(fn (k) k=="ReasonPaused")
-          Just(pa) -> ReasonPaused(json-src/from-json(pa, path ++ "->ReasonPaused"))
+        _ -> match l.lookup(fn (k) k=="ReasonPause")
+          Just(pa) -> ReasonPause(json-src/from-json(pa, path ++ "->ReasonPause"))
           _ -> match l.lookup(fn (k) k=="ReasonExec")
             Just(ea) -> ReasonExec(json-src/from-json(ea, path ++ "->ReasonExec"))
             _ -> match l.lookup(fn (k) k=="ReasonResume")
