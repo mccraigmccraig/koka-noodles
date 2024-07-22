@@ -89,7 +89,7 @@ pub fun step<a,b,c,e>(
   Step(name, ?a/json-tofrom, ?b/json-tofrom, ?c/json-tofrom, thunk)
 
 // merging the step + bind into a single function
-// giving a much more compact DSL syntax... the trailing lambda and 
+// giving a more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
 pub fun sbind<a,b,c,d,e>(
     name: string, 
