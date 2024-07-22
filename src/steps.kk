@@ -37,9 +37,15 @@ import steps/logger
 // like an either, but with a typed pause... like
 // either makes left-to-right wrong-to-right
 pub value type run-step-result<a,b,c>
-  StepFail(a: a)
-  StepPause(b: b)
+  StepFailed(a: a)
+  StepPaused(b: b)
   StepOk(c: c)
+
+pub fun run-step-result/show<a,b,c>(r: run-step-result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
+  match r
+    StepFailed(a) -> "Failed: " ++ a.?a/show
+    StepPaused(b) -> "Paused: " ++ b.?b/show
+    StepOk(c) -> "Ok: " ++ c.?c/show
 
 effect no-return
   ctl no-return(): a
@@ -195,7 +201,7 @@ pub fun step-ctl-handler<a,b,c,e>(
       resume(())
   th()
 
-pub fun run-resume<a>(
+pub fun handle-run-resume<a>(
     st: step<a,b,c,e>,
     maybe-log: maybe<logger/computation-log>,
     handle-fatal-error: (string)->a,
@@ -206,6 +212,20 @@ pub fun run-resume<a>(
   with h 
   st.run'
 
+pub fun run-resume<a>(
+    st: step<a,b,c,e>,
+    maybe-log: maybe<logger/computation-log>,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
+  ): div (run-step-result<a,b,c>, logger/computation-log)
+  match handle-run-resume(st, maybe-log, handle-fatal-error, h)
+    (outcome, log) -> 
+      match outcome
+        ReasonFail(a) -> (StepFailed(a), log)
+        ReasonPaused(b) -> (StepPaused(b), log)
+        ReasonExec(c) -> (StepOk(c), log)
+        ReasonResume(c) -> (StepOk(c), log)
+
 // run a step, returning an either result and the computation-log
 // h must handle any non-logger effects from the step - the only 
 // effects allowed out are div,exn
@@ -213,7 +233,7 @@ pub fun run<a>(
     st: step<a,b,c,e>,
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
-  ): div (outcome<a,b,c>, logger/computation-log)
+  ): div (run-step-result<a,b,c>, logger/computation-log)
   run-resume(st, Nothing, handle-fatal-error, h)
 
 pub fun pure-handler<a,b,c>(
@@ -225,7 +245,7 @@ pub fun pure-handler<a,b,c>(
 pub fun run-pure(
     st: pure-step<a,b,c>,
     handle-fatal-error: (string)->a
-  ): div (outcome<a,b,c>, logger/computation-log)
+  ): div (run-step-result<a,b,c>, logger/computation-log)
   run(st, handle-fatal-error, pure-handler)
 
 pub fun resume<a>(
@@ -233,14 +253,14 @@ pub fun resume<a>(
     log: logger/computation-log,
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
-  ): div (outcome<a,b,c>, logger/computation-log)
+  ): div (run-step-result<a,b,c>, logger/computation-log)
   run-resume(st, Just(log), handle-fatal-error, h)
 
 pub fun resume-pure<a>(
     st: pure-step<a,b,c>,
     log: logger/computation-log,
     handle-fatal-error: (string)->a
-  ): div (outcome<a,b,c>, logger/computation-log)
+  ): div (run-step-result<a,b,c>, logger/computation-log)
   resume(st, log, handle-fatal-error, pure-handler)
 
 // some examples
