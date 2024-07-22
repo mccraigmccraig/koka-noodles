@@ -252,38 +252,38 @@ pub fun test-dsl-trivial()
   val log' = logjson.computation-log/from-json("")
   log'.pp.println
 
-// pub fun make-test-dsl-simple(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {x + y}
-//   step("result") {(2 * z).show}
+pub fun make-test-dsl-simple(i: int): pure-step<string,string,string>
+  with x <- sbind("x") {i.Right}
+  with y <- sbind("y") {10.Right}
+  with z <- sbind("z") {Right(x + y)}
+  step("result") {(2 * z).show.Right}
 
-// pub fun make-test-dsl-simple-error(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {throw("boo") ; x + y}
-//   step("result") {(2 * z).show}
+pub fun make-test-dsl-simple-left(i: int): pure-step<string,string,string>
+  with x <- sbind("x") {i.Right}
+  with y <- sbind("y") {10.Right}
+  with z <- step("z") {val r: either<string,int> = "foo".Left ; r}.bind
+  step("result") {(2 * z).show.Right}
 
-// pub fun test-dsl-simple()
-//   val (_, log) = make-test-dsl-simple(100).run-pure
-//   log.pp.println
-//   val logjson = log.to-json
-//   logjson.println
-//   val log' = logjson.computation-log/from-json("")
-//   log'.pp.println
+pub fun test-dsl-simple()
+  val (_, log) = make-test-dsl-simple-left(100).run-pure(id)
+  log.pp.println
+  val logjson = log.to-json
+  logjson.println
+  val log' = logjson.computation-log/from-json("")
+  log'.pp.println
 
 // // resuming a computation after fixing an error
-// pub fun test-dsl-simple-error-fix-rerun()
-//   val (_, log) = make-test-dsl-simple-error(100).run-pure
-//   val logj = log.to-json
-//   val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
-//   val log2j = log2.to-json
+pub fun test-dsl-simple-error-fix-rerun()
+  val (_, log) = make-test-dsl-simple-left(100).run-pure(id)
+  val logj = log.to-json
+  val (_, log2) = make-test-dsl-simple(100).resume(log, id, pure-handler)
+  val log2j = log2.to-json
 
-//   val log' = logj.computation-log/from-json("")
-//   log'.pp.println
+  val log' = logj.computation-log/from-json("")
+  log'.pp.println
 
-//   val log2' = log2j.computation-log/from-json("")
-//   log2'.pp.println
+  val log2' = log2j.computation-log/from-json("")
+  log2'.pp.println
 
 // pub fun make-test-dsl-simple-pause(i: int)
 //   with x: int <- sbind("x") {i}
