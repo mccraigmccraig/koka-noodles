@@ -13,9 +13,30 @@ import std/data/json
 pub alias json-src = () -> total json
 pub alias string-src = () -> total string
 
-pub value struct jsonde<a>
-  json: (a) -> total json
-  de: (json) -> total either<string,a>
+pub value struct json-tofrom<a>
+  to-json: (a) -> total json
+  from-json: (json: json, path: string) -> pure a
+
+// parse json, converting exn into an either
+pub fun jsond/parse-json<a>(j: json, path: string, p: (j: json, path: string) -> pure a): either<string,a>
+  with pretend-no-div
+  match try({p(j, path)})
+    Ok(a) -> Right(a)
+    Error(e) -> Left(e.message)
+
+// alias jsond-dejson<a> = (j: json, path: string) -> total either<string,a>
+// pub fun jsond/make-parse-json<a>(p: (j: json, path: string) -> pure a): jsond-dejson<a>
+//   fn (j, path) -> jsond/parse-json(j, path, p)
+
+// // convert a json-tofrom.from-json parser into a std/data/json parser
+// pub fun std/parse-json(j: json, path: string, p: (j: json, path: string) -> total either<string,a>): pure a
+//   match p(j, path)
+//     Right(a) -> a
+//     Left(e) -> throw(e)
+
+// alias std-dejson<a> = (j: json, path: string) -> pure a
+// pub fun std/make-parse-json(p: (j: json, path: string) -> total either<string,a>): std-dejson<a>
+//   fn (j, path) -> std/parse-json(j, path, p)
 
 // matches the run-step-result
 pub value type outcome<a,b,c>
@@ -44,11 +65,11 @@ pub effect logger<a,b,c>
   // the logger can't distinguish Exec from Resume (split this into -leave-exec and -leave-resume ?)
   fun log-leave(outcome: log-outcome) : ()
   // error the computation with a value, returning a log which can be used to retry later
-  ctl log-fail(a: a, jsonde: jsonde<a>) : ()
+  ctl log-fail(a: a, json-tofrom: json-tofrom<a>) : ()
   // pause a computation with a value, returning a log which can be used to resume later
-  ctl log-pause(b: b, jsonde: jsonde<b>) : ()
+  ctl log-pause(b: b, json-tofrom: json-tofrom<b>) : ()
   // succeed a computation with a value, also returning a log
-  ctl log-ok(c: c, jsonde: jsonde<c>): ()
+  ctl log-ok(c: c, json-tofrom: json-tofrom<c>): ()
 
 value struct step-cursor
   steps: vector<step-log>
@@ -111,19 +132,19 @@ pub fun log-collector<a,b,c>(
       match state/log-leave(state, success-reason)
         Left(err) -> throw(err)
         Right(state') -> state := state'
-    ctl log-fail(a, a-jsonde)
-      state := state/close-open-steps(state, ReasonFail({a-jsonde.json()(a)}))
+    ctl log-fail(a, a-json-tofrom)
+      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}))
       ReasonFail(a)
-    ctl log-pause(b, b-jsonde)
-      val state' = state/close-open-steps(state, ReasonPaused({b-jsonde.json()(b)}))
+    ctl log-pause(b, b-json-tofrom)
+      val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}))
       val state'' = state'(pause-ignores=state.pause-ignores - 1)
       state := state''
       if state''.pause-ignores >= 0 then
         resume(())
       else
         ReasonPaused(b)
-    ctl log-ok(c, c-jsonde)
-      state := state/close-open-steps(state, ReasonExec({c-jsonde.json()(c)}))
+    ctl log-ok(c, c-json-tofrom)
+      state := state/close-open-steps(state, ReasonExec({c-json-tofrom.to-json()(c)}))
       ReasonExec(c)
 
   action()
@@ -233,6 +254,26 @@ pub fun json-src/to-json(s: json-src): json
 pub fun json-src/from-json(j: json, path: string): pure json-src
   fn () -> j
 
+pub fun either/to-json<a,b>(ea: either<a,b>, ?a/to-json: (a)->total json, ?b/to-json: (b)->total json): total json 
+  match ea
+    Left(a) -> JSObj([("Left", a.?a/to-json)])
+    Right(b) -> JSObj([("Right", b.?b/to-json)])
+pub fun either/from-json<a,b>(j: json, path: string, ?a/from-json: (json,string)-> pure a, ?b/from-json: (json,string)-> pure b): pure either<a,b>
+  match j
+    JSObj(l) -> 
+      match l.lookup(fn (k) k=="Left")
+        Just(ja) -> Left(ja.?a/from-json(path ++ ".Left"))
+        _ -> 
+          match l.lookup(fn (k) k=="Right")
+            Just(jb) -> Right(jb.?b/from-json(path ++ ".Right"))
+            _ -> throw("either/dejson: expected Left or Right")
+    _ -> throw("either/dejson: expected object")
+pub fun either/make-json-tofrom<a,b>(a-json-tofrom: json-tofrom<a>, b-json-tofrom: json-tofrom<b>): json-tofrom<either<a,b>>
+  Json-tofrom(
+    fn(eab) -> either/to-json(eab, ?a/to-json=a-json-tofrom.to-json, ?b/to-json=b-json-tofrom.to-json),
+    fn(j, path) -> either/from-json(j, path, ?a/from-json=a-json-tofrom.from-json, ?b/from-json=b-json-tofrom.from-json)
+  )
+
 pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
   match outcome
     ReasonFatal(msg) -> "fatal: " ++ msg
@@ -337,20 +378,8 @@ pub fun computation-log/pp(log: computation-log): total string
   "pauses: " ++ log.pauses.show ++ "\n" ++
   log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
-
-pub fun parse-json(j: json, p: (j: json, path: string) -> pure a): either<string,a>
-  with pretend-no-div
-  match try({p(j, "")})
-    Ok(a) -> Right(a)
-    Error(e) -> Left(e.message)
-
-val string/jsonde = Jsonde(
-  string/to-json, 
-  fn(j) -> j.parse-json(string/from-json))
-
-val int/jsonde = Jsonde(
-  int/to-json, 
-  fn (j) -> j.parse-json(int/from-json))
+val string/json-tofrom = Json-tofrom(string/to-json, string/from-json)
+val int/json-tofrom = Json-tofrom(int/to-json, int/from-json)
 
 // test/example
 
@@ -375,14 +404,14 @@ pub fun collect-test-logs()
     "test", 
     fn (s: string) -> s
     )
-  // log-pause("foo", string/jsonde)
+  // log-pause("foo", string/json-tofrom)
   val v = stuff(5)
   val w = thingz(v)
   w
 
 pub fun logs-an-error()
   log-enter("logs-an-error")
-  log-fail("boo!", string/jsonde)
+  log-fail("boo!", string/json-tofrom)
 
 pub fun collect-logs-with-error()
   with log-collector(

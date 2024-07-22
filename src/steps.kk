@@ -32,11 +32,7 @@ import logger
 //
 // there will still be a polymorphic effect, but we won't allow 
 // it to propagate an exn out of the caller's handler, so the 
-// result will be well-typed
-pub effect step-ctl<a,b,c>
-  ctl fail(a: a): ()
-  ctl pause(b: b): ()
-  ctl ok(c: c): ()
+// result will be completely-typed
 
 // like an either, but with a typed pause... like
 // either makes left-to-right wrong-to-right
@@ -45,14 +41,22 @@ pub value type run-step-result<a,b,c>
   StepPause(b: b)
   StepOk(c: c)
 
-pub value struct jsonde<a>
-  json: (a) -> total json
-  de: (json) -> total either<string,a>
+// consumer control effect
+pub effect step-ctl<a,b,c>
+  // Immediately fail the computation with a value. Equivalent
+  // to returning a Left(a) from a thunk
+  ctl fail(a: a): ()
+  // Immediately pause the computation with a value
+  ctl pause(b: b): ()
+  // Immediately succeed the computation with a value. Equivalent
+  // to the thunk returning a Right(c)
+  ctl ok(c: c): ()
+
 
 pub alias thunk<a,e> = () -> e a
 
 // thunks returning an either, and with logger and step-ctl effects
-pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger,step-ctl<a,b,c>|e>>
+pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger<a,b,c>,step-ctl<a,b,c>|e>>
 
 // steps are a name, a thunk and a de/serializer for the thunk value.
 // this is enough to control execution of a computation and to 
@@ -60,15 +64,15 @@ pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger,step-ctl<a,b,c>|e
 // can be resumed and failures inspected from the log
 pub struct step<a,b,c,e>
   name: string
-  a-jsonde: jsonde<a>
-  b-jsonde: jsonde<b>
-  c-jsonde: jsonde<c>
+  a-json-tofrom: json-tofrom<a>
+  b-json-tofrom: json-tofrom<b>
+  c-json-tofrom: json-tofrom<c>
   thunk: step-thunk<a,b,c,e>
 
 pub alias pure-step<a,b,c> = step<a,b,c,<>>
 
 // monadic fns of step values
-pub alias stepmfn<a,b,c,d,e> = (c: c) -> <pure,logger,step-ctl<a,b,d>|e> step<a,b,d,e>
+pub alias stepmfn<a,b,c,d,e> = (c: c) -> <pure,logger<a,b,c>,step-ctl<a,b,d>|e> step<a,b,d,e>
 pub alias pure-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
 // map error, pause and success values in a step
@@ -79,10 +83,10 @@ pub alias trifmap<a,b,c,x,y,z,e> = ((a)->x,(b)->y,(c)->z,step<x,y,z,e>)
 pub fun step<a,b,c,e>(
   name: string, 
   thunk: step-thunk<a,b,c,e>, 
-  ?a/jsonde: jsonde<a>,
-  ?b/jsonde: jsonde<b>,
-  ?c/jsonde: jsonde<c>): step<a,b,c,e>
-  Step(name, ?a/jsonde, ?b/jsonde, ?c/jsonde, thunk)
+  ?a/json-tofrom: json-tofrom<a>,
+  ?b/json-tofrom: json-tofrom<b>,
+  ?c/json-tofrom: json-tofrom<c>): step<a,b,c,e>
+  Step(name, ?a/json-tofrom, ?b/json-tofrom, ?c/json-tofrom, thunk)
 
 // // merging the step + bind into a single function
 // // giving a much more compact DSL syntax... the trailing lambda and 
@@ -91,10 +95,10 @@ pub fun step<a,b,c,e>(
 //     name: string, 
 //     thunk: step-thunk<a,e>, 
 //     f: stepmfn<a,b,e>, 
-//     ?a/jsonde: jsonde<a>,
-//     ?b/jsonde: jsonde<b>
+//     ?a/json-tofrom: json-tofrom<a>,
+//     ?b/json-tofrom: json-tofrom<b>
 //   ): step<b,e>
-//   Step(name, ?a/jsonde, thunk).bind(f, ?b/jsonde=?b/jsonde)
+//   Step(name, ?a/json-tofrom, thunk).bind(f, ?b/json-tofrom=?b/json-tofrom)
 
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
@@ -102,53 +106,59 @@ pub fun step/show(a: step<a,b,c,e>): string
 // pub fun bind<a,b,c,d,e>(
 //     st: step<a,b,c,e>, 
 //     f: stepmfn<a,b,c,d,e>,
-//     ?d/jsonde: jsonde<d>
+//     ?d/json-tofrom: json-tofrom<d>
 //   ): total step<a,b,d,e>
 
 //   Step(
 //     "bind--" ++ st.name,
-//     st.a-jsonde,
-//     st.b-jsonde,
-//     ?d/jsonde,
+//     st.a-json-tofrom,
+//     st.b-json-tofrom,
+//     ?d/json-tofrom,
 //     fn () -> 
 //       st.run'.f.run'
 //   )
 
-pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b,c>|e> either<a,c>
+// some json-tofrom for the either result of the thunk
+pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger<a,b,c>,step-ctl<a,b,c>|e> either<a,c>
   st.thunk()()
 
-// pub fun resume/run''<a,b,c,e>(st: step<a,b,c,e>, step-log: step-log): <div,logger,step-ctl<a,b,c>|e> a
-//   match step-log
-//     Step-log(_,_,Right(success-reason)) ->
-//       val ssrc = match success-reason
-//         ReasonExec(essrc) -> essrc
-//         ReasonResume(rssrc) -> rssrc
+fun resume/run-core''<a,b,c,e>(
+  st: step<a,b,c,e>
+): <div,logger<a,b,c>,step-ctl<a,b,c>|e> either<a,c>
+    val r = st.thunk/run''
+    match r
+      Left(f) -> 
+        logger/log-leave(ReasonFail({st.a-json-tofrom.to-json()(f)}))
+      Right(s) -> 
+        logger/log-leave(ReasonExec({st.c-json-tofrom.to-json()(s)}))
+    r
 
-//       val r-str = ssrc()
-//       match st.c-jsonde.de()(r-str)
-//         Right(rr) -> 
-//           // we are resuming a successful step, short-circuit straight to the result
-//           logger/log-complete(ReasonResume({r-str}))
-//           rr
-//         Left(_err) -> 
-//           // deser failed - perhaps the code no longer matches the data?
-//           val r = st.thunk/run''
-//           logger/log-complete(ReasonExec({st.c-jsonde.json()(r)}))
-//           r
-//     _ -> 
-//       val r = st.thunk/run''
-//       logger/log-complete(ReasonExec({st.jsonde.json()(r)}))
-//       r
+fun resume/resume-core''<a,b,c,e>(
+  st: step<a,b,c,e>, 
+  c-json: json
+): <div,logger<a,b,c>,step-ctl<a,b,c>|e> either<a,c>
+  match parse-json(c-json, "", st.c-json-tofrom.from-json)
+    Right(rr) -> 
+      // we are resuming a successful step, short-circuit straight to the result
+      logger/log-leave(ReasonResume({c-json}))
+      Right(rr)
+    Left(_err) -> st.resume/run-core''
 
-// // run a step without dismissing any effects
-// pub fun run'<a,e>(st: step<a, e>): <pure,logger|e> a
-//   match logger/log-enter(st.name)
-//     Just(step-log) ->
-//       resume/run''(st, step-log)
-//     _ -> 
-//       val r = st.thunk/run''
-//       logger/log-complete(ReasonExec({st.jsonde.json()(r)}))
-//       r
+pub fun resume/run''<a,b,c,e>(
+  st: step<a,b,c,e>, 
+  step-log: step-log
+): <div,logger<a,b,c>,step-ctl<a,b,c>|e> either<a,c>
+  match step-log
+    Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core''(st, c-jsrc())
+    Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core''(st, c-jsrc())
+    _ -> st.resume/run-core''
+
+// run a step without dismissing any effects
+pub fun run'<a,e>(st: step<a,b,c, e>): <div,logger<a,b,c>,step-ctl<a,b,c>|e> either<a,c>
+  match logger/log-enter(st.name)
+    Just(step-log) ->
+      resume/run''(st, step-log)
+    _ -> st.resume/run-core''
 
 // // run a pure-step 
 // pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
@@ -345,14 +355,14 @@ pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b,c>|e> 
 //     Ok(a) -> Right(a)
 //     Error(e) -> Left(e.message)
 
-// val int/jsonde = Jsonde(
+// val int/json-tofrom = Jsonde(
 //   int/to-json, 
 //   fn (j) -> j.parse-json(int/from-json))
 
-// val listint/jsonde = Jsonde(
+// val listint/json-tofrom = Jsonde(
 //   fn(l: list<int>) -> l.to-json(),
 //   fn(j: json) -> j.parse-json(fn (jj, path) -> jj.list/from-json(path)))
 
-// val string/jsonde = Jsonde(
+// val string/json-tofrom = Jsonde(
 //   string/to-json, 
 //   fn(j) -> j.parse-json(string/from-json))
