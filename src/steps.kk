@@ -195,6 +195,17 @@ pub fun step-ctl-handler<a,b,c,e>(
       resume(())
   th()
 
+pub fun run-resume<a>(
+    st: step<a,b,c,e>,
+    maybe-log: maybe<logger/computation-log>,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
+  ): div (outcome<a,b,c>, logger/computation-log)
+  with logger/log-collector(maybe-log, st.name, handle-fatal-error)
+  with st.step-ctl-handler(handle-fatal-error)
+  with h 
+  st.run'
+
 // run a step, returning an either result and the computation-log
 // h must handle any non-logger effects from the step - the only 
 // effects allowed out are div,exn
@@ -203,10 +214,7 @@ pub fun run<a>(
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
   ): div (outcome<a,b,c>, logger/computation-log)
-  with logger/log-collector(Nothing, st.name, handle-fatal-error)
-  with st.step-ctl-handler(handle-fatal-error)
-  with h 
-  st.run' 
+  run-resume(st, Nothing, handle-fatal-error, h)
 
 pub fun pure-handler<a,b,c>(
     th: thunk<either<a,c>,<div,logger,step-ctl<a,b>>>
@@ -226,10 +234,7 @@ pub fun resume<a>(
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
   ): div (outcome<a,b,c>, logger/computation-log)
-  with logger/log-collector(Just(log), st.name, handle-fatal-error)
-  with st.step-ctl-handler(handle-fatal-error)
-  with h 
-  st.run'
+  run-resume(st, Just(log), handle-fatal-error, h)
 
 pub fun resume-pure<a>(
     st: pure-step<a,b,c>,
