@@ -240,19 +240,19 @@ pub fun resume-pure<a>(
   ): div (outcome<a,b,c>, logger/computation-log)
   resume(st, log, handle-fatal-error, pure-handler)
 
-// // some examples
+// some examples
 
-// pub fun make-test-dsl-trivial(i: int)
-//   with x: int <- sbind("x") {i}
-//   step("result") {x.show}
+pub fun make-test-dsl-trivial(i: int): pure-step<string,string,string>
+  with x <- sbind("x") {i.Right}
+  step("result") {x.show.Right}
 
-// pub fun test-dsl-trivial()
-//   val (_, log) = make-test-dsl-trivial(100).run-pure
-//   log.pp.println
-//   val logjson = log.to-json
-//   logjson.println
-//   val log' = logjson.computation-log/from-json("")
-//   log'.pp.println
+pub fun test-dsl-trivial()
+  val (_, log) = make-test-dsl-trivial(100).run-pure(id)
+  log.pp.println
+  val logjson = log.to-json
+  logjson.println
+  val log' = logjson.computation-log/from-json("")
+  log'.pp.println
 
 // pub fun make-test-dsl-simple(i: int)
 //   with x: int <- sbind("x") {i}

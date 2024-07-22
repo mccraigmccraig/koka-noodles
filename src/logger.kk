@@ -375,8 +375,8 @@ pub fun computation-log/pp(log: computation-log): total string
   "pauses: " ++ log.pauses.show ++ "\n" ++
   log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
-val string/json-tofrom = Json-tofrom(string/to-json, string/from-json)
-val int/json-tofrom = Json-tofrom(int/to-json, int/from-json)
+pub val string/json-tofrom = Json-tofrom(string/to-json, string/from-json)
+pub val int/json-tofrom = Json-tofrom(int/to-json, int/from-json)
 
 // test/example
 
