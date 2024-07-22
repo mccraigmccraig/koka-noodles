@@ -24,20 +24,6 @@ pub fun jsond/parse-json<a>(j: json, path: string, p: (j: json, path: string) ->
     Ok(a) -> Right(a)
     Error(e) -> Left(e.message)
 
-// alias jsond-dejson<a> = (j: json, path: string) -> total either<string,a>
-// pub fun jsond/make-parse-json<a>(p: (j: json, path: string) -> pure a): jsond-dejson<a>
-//   fn (j, path) -> jsond/parse-json(j, path, p)
-
-// // convert a json-tofrom.from-json parser into a std/data/json parser
-// pub fun std/parse-json(j: json, path: string, p: (j: json, path: string) -> total either<string,a>): pure a
-//   match p(j, path)
-//     Right(a) -> a
-//     Left(e) -> throw(e)
-
-// alias std-dejson<a> = (j: json, path: string) -> pure a
-// pub fun std/make-parse-json(p: (j: json, path: string) -> total either<string,a>): std-dejson<a>
-//   fn (j, path) -> std/parse-json(j, path, p)
-
 // matches the run-step-result
 pub value type outcome<a,b,c>
   ReasonFatal(msg: string)

@@ -273,7 +273,7 @@ pub fun test-dsl-simple()
   val log' = logjson.computation-log/from-json("")
   log'.pp.println
 
-// // resuming a computation after fixing an error
+// resuming a computation after fixing an error
 pub fun test-dsl-simple-error-fix-rerun()
   val (_, log) = make-test-dsl-simple-left(100).run-pure(id)
   val logj = log.to-json
@@ -287,15 +287,15 @@ pub fun test-dsl-simple-error-fix-rerun()
   log2'.pp.println
 
 pub fun make-test-dsl-simple-pause(i: int): pure-step<string,string,string>
-  with x: int <- sbind("x") {i.Right}
+  with x <- sbind("x") {i.Right}
   pause("pause")
   with y <- sbind("y") {10.Right}
-  with z <- sbind("z")  {(x + y).Right}
-  step("result") {pause("again") ; (2 * z).show.Right}
+  with z <- sbind("z")  {Right(x.show ++ "/" ++ y.show)}
+  step("result") {pause("again") ; Right(z ++ ":" ++ z)}
 
 val rule = string/repeat("-", 20)
 
-// // resuming a normal computation after it was paused
+// resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
   val computation = make-test-dsl-simple-pause(100)
   val (paused-v, paused-log) = computation.run-pure(id)
@@ -309,66 +309,79 @@ pub fun test-dsl-simple-pause-resume()
   rule.println
 
   val paused-log' = paused-logj.computation-log/from-json("")
-  val (_, intermed-log) = computation.resume-pure(paused-log',id)
+  val (intermed-v, intermed-log) = computation.resume-pure(paused-log',id)
   intermed-log.pp.println
+  rule.println
+  intermed-v.show.println
   // intermed-log.to-json.pretty.show.println
   rule.println
   val intermed-logj = intermed-log.to-json
 
   val intermed-log' = intermed-logj.computation-log/from-json("")
-  val (_, final-log) = computation.resume-pure(intermed-log',id)
+  val (final-v, final-log) = computation.resume-pure(intermed-log',id)
   final-log.pp.println
   rule.println
+  final-v.show.println
   // final-log.to-json.println
 
-// pub fun test-dsl-simple-error()
-//   val (_, log) = make-test-dsl-simple-error(100).run-pure
-//   log.pp.println
+pub fun make-test-dsl-simple-fail(i: int): pure-step<string,string,string>
+  with x <- sbind("x") {i.Right}
+  with y <- sbind("y") {10.Right}
+  with z <- sbind("z")  {fail("boom") ; Right(x.show ++ "/" ++ y.show)}
+  step("result") {Right(z ++ ":" ++ z)}
 
-// pub fun test-dsl-simple-resume()
-//   val (_, log) = make-test-dsl-simple(100).run-pure
-//   val (_, log2) = make-test-dsl-simple(100).resume(log, pure-handler)
-//   log.pp.println
-//   log2.pp.println
+pub fun make-test-dsl-simple-fix(i: int): pure-step<string,string,string>
+  with x <- sbind("x") {i.Right}
+  with y <- sbind("y") {10.Right}
+  with z <- sbind("z")  {Right(x.show ++ "/" ++ y.show)}
+  step("result") {Right(z ++ ":" ++ z)}
 
-// pub fun make-test-dsl-random-effect(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") {random-int()}
-//   with z <- sbind("z") {x + y}
-//   step("result") {2 * z}
+pub fun test-dsl-simple-fail()
+  val (_, log) = make-test-dsl-simple-fail(100).run-pure(id)
+  log.pp.println
 
-// fun handle-random<a>(th: thunk<a,<random|e>>): e a
-//   with pseudo-random(100)
-//   th()
+pub fun test-dsl-simple-resume()
+  val (_, log) = make-test-dsl-simple-fail(100).run-pure(id)
+  val (_, log2) = make-test-dsl-simple-fix(100).resume(log, id, pure-handler)
+  log.pp.println
+  log2.pp.println
 
-// pub fun test-dsl-random-effect()
-//   val (_, log) = make-test-dsl-random-effect(100).run(handle-random)
-//   log.pp.println
+pub fun make-test-dsl-random-effect(i: int): step<string,string,int,<random>>
+  with x <- sbind("x") {i.Right}
+  with y <- sbind("y") {random-int().Right}
+  with z <- sbind("z") {Right(x + y)}
+  step("result") {Right(2 * z)}
+
+fun handle-random<a>(th: thunk<a,<random|e>>): e a
+  with pseudo-random(100)
+  th()
+
+pub fun test-dsl-random-effect()
+  val (_, log) = make-test-dsl-random-effect(100).run(id, handle-random)
+  log.pp.println
   
 
-// fun testdsl/stuff(i: int)
-//   with x: int <- step("i"){i}.bind
-//   with y <- step("rand"){random-int()}.bind
-//   step("stuff") {x + y}
+fun testdsl/stuff(i: int) : step<string,string,int,<random>>
+  with x <- sbind("i"){Right(i)}
+  with y <- sbind("rand"){random-int().Right}
+  step("stuff") {Right(x + y)}
 
-// pub fun make-test-dsl-more-complex-compact(i: int)
-//   with x: int <- sbind("x") {i}
-//   with y <- sbind("y") { if i>5 then [10,11] else [] }
-//   val aa' = match y
-//     [a, b] -> 
-//       with z: int <- sbind("z") {x + a + b}
-//       step("aa'-pair") {z + 10}
-//     _ -> step("aa'-default") {0}
-//   with aa: int <- aa'.bind
-//   with bb: int <- testdsl/stuff(i).bind
-//   step("result") {aa.show ++ "/" ++ bb.show}
+pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<random>>
+  with x <- sbind("x") {i.Right}
+  with y <- sbind("y") { Right(if i>5 then [10,11] else []) }
+  val aa' = match y
+    [a, b] -> 
+      with z <- sbind("z") {Right(x + a + b)}
+      step("aa'-pair", ?a/json-tofrom=string/json-tofrom, ?b/json-tofrom=string/json-tofrom, ?c/json-tofrom=int/json-tofrom) {Right(z + 10)}
+    _ -> step("aa'-default") {0.Right}
+  with aa: int <- aa'.bind
+  with bb: int <- testdsl/stuff(i).bind
+  step("result", ?a/json-tofrom=string/json-tofrom, ?b/json-tofrom=string/json-tofrom, ?c/json-tofrom=string/json-tofrom) {Right(aa.show ++ "/" ++ bb.show)}
 
-// pub fun test-dsl-more-complext-compact()
-//   val (_, log) = make-test-dsl-more-complex-compact(10).run(fn(th) -> pseudo-random(100, th))
-//   log.pp.println
-//   log.to-json.show.println
-
-
+pub fun test-dsl-more-complext-compact()
+  val (_, log) = make-test-dsl-more-complex-compact(10).run(id, fn(th) -> pseudo-random(100, th))
+  log.pp.println
+  log.to-json.show.println
 
 
 
@@ -381,21 +394,12 @@ pub fun test-dsl-simple-pause-resume()
 
 
 
-// // serialize/deserialize int and list<int>
-
-// pub fun parse-json(j: json, p: (j: json, path: string) -> pure a): either<string,a>
-//   with pretend-no-div
-//   match try({p(j, "")})
-//     Ok(a) -> Right(a)
-//     Error(e) -> Left(e.message)
-
-// val int/json-tofrom = Jsonde(
-//   int/to-json, 
-//   fn (j) -> j.parse-json(int/from-json))
-
-// val listint/json-tofrom = Jsonde(
-//   fn(l: list<int>) -> l.to-json(),
-//   fn(j: json) -> j.parse-json(fn (jj, path) -> jj.list/from-json(path)))
+val listint/json-tofrom = Json-tofrom(
+  fn(l: list<int>) -> JSList(l.map(int/to-json)),
+  fn(j: json, path: string) -> match j
+    JSList(l) -> l.map(fn (jj: json)->int/from-json(jj, "[]." ++ path))
+    _ -> throw("listint/from-json: expected list")
+)
 
 // val string/json-tofrom = Jsonde(
 //   string/to-json, 
