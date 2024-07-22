@@ -44,12 +44,14 @@ pub struct computation-log
   pauses: int
   step-logs: list<step-log>
 
-pub effect logger<a,b>
+pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
   fun log-enter(name: string) : maybe<step-log>
   // close a step-log - must provide a log-outcome param because
   // the logger can't distinguish Exec from Resume (split this into -leave-exec and -leave-resume ?)
   fun log-leave(outcome: log-outcome) : ()
+
+pub effect log-ctl<a,b>
   // error the computation with a value, returning a log which can be used to retry later
   final ctl log-fail(a: a, json-tofrom: json-tofrom<a>): ()
   // pause a computation with a value, returning a log which can be used to resume later
@@ -84,7 +86,7 @@ pub fun log-collector<a,b,c>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
-    action: () -> <div,logger<a,b>> either<a,c>
+    action: () -> <div,logger,log-ctl<a,b>> either<a,c>
   ) : div (outcome<a,b,c>, computation-log)
 
   var state := make-logger-state(previous-log)
@@ -101,6 +103,19 @@ pub fun log-collector<a,b,c>(
       state := state/close-open-steps(state, ReasonFatal(ex.show))
       ReasonFail(handle-fatal-error(ex.show))
 
+  with handler
+    final ctl log-fail(a, a-json-tofrom)
+      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}))
+      ReasonFail(a)
+    ctl log-pause(b, b-json-tofrom)
+      if state.pause-ignores >= 1 then
+        state := state(pause-ignores=state.pause-ignores - 1)
+        resume(())
+      else
+        val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}))
+        state := state'(pause-ignores=state.pause-ignores - 1)
+        ReasonPaused(b)
+
   // the handler implementation fns are all total, but can return errors via either. 
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
   // the computation
@@ -116,17 +131,6 @@ pub fun log-collector<a,b,c>(
       match state/log-leave(state, success-reason)
         Left(err) -> throw(err)
         Right(state') -> state := state'
-    final ctl log-fail(a, a-json-tofrom)
-      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}))
-      ReasonFail(a)
-    ctl log-pause(b, b-json-tofrom)
-      if state.pause-ignores >= 1 then
-        state := state(pause-ignores=state.pause-ignores - 1)
-        resume(())
-      else
-        val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}))
-        state := state'(pause-ignores=state.pause-ignores - 1)
-        ReasonPaused(b)
 
   match action()
     Left(a) -> ReasonFail(a)
@@ -374,7 +378,7 @@ pub fun stuff(i: int)
   0
 
 // note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): logger<string,string> either<string,int>
+pub fun thingz(i: int): <logger,log-ctl<string,string>> either<string,int>
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)

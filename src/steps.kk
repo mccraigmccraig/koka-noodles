@@ -56,7 +56,7 @@ pub effect step-ctl<a,b>
 pub alias thunk<a,e> = () -> e a
 
 // thunks returning an either, and with logger and step-ctl effects
-pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger<a,b>,step-ctl<a,b>|e>>
+pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger,step-ctl<a,b>|e>>
 
 // steps are a name, a thunk and a de/serializer for the thunk value.
 // this is enough to control execution of a computation and to 
@@ -72,7 +72,7 @@ pub struct step<a,b,c,e>
 pub alias pure-step<a,b,c> = step<a,b,c,<>>
 
 // monadic fns of step values
-pub alias stepmfn<a,b,c,d,e> = (c: c) -> <div,logger<a,b>,step-ctl<a,b>|e> step<a,b,d,e>
+pub alias stepmfn<a,b,c,d,e> = (c: c) -> <div,logger,step-ctl<a,b>|e> step<a,b,d,e>
 pub alias pure-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
 // map error, pause and success values in a step
@@ -129,12 +129,12 @@ pub fun bind<a,b,c,d,e>(
   )
 
 // some json-tofrom for the either result of the thunk
-pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger<a,b>,step-ctl<a,b>|e> either<a,c>
+pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> either<a,c>
   st.thunk()()
 
 fun thunk/run-core'<a,b,c,e>(
   st: step<a,b,c,e>
-): <div,logger<a,b>,step-ctl<a,b>|e> either<a,c>
+): <div,logger,step-ctl<a,b>|e> either<a,c>
     val r = st.thunk/run''
     match r
       Left(f) -> 
@@ -146,7 +146,7 @@ fun thunk/run-core'<a,b,c,e>(
 fun resume/resume-core'<a,b,c,e>(  
   st: step<a,b,c,e>, 
   c-json: json
-): <div,logger<a,b>,step-ctl<a,b>|e> either<a,c>
+): <div,logger,step-ctl<a,b>|e> either<a,c>
   match parse-json(c-json, "", st.c-json-tofrom.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
@@ -157,21 +157,21 @@ fun resume/resume-core'<a,b,c,e>(
 pub fun resume/run'<a,b,c,e>(
   st: step<a,b,c,e>, 
   step-log: step-log
-): <div,logger<a,b>,step-ctl<a,b>|e> either<a,c>
+): <div,logger,step-ctl<a,b>|e> either<a,c>
   match step-log
     Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     _ -> st.thunk/run-core'
 
 // run a step without dismissing any effects
-pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger<a,b>,step-ctl<a,b>|e> either<a,c>
+pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> either<a,c>
   match logger/log-enter(st.name)
     Just(step-log) ->
       resume/run'(st, step-log)
     _ -> st.thunk/run-core'
 
 // run a pure-step 
-pub fun run-pure'<a>(st: pure-step<a,b,c>): <div,logger<a,b>,step-ctl<a,b>> either<a,c>
+pub fun run-pure'<a>(st: pure-step<a,b,c>): <div,logger,step-ctl<a,b>> either<a,c>
   st.run'
 
 // pub fun compose-stepmfn(fa: stepmfn<a,b,e>, fb: stepmfn<b,c,e>): stepmfn<a,c,e>
@@ -184,8 +184,8 @@ pub fun run-pure'<a>(st: pure-step<a,b,c>): <div,logger<a,b>,step-ctl<a,b>> eith
 pub fun step-ctl-handler<a,b,c,e>(
     st: step<a,b,c,e>,
     handle-fatal-error: (string)->a,
-    th: thunk<either<a,c>, <div,logger<a,b>,step-ctl<a,b>>>
-  ): <div,logger<a,b>> either<a,c>
+    th: thunk<either<a,c>, <div,logger,step-ctl<a,b>>>
+  ): <div,logger,log-ctl<a,b>> either<a,c>
   with handler
     ctl fail(a)
       log-fail(a, st.a-json-tofrom)
@@ -201,7 +201,7 @@ pub fun step-ctl-handler<a,b,c,e>(
 pub fun run<a>(
     st: step<a,b,c,e>,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger<a,b>,step-ctl<a,b>> either<a,c>
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
   ): div (outcome<a,b,c>, logger/computation-log)
   with logger/log-collector(Nothing, st.name, handle-fatal-error)
   with st.step-ctl-handler(handle-fatal-error)
@@ -209,8 +209,8 @@ pub fun run<a>(
   st.run' 
 
 pub fun pure-handler<a,b,c>(
-    th: thunk<either<a,c>,<div,logger<a,b>,step-ctl<a,b>>>
-  ): <div,logger<a,b>,step-ctl<a,b>> either<a,c>
+    th: thunk<either<a,c>,<div,logger,step-ctl<a,b>>>
+  ): <div,logger,step-ctl<a,b>> either<a,c>
   th()
 
 // convenience function for running a pure step
@@ -224,7 +224,7 @@ pub fun resume<a>(
     st: step<a,b,c,e>,
     log: logger/computation-log,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger<a,b>,step-ctl<a,b>> either<a,c>
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
   ): div (outcome<a,b,c>, logger/computation-log)
   with logger/log-collector(Just(log), st.name, handle-fatal-error)
   with st.step-ctl-handler(handle-fatal-error)
