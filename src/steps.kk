@@ -41,6 +41,9 @@ pub value type run-step-result<a,b,c>
   StepPause(b: b)
   StepOk(c: c)
 
+effect no-return
+  ctl no-return(): a
+
 // consumer control effect
 pub effect step-ctl<a,b,c>
   // Immediately fail the computation with a value. Equivalent
@@ -173,15 +176,19 @@ pub fun run-pure'<a>(st: pure-step<a,b,c>): <div,logger<a,b,c>,step-ctl<a,b,c>> 
 // handle the step-ctl effects, using step knowledge to convert them to logger effects
 pub fun step-ctl-handler<a,b,c,e>(
     st: step<a,b,c,e>,
+    handle-fatal-error: (string)->a,
     th: thunk<either<a,c>, <div,logger<a,b,c>,step-ctl<a,b,c>>>
   ): <div,logger<a,b,c>> either<a,c>
   with handler
     ctl fail(a)
-      resume(())
+      log-fail(a, st.a-json-tofrom)
+      resume(()) // never happens
     ctl pause(b)
+      log-pause(b, st.b-json-tofrom)
       resume(())
     ctl ok(c)
-      resume(())
+      log-ok(c, st.c-json-tofrom)
+      resume(()) // never happens
   th()
 
 // run a step, returning an either result and the computation-log
@@ -193,7 +200,7 @@ pub fun run<a>(
     h: (step-thunk<a,b,c,e>) -> <div,logger<a,b,c>,step-ctl<a,b,c>> either<a,c>
   ): div (outcome<a,b,c>, logger/computation-log)
   with logger/log-collector(Nothing, st.name, handle-fatal-error)
-  with st.step-ctl-handler
+  with st.step-ctl-handler(handle-fatal-error)
   with h 
   st.run' 
 
