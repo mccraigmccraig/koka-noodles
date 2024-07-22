@@ -123,8 +123,6 @@ pub fun bind<a,b,c,d,e>(
     st.b-json-tofrom,
     ?d/json-tofrom,
     fn () ->
-      // st.run'.f.run'
-
       match st.run'
         Left(a) -> Left(a)
         Right(c) -> c.f.run'
