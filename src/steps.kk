@@ -358,8 +358,7 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
 
 pub fun test-dsl-random-effect()
   val (_, log) = make-test-dsl-random-effect(100).run(id, handle-random)
-  log.pp.println
-  
+  log.pp.println  
 
 fun testdsl/stuff(i: int) : step<string,string,int,<random>>
   with x <- sbind("i"){Right(i)}
@@ -372,11 +371,11 @@ pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<r
   val aa' = match y
     [a, b] -> 
       with z <- sbind("z") {Right(x + a + b)}
-      step("aa'-pair", ?a/json-tofrom=string/json-tofrom, ?b/json-tofrom=string/json-tofrom, ?c/json-tofrom=int/json-tofrom) {Right(z + 10)}
+      step("aa'-pair", ?a/json-tofrom=string/json-tofrom, ?b/json-tofrom=string/json-tofrom, ?c/json-tofrom=int/json-tofrom) {Left("blagh")}
     _ -> step("aa'-default") {0.Right}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
-  step("result", ?a/json-tofrom=string/json-tofrom, ?b/json-tofrom=string/json-tofrom, ?c/json-tofrom=string/json-tofrom) {Right(aa.show ++ "/" ++ bb.show)}
+  step("result") {Right(aa.show ++ "/" ++ bb.show)}
 
 pub fun test-dsl-more-complext-compact()
   val (_, log) = make-test-dsl-more-complex-compact(10).run(id, fn(th) -> pseudo-random(100, th))
@@ -400,7 +399,3 @@ val listint/json-tofrom = Json-tofrom(
     JSList(l) -> l.map(fn (jj: json)->int/from-json(jj, "[]." ++ path))
     _ -> throw("listint/from-json: expected list")
 )
-
-// val string/json-tofrom = Jsonde(
-//   string/to-json, 
-//   fn(j) -> j.parse-json(string/from-json))
