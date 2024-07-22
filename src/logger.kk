@@ -100,7 +100,7 @@ pub fun log-collector<a,b,c>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
-    action: () -> <div,logger<a,b,c>> outcome<a,b,c>
+    action: () -> <div,logger<a,b,c>> either<a,c>
   ) : div (outcome<a,b,c>, computation-log)
 
   var state := make-logger-state(previous-log)
@@ -147,7 +147,9 @@ pub fun log-collector<a,b,c>(
       state := state/close-open-steps(state, ReasonExec({c-json-tofrom.to-json()(c)}))
       ReasonExec(c)
 
-  action()
+  match action()
+    Left(a) -> ReasonFail(a)
+    Right(c) -> ReasonExec(c)
 
 // state helpers
 
@@ -391,12 +393,12 @@ pub fun stuff(i: int)
   0
 
 // note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): logger<string,string,int> outcome<string,string,int>
+pub fun thingz(i: int): logger<string,string,int> either<string,int>
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
   log-leave(ReasonExec({o.to-json}))
-  ReasonExec(o)
+  Right(o)
 
 pub fun collect-test-logs()
   with log-collector(
