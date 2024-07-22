@@ -75,7 +75,7 @@ pub struct step<a,b,c,e>
 pub alias pure-step<a,b,c> = step<a,b,c,<>>
 
 // monadic fns of step values
-pub alias stepmfn<a,b,c,d,e> = (c: c) -> <pure,logger<a,b,c>,step-ctl<a,b,d>|e> step<a,b,d,e>
+pub alias stepmfn<a,b,c,d,e> = (c: c) -> <div,logger<a,b,d>,step-ctl<a,b,d>|e> step<a,b,d,e>
 pub alias pure-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
 // map error, pause and success values in a step
@@ -106,20 +106,32 @@ pub fun step<a,b,c,e>(
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
   
-// pub fun bind<a,b,c,d,e>(
-//     st: step<a,b,c,e>, 
-//     f: stepmfn<a,b,c,d,e>,
-//     ?d/json-tofrom: json-tofrom<d>
-//   ): total step<a,b,d,e>
 
-//   Step(
-//     "bind--" ++ st.name,
-//     st.a-json-tofrom,
-//     st.b-json-tofrom,
-//     ?d/json-tofrom,
-//     fn () -> 
-//       st.run'.f.run'
-//   )
+// TODO total fail :( :( :( :( :( :( :( :( :( 
+// can't parameterise effects with the value type (c), without re-handling the 
+// effect on every bind
+// so I want to go back to an effect with no value types, using only json in the 
+// effect signatures
+pub fun bind<a,b,c,d,e>(
+    st: step<a,b,c,e>, 
+    f: stepmfn<a,b,c,d,e>,
+    ?d/json-tofrom: json-tofrom<d>
+  ): total step<a,b,d,e>
+
+  Step(
+    "bind--" ++ st.name,
+    st.a-json-tofrom,
+    st.b-json-tofrom,
+    ?d/json-tofrom,
+    fn () ->
+      // st.run'.f.run'
+
+      match st.run'
+        Left(a) -> Left(a)
+        Right(c) -> 
+          val r = c.f.run'
+          r
+  )
 
 // some json-tofrom for the either result of the thunk
 pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger<a,b,c>,step-ctl<a,b,c>|e> either<a,c>
@@ -204,29 +216,35 @@ pub fun run<a>(
   with h 
   st.run' 
 
-// pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
-//   th()
+pub fun pure-handler<a,b,c>(
+    th: thunk<either<a,c>,<div,logger<a,b,c>,step-ctl<a,b,c>>>
+  ): <div,logger<a,b,c>,step-ctl<a,b,c>> either<a,c>
+  th()
 
-// // convenience function for running a pure step
-// pub fun run-pure(
-//     st: pure-step<a> 
-//   ): div (outcome<string,a>, logger/computation-log)
-//   run(st, pure-handler)
+// convenience function for running a pure step
+pub fun run-pure(
+    st: pure-step<a,b,c>,
+    handle-fatal-error: (string)->a
+  ): div (outcome<a,b,c>, logger/computation-log)
+  run(st, handle-fatal-error, pure-handler)
 
-// pub fun resume<a>(
-//     st: step<a,e>,
-//     log: logger/computation-log,
-//     h: (step-thunk<a,e>) -> <pure,logger> a
-//   ): div (outcome<string,a>, logger/computation-log)
-//   with logger/log-collector(Just(log), st.name)
-//   with h 
-//   st.run'
+pub fun resume<a>(
+    st: step<a,b,c,e>,
+    log: logger/computation-log,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,e>) -> <div,logger<a,b,c>,step-ctl<a,b,c>> either<a,c>
+  ): div (outcome<a,b,c>, logger/computation-log)
+  with logger/log-collector(Just(log), st.name, handle-fatal-error)
+  with st.step-ctl-handler(handle-fatal-error)
+  with h 
+  st.run'
 
-// pub fun resume-pure<a>(
-//     st: pure-step<a>,
-//     log: logger/computation-log
-//   ): div (outcome<string,a>, logger/computation-log)
-//   resume(st, log, pure-handler)
+pub fun resume-pure<a>(
+    st: pure-step<a,b,c>,
+    log: logger/computation-log,
+    handle-fatal-error: (string)->a
+  ): div (outcome<a,b,c>, logger/computation-log)
+  resume(st, log, handle-fatal-error, pure-handler)
 
 // // some examples
 
