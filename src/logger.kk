@@ -134,12 +134,12 @@ pub fun log-collector<a,b,c>(
       state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}))
       ReasonFail(a)
     ctl log-pause(b, b-json-tofrom)
-      val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}))
-      val state'' = state'(pause-ignores=state.pause-ignores - 1)
-      state := state''
-      if state''.pause-ignores >= 0 then
+      if state.pause-ignores >= 1 then
+        state := state(pause-ignores=state.pause-ignores - 1)
         resume(())
       else
+        val state' = state/close-open-steps(state, ReasonPaused({b-json-tofrom.to-json()(b)}))
+        state := state'(pause-ignores=state.pause-ignores - 1)
         ReasonPaused(b)
 
   match action()

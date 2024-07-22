@@ -266,7 +266,7 @@ pub fun make-test-dsl-simple-left(i: int): pure-step<string,string,string>
   step("result") {(2 * z).show.Right}
 
 pub fun test-dsl-simple()
-  val (_, log) = make-test-dsl-simple-left(100).run-pure(id)
+  val (_, log) = make-test-dsl-simple(100).run-pure(id)
   log.pp.println
   val logjson = log.to-json
   logjson.println
@@ -303,15 +303,15 @@ pub fun test-dsl-simple-pause-resume()
 
   paused-log.pp.println
   rule.println
-  paused-logj.to-json.pretty.show.println
-  rule.println
+  // paused-logj.to-json.pretty.show.println
+  // rule.println
   paused-v.show.println 
   rule.println
 
   val paused-log' = paused-logj.computation-log/from-json("")
   val (_, intermed-log) = computation.resume-pure(paused-log',id)
-  // intermed-log.pp.println
-  intermed-log.to-json.pretty.show.println
+  intermed-log.pp.println
+  // intermed-log.to-json.pretty.show.println
   rule.println
   val intermed-logj = intermed-log.to-json
 
@@ -319,7 +319,7 @@ pub fun test-dsl-simple-pause-resume()
   val (_, final-log) = computation.resume-pure(intermed-log',id)
   final-log.pp.println
   rule.println
-  final-log.to-json.println
+  // final-log.to-json.println
 
 // pub fun test-dsl-simple-error()
 //   val (_, log) = make-test-dsl-simple-error(100).run-pure
