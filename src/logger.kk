@@ -79,9 +79,6 @@ pub fun log-collector<a,b,c>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
-    a-jsonde: jsonde<a>,
-    b-jsonde: jsonde<b>,
-    c-jsonde: jsonde<c>,
     action: () -> <div,logger<a,b,c>> outcome<a,b,c>
   ) : div (outcome<a,b,c>, computation-log)
 
@@ -362,28 +359,26 @@ pub fun stuff(i: int)
   val o = i + i
   // log-fail({o.show})
   log-leave(ReasonExec({o.to-json}))
-  o
+  0
 
-pub fun thingz(i: int)
+// note: need to annotate fn to set the right outcome type for the log-collector
+pub fun thingz(i: int): logger<string,string,int> outcome<string,string,int>
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
   log-leave(ReasonExec({o.to-json}))
-  o
+  ReasonExec(o)
 
 pub fun collect-test-logs()
   with log-collector(
     Nothing, 
     "test", 
-    fn (s: string) -> s,
-    string/jsonde,
-    string/jsonde,
-    int/jsonde
+    fn (s: string) -> s
     )
   // log-pause("foo", string/jsonde)
   val v = stuff(5)
   val w = thingz(v)
-  ReasonExec(w)
+  w
 
 pub fun logs-an-error()
   log-enter("logs-an-error")
@@ -393,31 +388,16 @@ pub fun collect-logs-with-error()
   with log-collector(
     Nothing, 
     "test-with-error",
-    fn (s: string) -> s,
-    string/jsonde,
-    string/jsonde,
-    int/jsonde
+    fn (s: string) -> s
   )
   val v = stuff(5)
+  val w = thingz(v)
   logs-an-error()
-  ReasonExec(v)
+  w
 
 pub fun throws-an-exception()
   log-enter("throws-an-exception")
   throw("oops")
-
-// pub fun collect-logs-with-exception()
-//   with log-collector(
-//     Nothing, 
-//     "test-with-exception",
-//     fn (s: string) -> s,
-//     string/jsonde,
-//     string/jsonde,
-//     int/jsonde
-//     )
-//   val v = stuff(5)
-//   throws-an-exception()
-//   ReasonExec(v)
 
 pub fun test-collect-logs()
   match collect-test-logs()
@@ -428,7 +408,3 @@ pub fun test-collect-logs()
     (v, log) -> 
       log.pp.println
       println("Result: " ++ v.show)
-  // match collect-logs-with-exception()
-  //   (v, log) -> 
-  //     log.pp.println
-  //     println("Result: " ++ v.show)
