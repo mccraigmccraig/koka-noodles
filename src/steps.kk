@@ -143,7 +143,7 @@ fun thunk/run-core'<a,b,c,e>(
         logger/log-leave(ReasonExec({st.c-json-tofrom.to-json()(s)}))
     r
 
-fun resume/resume-core''<a,b,c,e>(  
+fun resume/resume-core'<a,b,c,e>(  
   st: step<a,b,c,e>, 
   c-json: json
 ): <div,logger<a,b>,step-ctl<a,b>|e> either<a,c>
@@ -159,8 +159,8 @@ pub fun resume/run'<a,b,c,e>(
   step-log: step-log
 ): <div,logger<a,b>,step-ctl<a,b>|e> either<a,c>
   match step-log
-    Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core''(st, c-jsrc())
-    Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core''(st, c-jsrc())
+    Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
+    Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     _ -> st.thunk/run-core'
 
 // run a step without dismissing any effects
