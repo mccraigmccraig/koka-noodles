@@ -53,9 +53,9 @@ pub effect logger
 
 pub effect log-ctl<a,b>
   // error the computation with a value, returning a log which can be used to retry later
-  final ctl log-fail(a: a, json-tofrom: json-tofrom<a>): ()
+  final ctl log-fail(a: a): ()
   // pause a computation with a value, returning a log which can be used to resume later
-  ctl log-pause(b: b, json-tofrom: json-tofrom<b>): ()
+  ctl log-pause(b: b): ()
 
 value struct step-cursor
   steps: vector<step-log>
@@ -86,6 +86,8 @@ pub fun log-collector<a,b,c>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
+    a-json-tofrom: json-tofrom<a>,
+    b-json-tofrom: json-tofrom<b>,
     action: () -> <div,logger,log-ctl<a,b>> either<a,c>
   ) : div (outcome<a,b,c>, computation-log)
 
@@ -100,14 +102,14 @@ pub fun log-collector<a,b,c>(
 
   with handler
     final ctl throw-exn(ex)
-      state := state/close-open-steps(state, ReasonFatal(ex.show))
+      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(ex.show.handle-fatal-error)}))
       ReasonFail(handle-fatal-error(ex.show))
 
   with handler
-    final ctl log-fail(a, a-json-tofrom)
+    final ctl log-fail(a)
       state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}))
       ReasonFail(a)
-    ctl log-pause(b, b-json-tofrom)
+    ctl log-pause(b)
       if state.pause-ignores >= 1 then
         state := state(pause-ignores=state.pause-ignores - 1)
         resume(())
@@ -389,7 +391,9 @@ pub fun collect-test-logs()
   with log-collector(
     Nothing, 
     "test", 
-    fn (s: string) -> s
+    fn (s: string) -> s,
+    string/json-tofrom,
+    string/json-tofrom
     )
   // log-pause("foo", string/json-tofrom)
   val v = stuff(5)
@@ -398,13 +402,15 @@ pub fun collect-test-logs()
 
 pub fun logs-an-error()
   log-enter("logs-an-error")
-  log-fail("boo!", string/json-tofrom)
+  log-fail("boo!")
 
 pub fun collect-logs-with-error()
   with log-collector(
     Nothing, 
     "test-with-error",
-    fn (s: string) -> s
+    fn (s: string) -> s,
+    string/json-tofrom,
+    string/json-tofrom
   )
   val v = stuff(5)
   val w = thingz(v)

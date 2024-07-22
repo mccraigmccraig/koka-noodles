@@ -188,10 +188,10 @@ pub fun step-ctl-handler<a,b,c,e>(
   ): <div,logger,log-ctl<a,b>> either<a,c>
   with handler
     ctl fail(a)
-      log-fail(a, st.a-json-tofrom)
+      log-fail(a)
       resume(()) // never happens
     ctl pause(b)
-      log-pause(b, st.b-json-tofrom)
+      log-pause(b)
       resume(())
   th()
 
@@ -201,7 +201,7 @@ pub fun run-resume<a>(
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
   ): div (outcome<a,b,c>, logger/computation-log)
-  with logger/log-collector(maybe-log, st.name, handle-fatal-error)
+  with logger/log-collector(maybe-log, st.name, handle-fatal-error, st.a-json-tofrom, st.b-json-tofrom)
   with st.step-ctl-handler(handle-fatal-error)
   with h 
   st.run'
