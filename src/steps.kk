@@ -160,9 +160,9 @@ pub fun run'<a,e>(st: step<a,b,c, e>): <div,logger<a,b,c>,step-ctl<a,b,c>|e> eit
       resume/run''(st, step-log)
     _ -> st.resume/run-core''
 
-// // run a pure-step 
-// pub fun run-pure'<a>(st: pure-step<a>): <pure,logger> a
-//   st.run'
+// run a pure-step 
+pub fun run-pure'<a>(st: pure-step<a,b,c>): <div,logger<a,b,c>,step-ctl<a,b,c>> either<a,c>
+  st.run'
 
 // pub fun compose-stepmfn(fa: stepmfn<a,b,e>, fb: stepmfn<b,c,e>): stepmfn<a,c,e>
 //   fn (a)
@@ -170,16 +170,32 @@ pub fun run'<a,e>(st: step<a,b,c, e>): <div,logger<a,b,c>,step-ctl<a,b,c>|e> eit
 //     val b = sb.run'
 //     fb(b)
 
-// // run a step, returning an either result and the computation-log
-// // h must handle any non-logger effects from the step - the only 
-// // effects allowed out are div,exn
-// pub fun run<a>(
-//     st: step<a,e>,
-//     h: (step-thunk<a,e>) -> <pure,logger> a
-//   ): div (outcome<string,a>, logger/computation-log)
-//   with logger/log-collector(Nothing, st.name)
-//   with h 
-//   st.run' 
+// handle the step-ctl effects, using step knowledge to convert them to logger effects
+pub fun step-ctl-handler<a,b,c,e>(
+    st: step<a,b,c,e>,
+    th: thunk<either<a,c>, <div,logger<a,b,c>,step-ctl<a,b,c>>>
+  ): <div,logger<a,b,c>> either<a,c>
+  with handler
+    ctl fail(a)
+      resume(())
+    ctl pause(b)
+      resume(())
+    ctl ok(c)
+      resume(())
+  th()
+
+// run a step, returning an either result and the computation-log
+// h must handle any non-logger effects from the step - the only 
+// effects allowed out are div,exn
+pub fun run<a>(
+    st: step<a,b,c,e>,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,e>) -> <div,logger<a,b,c>,step-ctl<a,b,c>> either<a,c>
+  ): div (outcome<a,b,c>, logger/computation-log)
+  with logger/log-collector(Nothing, st.name, handle-fatal-error)
+  with st.step-ctl-handler
+  with h 
+  st.run' 
 
 // pub fun pure-handler<a>(th: thunk<a,<pure,logger>>): <pure,logger> a
 //   th()
