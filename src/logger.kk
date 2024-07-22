@@ -65,11 +65,11 @@ pub effect logger<a,b,c>
   // the logger can't distinguish Exec from Resume (split this into -leave-exec and -leave-resume ?)
   fun log-leave(outcome: log-outcome) : ()
   // error the computation with a value, returning a log which can be used to retry later
-  ctl log-fail(a: a, json-tofrom: json-tofrom<a>) : ()
+  final ctl log-fail(a: a, json-tofrom: json-tofrom<a>): ()
   // pause a computation with a value, returning a log which can be used to resume later
-  ctl log-pause(b: b, json-tofrom: json-tofrom<b>) : ()
+  ctl log-pause(b: b, json-tofrom: json-tofrom<b>): ()
   // succeed a computation with a value, also returning a log
-  ctl log-ok(c: c, json-tofrom: json-tofrom<c>): ()
+  final ctl log-ok(c: c, json-tofrom: json-tofrom<c>): ()
 
 value struct step-cursor
   steps: vector<step-log>
@@ -132,7 +132,7 @@ pub fun log-collector<a,b,c>(
       match state/log-leave(state, success-reason)
         Left(err) -> throw(err)
         Right(state') -> state := state'
-    ctl log-fail(a, a-json-tofrom)
+    final ctl log-fail(a, a-json-tofrom)
       state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}))
       ReasonFail(a)
     ctl log-pause(b, b-json-tofrom)
@@ -143,7 +143,7 @@ pub fun log-collector<a,b,c>(
         resume(())
       else
         ReasonPaused(b)
-    ctl log-ok(c, c-json-tofrom)
+    final ctl log-ok(c, c-json-tofrom)
       state := state/close-open-steps(state, ReasonExec({c-json-tofrom.to-json()(c)}))
       ReasonExec(c)
 
