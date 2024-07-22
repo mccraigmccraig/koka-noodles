@@ -58,7 +58,7 @@ pub struct computation-log
   pauses: int
   step-logs: list<step-log>
 
-pub effect logger<a,b,c>
+pub effect logger<a,b>
   // open a step-log. If following a log, returns the corresponding step-log
   fun log-enter(name: string) : maybe<step-log>
   // close a step-log - must provide a log-outcome param because
@@ -68,8 +68,6 @@ pub effect logger<a,b,c>
   final ctl log-fail(a: a, json-tofrom: json-tofrom<a>): ()
   // pause a computation with a value, returning a log which can be used to resume later
   ctl log-pause(b: b, json-tofrom: json-tofrom<b>): ()
-  // succeed a computation with a value, also returning a log
-  final ctl log-ok(c: c, json-tofrom: json-tofrom<c>): ()
 
 value struct step-cursor
   steps: vector<step-log>
@@ -100,7 +98,7 @@ pub fun log-collector<a,b,c>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
-    action: () -> <div,logger<a,b,c>> either<a,c>
+    action: () -> <div,logger<a,b>> either<a,c>
   ) : div (outcome<a,b,c>, computation-log)
 
   var state := make-logger-state(previous-log)
@@ -143,9 +141,6 @@ pub fun log-collector<a,b,c>(
         resume(())
       else
         ReasonPaused(b)
-    final ctl log-ok(c, c-json-tofrom)
-      state := state/close-open-steps(state, ReasonExec({c-json-tofrom.to-json()(c)}))
-      ReasonExec(c)
 
   match action()
     Left(a) -> ReasonFail(a)
@@ -393,7 +388,7 @@ pub fun stuff(i: int)
   0
 
 // note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): logger<string,string,int> either<string,int>
+pub fun thingz(i: int): logger<string,string> either<string,int>
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
