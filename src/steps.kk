@@ -320,9 +320,9 @@ pub fun test-dsl-simple-error-fix-rerun()
   log2'.pp.println
 
 pub fun make-test-dsl-simple-pause(i: int): div-step<string,string,string>
-  with x <- sbind("x") {i.Right}
+  with x <- sbind("x") {Right(i)}
   pause("pause")
-  with y <- sbind("y") {10.Right}
+  with y <- sbind("y") {Right(10)}
   with z <- sbind("z")  {Right(x + y)}
   step("result") {pause("again") ; Right(z.show ++ ":stuff")}
 
