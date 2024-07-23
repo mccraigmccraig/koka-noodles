@@ -280,7 +280,6 @@ pub fun make-test-dsl-simple(i: int): div-step<string,string,string>
 pub fun make-test-dsl-simple-left(i: int): div-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
-  // TODO - a bit awkward - if we return a Left, inference can't get the Right type without help
   with z <- step("z") {fail("foo") ; 1}.bind
   step("result") {(2 * z).show}
 
@@ -396,8 +395,8 @@ pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<r
   val aa' = match y
     [a, b] -> 
       with z <- sbind("z") {x + a + b}
-      // TODO inference totally loses it here
-      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=int/json-fns) {fail("blagh") ; 10}
+      // TODO inference doesn't do a great job here...
+      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns) {fail("blagh") ; 10}
     _ -> step("aa'-default") {0}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
