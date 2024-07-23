@@ -37,9 +37,9 @@ pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger,step-ctl<a,b>|e>>
 // steps are a name, a thunk and json de/serializers for all the values.
 pub struct step<a,b,c,e>
   name: string
-  a-json-tofrom: json-tofrom<a>
-  b-json-tofrom: json-tofrom<b>
-  c-json-tofrom: json-tofrom<c>
+  a-json-fns: json-fns<a>
+  b-json-fns: json-fns<b>
+  c-json-fns: json-fns<c>
   thunk: step-thunk<a,b,c,e>
 
 pub alias div-step<a,b,c> = step<a,b,c,<>>
@@ -56,10 +56,10 @@ pub alias trifmap<a,b,c,x,y,z,e> = ((a)->x,(b)->y,(c)->z,step<a,b,c,e>) -> step<
 pub fun step<a,b,c,e>(
   name: string, 
   thunk: step-thunk<a,b,c,e>, 
-  ?a/json-tofrom: json-tofrom<a>,
-  ?b/json-tofrom: json-tofrom<b>,
-  ?c/json-tofrom: json-tofrom<c>): step<a,b,c,e>
-  Step(name, ?a/json-tofrom, ?b/json-tofrom, ?c/json-tofrom, thunk)
+  ?a/json-fns: json-fns<a>,
+  ?b/json-fns: json-fns<b>,
+  ?c/json-fns: json-fns<c>): step<a,b,c,e>
+  Step(name, ?a/json-fns, ?b/json-fns, ?c/json-fns, thunk)
 
 // merging the step + bind into a single function
 // giving a more compact DSL syntax... the trailing lambda and 
@@ -68,18 +68,18 @@ pub fun sbind<a,b,c,d,e>(
     name: string, 
     thunk: step-thunk<a,b,c,e>, 
     f: stepmfn<a,b,c,d,e>, 
-    ?a/json-tofrom: json-tofrom<a>,
-    ?b/json-tofrom: json-tofrom<b>,
-    ?c/json-tofrom: json-tofrom<c>,
-    ?d/json-tofrom: json-tofrom<d>
+    ?a/json-fns: json-fns<a>,
+    ?b/json-fns: json-fns<b>,
+    ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>
   ): step<a,b,d,e>
   Step(
       name, 
-      ?a/json-tofrom, 
-      ?b/json-tofrom, 
-      ?c/json-tofrom, 
+      ?a/json-fns, 
+      ?b/json-fns, 
+      ?c/json-fns, 
       thunk
-    ).bind(f, ?d/json-tofrom=?d/json-tofrom)
+    ).bind(f, ?d/json-fns=?d/json-fns)
 
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
@@ -87,14 +87,14 @@ pub fun step/show(a: step<a,b,c,e>): string
 pub fun fmap<a,b,c,d,e>(
     f: (c)->d,
     st: step<a,b,c,e>, 
-    ?d/json-tofrom: json-tofrom<d>
+    ?d/json-fns: json-fns<d>
   ): total step<a,b,d,e>
 
   Step(
     "bind--" ++ st.name,
-    st.a-json-tofrom,
-    st.b-json-tofrom,
-    ?d/json-tofrom,
+    st.a-json-fns,
+    st.b-json-fns,
+    ?d/json-fns,
     fn () ->
       match st.run'
         Left(a) -> Left(a)
@@ -104,21 +104,21 @@ pub fun fmap<a,b,c,d,e>(
 pub fun bind<a,b,c,d,e>(
     st: step<a,b,c,e>, 
     f: stepmfn<a,b,c,d,e>,
-    ?d/json-tofrom: json-tofrom<d>
+    ?d/json-fns: json-fns<d>
   ): total step<a,b,d,e>
 
   Step(
     "bind--" ++ st.name,
-    st.a-json-tofrom,
-    st.b-json-tofrom,
-    ?d/json-tofrom,
+    st.a-json-fns,
+    st.b-json-fns,
+    ?d/json-fns,
     fn () ->
       match st.run'
         Left(a) -> Left(a)
         Right(c) -> c.f.run'
   )
 
-// some json-tofrom for the either result of the thunk
+// some json-fns for the either result of the thunk
 pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> either<a,c>
   st.thunk()()
 
@@ -128,16 +128,16 @@ fun thunk/run-core'<a,b,c,e>(
     val r = st.thunk/run''
     match r
       Left(f) -> 
-        logger/log-leave(ReasonFail({st.a-json-tofrom.to-json()(f)}))
+        logger/log-leave(ReasonFail({st.a-json-fns.to-json()(f)}))
       Right(s) -> 
-        logger/log-leave(ReasonExec({st.c-json-tofrom.to-json()(s)}))
+        logger/log-leave(ReasonExec({st.c-json-fns.to-json()(s)}))
     r
 
 fun resume/resume-core'<a,b,c,e>(  
   st: step<a,b,c,e>, 
   c-json: json
 ): <div,logger,step-ctl<a,b>|e> either<a,c>
-  match parse-json(c-json, "", st.c-json-tofrom.from-json)
+  match parse-json(c-json, "", st.c-json-fns.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
       logger/log-leave(ReasonResume({c-json}))
@@ -195,7 +195,7 @@ pub fun handle-run-resume<a>(
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
   ): div (outcome<a,b,c>, logger/computation-log)
-  with logger/log-collector(maybe-log, st.name, handle-fatal-error, st.a-json-tofrom, st.b-json-tofrom)
+  with logger/log-collector(maybe-log, st.name, handle-fatal-error, st.a-json-fns, st.b-json-fns)
   with st.step-ctl-handler(handle-fatal-error)
   with h 
   st.run'
@@ -385,7 +385,7 @@ pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<r
   val aa' = match y
     [a, b] -> 
       with z <- sbind("z") {Right(x + a + b)}
-      step("aa'-pair", ?a/json-tofrom=string/json-tofrom, ?b/json-tofrom=string/json-tofrom, ?c/json-tofrom=int/json-tofrom) {Left("blagh")}
+      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=int/json-fns) {Left("blagh")}
     _ -> step("aa'-default") {0.Right}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
@@ -407,7 +407,7 @@ pub fun test-dsl-more-complext-compact()
 
 
 
-val listint/json-tofrom = Json-tofrom(
+val listint/json-fns = Json-fns(
   fn(l: list<int>) -> JSList(l.map(int/to-json)),
   fn(j: json, path: string) -> match j
     JSList(l) -> l.map(fn (jj: json)->int/from-json(jj, "[]." ++ path))

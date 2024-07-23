@@ -13,7 +13,7 @@ import std/data/json
 pub alias json-src = () -> total json
 pub alias string-src = () -> total string
 
-pub value struct json-tofrom<a>
+pub value struct json-fns<a>
   to-json: (a) -> total json
   from-json: (json: json, path: string) -> pure a
 
@@ -85,8 +85,8 @@ pub fun log-collector<a,b,c>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
-    a-json-tofrom: json-tofrom<a>,
-    b-json-tofrom: json-tofrom<b>,
+    a-json-fns: json-fns<a>,
+    b-json-fns: json-fns<b>,
     action: () -> <div,logger,log-ctl<a,b>> either<a,c>
   ) : div (outcome<a,b,c>, computation-log)
 
@@ -101,19 +101,19 @@ pub fun log-collector<a,b,c>(
 
   with handler
     final ctl throw-exn(ex)
-      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(ex.show.handle-fatal-error)}), handle-fatal-error, a-json-tofrom)
+      state := state/close-open-steps(state, ReasonFail({a-json-fns.to-json()(ex.show.handle-fatal-error)}), handle-fatal-error, a-json-fns)
       ReasonFail(handle-fatal-error(ex.show))
 
   with handler
     final ctl log-fail(a)
-      state := state/close-open-steps(state, ReasonFail({a-json-tofrom.to-json()(a)}), handle-fatal-error, a-json-tofrom)
+      state := state/close-open-steps(state, ReasonFail({a-json-fns.to-json()(a)}), handle-fatal-error, a-json-fns)
       ReasonFail(a)
     ctl log-pause(b)
       if state.pause-ignores >= 1 then
         state := state(pause-ignores=state.pause-ignores - 1)
         resume(())
       else
-        val state' = state/close-open-steps(state, ReasonPause({b-json-tofrom.to-json()(b)}), handle-fatal-error, a-json-tofrom)
+        val state' = state/close-open-steps(state, ReasonPause({b-json-fns.to-json()(b)}), handle-fatal-error, a-json-fns)
         state := state'(pause-ignores=state.pause-ignores - 1)
         ReasonPause(b)
 
@@ -153,10 +153,10 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 // propagate an outcome through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree. Add a
 // fatal error if there are no open-steps
-fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-tofrom: json-tofrom<a>): total logger-state
+fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-fns: json-fns<a>): total logger-state
   match state.open-steps
     [] -> 
-      val fatal-step = Step-Log("error", [], ReasonFail({a-json-tofrom.to-json()("no open steps".handle-fatal-error)}))
+      val fatal-step = Step-Log("error", [], ReasonFail({a-json-fns.to-json()("no open steps".handle-fatal-error)}))
       val completed-steps' = Cons(fatal-step, state.completed-steps)
       state(completed-steps=completed-steps')
     Cons(first, Nil) -> 
@@ -166,7 +166,7 @@ fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-
     Cons(first, Cons(next, rest)) -> 
       val step-log = Step-Log(first.name, first.children.reverse, outcome)
       val next' = next(children = Cons(step-log, next.children))
-      state/close-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), outcome, handle-fatal-error, a-json-tofrom)
+      state/close-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), outcome, handle-fatal-error, a-json-fns)
 
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
@@ -256,10 +256,10 @@ pub fun either/from-json<a,b>(j: json, path: string, ?a/from-json: (json,string)
             Just(jb) -> Right(jb.?b/from-json(path ++ ".Right"))
             _ -> throw("either/dejson: expected Left or Right")
     _ -> throw("either/dejson: expected object")
-pub fun either/make-json-tofrom<a,b>(a-json-tofrom: json-tofrom<a>, b-json-tofrom: json-tofrom<b>): json-tofrom<either<a,b>>
-  Json-tofrom(
-    fn(eab) -> either/to-json(eab, ?a/to-json=a-json-tofrom.to-json, ?b/to-json=b-json-tofrom.to-json),
-    fn(j, path) -> either/from-json(j, path, ?a/from-json=a-json-tofrom.from-json, ?b/from-json=b-json-tofrom.from-json)
+pub fun either/make-json-fns<a,b>(a-json-fns: json-fns<a>, b-json-fns: json-fns<b>): json-fns<either<a,b>>
+  Json-fns(
+    fn(eab) -> either/to-json(eab, ?a/to-json=a-json-fns.to-json, ?b/to-json=b-json-fns.to-json),
+    fn(j, path) -> either/from-json(j, path, ?a/from-json=a-json-fns.from-json, ?b/from-json=b-json-fns.from-json)
   )
 
 pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
@@ -361,8 +361,8 @@ pub fun computation-log/pp(log: computation-log): total string
   "pauses: " ++ log.pauses.show ++ "\n" ++
   log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
-pub val string/json-tofrom = Json-tofrom(string/to-json, string/from-json)
-pub val int/json-tofrom = Json-tofrom(int/to-json, int/from-json)
+pub val string/json-fns = Json-fns(string/to-json, string/from-json)
+pub val int/json-fns = Json-fns(int/to-json, int/from-json)
 
 // test/example
 
@@ -386,10 +386,10 @@ pub fun collect-test-logs()
     Nothing, 
     "test", 
     fn (s: string) -> s,
-    string/json-tofrom,
-    string/json-tofrom
+    string/json-fns,
+    string/json-fns
     )
-  // log-pause("foo", string/json-tofrom)
+  // log-pause("foo", string/json-fns)
   val v = stuff(5)
   val w = thingz(v)
   w
@@ -403,8 +403,8 @@ pub fun collect-logs-with-error()
     Nothing, 
     "test-with-error",
     fn (s: string) -> s,
-    string/json-tofrom,
-    string/json-tofrom
+    string/json-fns,
+    string/json-fns
   )
   val v = stuff(5)
   val w = thingz(v)
