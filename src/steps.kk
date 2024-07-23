@@ -9,33 +9,7 @@ import std/num/random
 import std/pretty/pprint
 import steps/logger
 
-// TODO think about error channels - the thunk can throw, 
-// but what about a left/right channel ?
-// e.g. could use a typed step-control effect so the stop
-// effect can return a value to the computation left-channel
-// so left-channel would have
-// pause | error | stop<a>
-// ...but... does this compose ? it could do... would need
-// some handler combinators to modify the left channel...
-// could build either into the result type too, so there are 
-// options
-// TODO - should pause get a data parameter to allow coordination
-// code to make decisions ? step-thunks could then be:
-//   step-thunk< either<a,c>, <step-ctl<a,b,c>|e> >
-//     a - failure channel
-//     b - pause channel
-//     c - success value
-//     e - polymorphic effects
-// and we could offer a step-ctl effect with short-circuits for 
-// failure, success and pause, with a 3-way final result, 
-// like an either with an additional pause channel
-//
-// there will still be a polymorphic effect, but we won't allow 
-// it to propagate an exn out of the caller's handler, so the 
-// result will be completely-typed
-
-// like an either, but with a typed pause... like
-// either makes left-to-right wrong-to-right
+// like an either, but with a typed pause channel
 pub value type run-step-result<a,b,c>
   StepFail(a: a)
   StepPause(b: b)
@@ -47,27 +21,20 @@ pub fun run-step-result/show<a,b,c>(r: run-step-result<a,b,c>, ?a/show: (a)->str
     StepPause(b) -> "Paused: " ++ b.?b/show
     StepOk(c) -> "Ok: " ++ c.?c/show
 
-effect no-return
-  ctl no-return(): a
-
 // consumer control effect
 pub effect step-ctl<a,b>
-  // Immediately fail the computation with a value. Equivalent
+  // Immediately fail the computation with a value - equivalent
   // to returning a Left(a) from a thunk
   ctl fail(a: a): ()
   // Immediately pause the computation with a value
   ctl pause(b: b): ()
-
 
 pub alias thunk<a,e> = () -> e a
 
 // thunks returning an either, and with logger and step-ctl effects
 pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger,step-ctl<a,b>|e>>
 
-// steps are a name, a thunk and a de/serializer for the thunk value.
-// this is enough to control execution of a computation and to 
-// serialize bound values and outputs to a log so that computations 
-// can be resumed and failures inspected from the log
+// steps are a name, a thunk and json de/serializers for all the values.
 pub struct step<a,b,c,e>
   name: string
   a-json-tofrom: json-tofrom<a>
@@ -75,14 +42,14 @@ pub struct step<a,b,c,e>
   c-json-tofrom: json-tofrom<c>
   thunk: step-thunk<a,b,c,e>
 
-pub alias pure-step<a,b,c> = step<a,b,c,<>>
+pub alias div-step<a,b,c> = step<a,b,c,<>>
 
 // monadic fns of step values
 pub alias stepmfn<a,b,c,d,e> = (c: c) -> <div,logger,step-ctl<a,b>|e> step<a,b,d,e>
-pub alias pure-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
+pub alias div-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
 // map error, pause and success values in a step
-pub alias trifmap<a,b,c,x,y,z,e> = ((a)->x,(b)->y,(c)->z,step<x,y,z,e>)
+pub alias trifmap<a,b,c,x,y,z,e> = ((a)->x,(b)->y,(c)->z,step<a,b,c,e>) -> step<x,y,z,e>
 
 // allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
@@ -117,6 +84,23 @@ pub fun sbind<a,b,c,d,e>(
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
   
+pub fun fmap<a,b,c,d,e>(
+    f: (c)->d,
+    st: step<a,b,c,e>, 
+    ?d/json-tofrom: json-tofrom<d>
+  ): total step<a,b,d,e>
+
+  Step(
+    "bind--" ++ st.name,
+    st.a-json-tofrom,
+    st.b-json-tofrom,
+    ?d/json-tofrom,
+    fn () ->
+      match st.run'
+        Left(a) -> Left(a)
+        Right(c) -> Right(c.f)
+  )
+
 pub fun bind<a,b,c,d,e>(
     st: step<a,b,c,e>, 
     f: stepmfn<a,b,c,d,e>,
@@ -176,15 +160,18 @@ pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> either<a,c>
       resume/run'(st, step-log)
     _ -> st.thunk/run-core'
 
-// run a pure-step 
-pub fun run-pure'<a>(st: pure-step<a,b,c>): <div,logger,step-ctl<a,b>> either<a,c>
+// run a div-step 
+pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> either<a,c>
   st.run'
 
-// pub fun compose-stepmfn(fa: stepmfn<a,b,e>, fb: stepmfn<b,c,e>): stepmfn<a,c,e>
-//   fn (a)
-//     val sb = fa(a)
-//     val b = sb.run'
-//     fb(b)
+// compose is a bit harder now, because of the error-channel
+// perhaps i need to reformulate bind as join.fmap
+// pub fun compose-stepmfn(fa: stepmfn<a,b,c,d,e>, fb: stepmfn<a,b,d,x,e>): stepmfn<a,b,c,x,e>
+//   fn (c)
+//     val sd = fa(c)
+//     match sd.run'
+//       Left(a) -> sd(name="compose-stepmfn", thunk=fn() -> Left(a), c-json-to)
+//       Right(d) -> fb(d)
 
 // handle the step-ctl effects, using step knowledge to convert them to logger effects
 pub fun step-ctl-handler<a,b,c,e>(
@@ -237,17 +224,18 @@ pub fun run<a>(
   ): div (run-step-result<a,b,c>, logger/computation-log)
   run-resume(st, Nothing, handle-fatal-error, h)
 
-pub fun pure-handler<a,b,c>(
+// a handler which does nothing but call its thunk
+pub fun div-handler<a,b,c>(
     th: thunk<either<a,c>,<div,logger,step-ctl<a,b>>>
   ): <div,logger,step-ctl<a,b>> either<a,c>
   th()
 
-// convenience function for running a pure step
-pub fun run-pure(
-    st: pure-step<a,b,c>,
+// convenience function for running a div step
+pub fun run-div(
+    st: div-step<a,b,c>,
     handle-fatal-error: (string)->a
   ): div (run-step-result<a,b,c>, logger/computation-log)
-  run(st, handle-fatal-error, pure-handler)
+  run(st, handle-fatal-error, div-handler)
 
 pub fun resume<a>(
     st: step<a,b,c,e>,
@@ -257,34 +245,34 @@ pub fun resume<a>(
   ): div (run-step-result<a,b,c>, logger/computation-log)
   run-resume(st, Just(log), handle-fatal-error, h)
 
-pub fun resume-pure<a>(
-    st: pure-step<a,b,c>,
+pub fun resume-div<a>(
+    st: div-step<a,b,c>,
     log: logger/computation-log,
     handle-fatal-error: (string)->a
   ): div (run-step-result<a,b,c>, logger/computation-log)
-  resume(st, log, handle-fatal-error, pure-handler)
+  resume(st, log, handle-fatal-error, div-handler)
 
 // some examples
 
-pub fun make-test-dsl-trivial(i: int): pure-step<string,string,string>
+pub fun make-test-dsl-trivial(i: int): div-step<string,string,string>
   with x <- sbind("x") {i.Right}
   step("result") {x.show.Right}
 
 pub fun test-dsl-trivial()
-  val (_, log) = make-test-dsl-trivial(100).run-pure(id)
+  val (_, log) = make-test-dsl-trivial(100).run-div(id)
   log.pp.println
   val logjson = log.to-json
   logjson.println
   val log' = logjson.computation-log/from-json("")
   log'.pp.println
 
-pub fun make-test-dsl-simple(i: int): pure-step<string,string,string>
+pub fun make-test-dsl-simple(i: int): div-step<string,string,string>
   with x <- sbind("x") {i.Right}
   with y <- sbind("y") {10.Right}
   with z <- sbind("z") {Right(x + y)}
   step("result") {(2 * z).show.Right}
 
-pub fun make-test-dsl-simple-left(i: int): pure-step<string,string,string>
+pub fun make-test-dsl-simple-left(i: int): div-step<string,string,string>
   with x <- sbind("x") {i.Right}
   with y <- sbind("y") {10.Right}
   // TODO - a bit awkward - if we return a Left, inference can't get the Right type without help
@@ -292,7 +280,7 @@ pub fun make-test-dsl-simple-left(i: int): pure-step<string,string,string>
   step("result") {(2 * z).show.Right}
 
 pub fun test-dsl-simple()
-  val (_, log) = make-test-dsl-simple(100).run-pure(id)
+  val (_, log) = make-test-dsl-simple(100).run-div(id)
   log.pp.println
   val logjson = log.to-json
   logjson.println
@@ -301,9 +289,9 @@ pub fun test-dsl-simple()
 
 // resuming a computation after fixing an error
 pub fun test-dsl-simple-error-fix-rerun()
-  val (_, log) = make-test-dsl-simple-left(100).run-pure(id)
+  val (_, log) = make-test-dsl-simple-left(100).run-div(id)
   val logj = log.to-json
-  val (_, log2) = make-test-dsl-simple(100).resume(log, id, pure-handler)
+  val (_, log2) = make-test-dsl-simple(100).resume(log, id, div-handler)
   val log2j = log2.to-json
 
   val log' = logj.computation-log/from-json("")
@@ -312,7 +300,7 @@ pub fun test-dsl-simple-error-fix-rerun()
   val log2' = log2j.computation-log/from-json("")
   log2'.pp.println
 
-pub fun make-test-dsl-simple-pause(i: int): pure-step<string,string,string>
+pub fun make-test-dsl-simple-pause(i: int): div-step<string,string,string>
   with x <- sbind("x") {i.Right}
   pause("pause")
   with y <- sbind("y") {10.Right}
@@ -324,7 +312,7 @@ val rule = string/repeat("-", 20)
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
   val computation = make-test-dsl-simple-pause(100)
-  val (paused-v, paused-log) = computation.run-pure(id)
+  val (paused-v, paused-log) = computation.run-div(id)
   val paused-logj = paused-log.to-json
 
   paused-log.pp.println
@@ -335,7 +323,7 @@ pub fun test-dsl-simple-pause-resume()
   rule.println
 
   val paused-log' = paused-logj.computation-log/from-json("")
-  val (intermed-v, intermed-log) = computation.resume-pure(paused-log',id)
+  val (intermed-v, intermed-log) = computation.resume-div(paused-log',id)
   intermed-log.pp.println
   rule.println
   intermed-v.show.println
@@ -344,31 +332,31 @@ pub fun test-dsl-simple-pause-resume()
   val intermed-logj = intermed-log.to-json
 
   val intermed-log' = intermed-logj.computation-log/from-json("")
-  val (final-v, final-log) = computation.resume-pure(intermed-log',id)
+  val (final-v, final-log) = computation.resume-div(intermed-log',id)
   final-log.pp.println
   rule.println
   final-v.show.println
   // final-log.to-json.println
 
-pub fun make-test-dsl-simple-fail(i: int): pure-step<string,string,string>
+pub fun make-test-dsl-simple-fail(i: int): div-step<string,string,string>
   with x <- sbind("x") {i.Right}
   with y <- sbind("y") {10.Right}
   with z <- sbind("z")  {fail("boom") ; Right(x.show ++ "/" ++ y.show)}
   step("result") {Right(z ++ ":" ++ z)}
 
-pub fun make-test-dsl-simple-fix(i: int): pure-step<string,string,string>
+pub fun make-test-dsl-simple-fix(i: int): div-step<string,string,string>
   with x <- sbind("x") {i.Right}
   with y <- sbind("y") {10.Right}
   with z <- sbind("z")  {Right(x.show ++ "/" ++ y.show)}
   step("result") {Right(z ++ ":" ++ z)}
 
 pub fun test-dsl-simple-fail()
-  val (_, log) = make-test-dsl-simple-fail(100).run-pure(id)
+  val (_, log) = make-test-dsl-simple-fail(100).run-div(id)
   log.pp.println
 
 pub fun test-dsl-simple-resume()
-  val (_, log) = make-test-dsl-simple-fail(100).run-pure(id)
-  val (_, log2) = make-test-dsl-simple-fix(100).resume(log, id, pure-handler)
+  val (_, log) = make-test-dsl-simple-fail(100).run-div(id)
+  val (_, log2) = make-test-dsl-simple-fix(100).resume(log, id, div-handler)
   log.pp.println
   log2.pp.println
 
