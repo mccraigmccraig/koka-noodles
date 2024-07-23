@@ -21,7 +21,12 @@ pub fun run-step-result/show<a,b,c>(r: run-step-result<a,b,c>, ?a/show: (a)->str
     StepPause(b) -> "Paused: " ++ b.?b/show
     StepOk(c) -> "Ok: " ++ c.?c/show
 
-// consumer control effect
+// consumer control effect - immediately pause or fail a computation.
+// 
+// There's no short-circuit returning of values - because 
+// that would mean parameterising step-ctl on the value type, and 
+// so would require rebinding handlers at every bind, and need
+// (c)->d functions we don't have 
 pub effect step-ctl<a,b>
   // Immediately fail the computation with a value - equivalent
   // to returning a Left(a) from a thunk
@@ -32,6 +37,10 @@ pub effect step-ctl<a,b>
 pub alias thunk<a,e> = () -> e a
 
 // thunks returning an either, and with logger and step-ctl effects
+// TODO thunks returning an either is nice, but it seems to be giving the inference
+// trouble - probably since there are two branches and with literal values only 
+// one is inferrable... would it be better to switch back to single-type return 
+// values and use the fail effect or an exn to return errors ?
 pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger,step-ctl<a,b>|e>>
 
 // steps are a name, a thunk and json de/serializers for all the values.
@@ -386,6 +395,7 @@ pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<r
   val aa' = match y
     [a, b] -> 
       with z <- sbind("z") {Right(x + a + b)}
+      // TODO inference totally loses it here
       step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=int/json-fns) {Left("blagh")}
     _ -> step("aa'-default") {0.Right}
   with aa: int <- aa'.bind
