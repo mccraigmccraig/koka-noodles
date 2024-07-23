@@ -87,7 +87,7 @@ pub fun log-collector<a,b,c>(
     handle-fatal-error: (string) -> a,
     a-json-fns: json-fns<a>,
     b-json-fns: json-fns<b>,
-    action: () -> <div,logger,log-ctl<a,b>> either<a,c>
+    action: () -> <div,logger,log-ctl<a,b>> c
   ) : div (outcome<a,b,c>, computation-log)
 
   var state := make-logger-state(previous-log)
@@ -133,9 +133,7 @@ pub fun log-collector<a,b,c>(
         Left(err) -> throw(err)
         Right(state') -> state := state'
 
-  match action()
-    Left(a) -> ReasonFail(a)
-    Right(c) -> ReasonExec(c)
+  ReasonExec(action())
 
 // state helpers
 
@@ -374,12 +372,12 @@ pub fun stuff(i: int)
   0
 
 // note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): <logger,log-ctl<string,string>> either<string,int>
+pub fun thingz(i: int): <logger,log-ctl<string,string>> int
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
   log-leave(ReasonExec({o.to-json}))
-  Right(o)
+  o
 
 pub fun collect-test-logs()
   with log-collector(

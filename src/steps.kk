@@ -41,7 +41,7 @@ pub alias thunk<a,e> = () -> e a
 // trouble - probably since there are two branches and with literal values only 
 // one is inferrable... would it be better to switch back to single-type return 
 // values and use the fail effect or an exn to return errors ?
-pub alias step-thunk<a,b,c,e> = thunk<either<a,c>, <div,logger,step-ctl<a,b>|e>>
+pub alias step-thunk<a,b,c,e> = thunk<c, <div,logger,step-ctl<a,b>|e>>
 
 // steps are a name, a thunk and json de/serializers for all the values.
 pub struct step<a,b,c,e>
@@ -105,9 +105,7 @@ pub fun fmap<a,b,c,d,e>(
     st.b-json-fns,
     ?d/json-fns,
     fn () ->
-      match st.run'
-        Left(a) -> Left(a)
-        Right(c) -> Right(c.f)
+      st.run'.f
   )
 
 pub fun bind<a,b,c,d,e>(
@@ -122,55 +120,49 @@ pub fun bind<a,b,c,d,e>(
     st.b-json-fns,
     ?d/json-fns,
     fn () ->
-      match st.run'
-        Left(a) -> Left(a)
-        Right(c) -> c.f.run'
+      st.run'.f.run'
   )
 
 // some json-fns for the either result of the thunk
-pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> either<a,c>
+pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
   st.thunk()()
 
 fun thunk/run-core'<a,b,c,e>(
   st: step<a,b,c,e>
-): <div,logger,step-ctl<a,b>|e> either<a,c>
+): <div,logger,step-ctl<a,b>|e> c
     val r = st.thunk/run''
-    match r
-      Left(f) -> 
-        logger/log-leave(ReasonFail({st.a-json-fns.to-json()(f)}))
-      Right(s) -> 
-        logger/log-leave(ReasonExec({st.c-json-fns.to-json()(s)}))
+    logger/log-leave(ReasonExec({st.c-json-fns.to-json()(r)}))
     r
 
 fun resume/resume-core'<a,b,c,e>(  
   st: step<a,b,c,e>, 
   c-json: json
-): <div,logger,step-ctl<a,b>|e> either<a,c>
+): <div,logger,step-ctl<a,b>|e> c
   match parse-json(c-json, "", st.c-json-fns.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
       logger/log-leave(ReasonResume({c-json}))
-      Right(rr)
+      rr
     Left(_err) -> st.thunk/run-core'
 
 fun resume/run'<a,b,c,e>(
   st: step<a,b,c,e>, 
   step-log: step-log
-): <div,logger,step-ctl<a,b>|e> either<a,c>
+): <div,logger,step-ctl<a,b>|e> c
   match step-log
     Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     _ -> st.thunk/run-core'
 
 // run a step without dismissing any effects
-pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> either<a,c>
+pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
   match logger/log-enter(st.name)
     Just(step-log) ->
       resume/run'(st, step-log)
     _ -> st.thunk/run-core'
 
 // run a div-step 
-pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> either<a,c>
+pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
   st.run'
 
 // don't like this formulation of composing stepmfns - have to use bind rather than calling the 
@@ -189,8 +181,8 @@ pub fun compose-stepmfn(fa: stepmfn<a,b,c,d,e>, fb: stepmfn<a,b,d,x,e>, ?x/json-
 fun step-ctl-handler<a,b,c,e>(
     st: step<a,b,c,e>,
     handle-fatal-error: (string)->a,
-    th: thunk<either<a,c>, <div,logger,step-ctl<a,b>>>
-  ): <div,logger,log-ctl<a,b>> either<a,c>
+    th: thunk<c, <div,logger,step-ctl<a,b>>>
+  ): <div,logger,log-ctl<a,b>> c
   with handler
     ctl fail(a)
       log-fail(a)
@@ -206,7 +198,7 @@ fun handle-effects<a>(
     run-name: string,
     maybe-log: maybe<logger/computation-log>,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
   ): div (outcome<a,b,c>, logger/computation-log)
   with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns)
   with st.step-ctl-handler(handle-fatal-error)
@@ -218,7 +210,7 @@ pub fun run-resume<a>(
     run-name: string,
     maybe-log: maybe<logger/computation-log>,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
   ): div (run-step-result<a,b,c>, logger/computation-log)
   match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
     (outcome, log) -> 
@@ -236,14 +228,14 @@ pub fun run<a>(
     st: step<a,b,c,e>,
     run-name: string,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
   ): div (run-step-result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Nothing, handle-fatal-error, h)
 
 // a handler which does nothing but call its thunk
 pub fun div-handler<a,b,c>(
-    th: thunk<either<a,c>,<div,logger,step-ctl<a,b>>>
-  ): <div,logger,step-ctl<a,b>> either<a,c>
+    th: thunk<c,<div,logger,step-ctl<a,b>>>
+  ): <div,logger,step-ctl<a,b>> c
   th()
 
 // convenience function for running a div step
@@ -259,7 +251,7 @@ pub fun resume<a>(
     run-name: string,
     log: logger/computation-log,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
   ): div (run-step-result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Just(log), handle-fatal-error, h)
 
@@ -274,8 +266,8 @@ pub fun resume-div<a>(
 // some examples
 
 pub fun make-test-dsl-trivial(i: int): div-step<string,string,string>
-  with x <- sbind("x") {i.Right}
-  step("result") {x.show.Right}
+  with x <- sbind("x") {i}
+  step("result") {x.show}
 
 pub fun test-dsl-trivial()
   val (_, log) = make-test-dsl-trivial(100).run-div("trivial", id)
@@ -286,17 +278,17 @@ pub fun test-dsl-trivial()
   log'.pp.println
 
 pub fun make-test-dsl-simple(i: int): div-step<string,string,string>
-  with x <- sbind("x") {i.Right}
-  with y <- sbind("y") {10.Right}
-  with z <- sbind("z") {Right(x + y)}
-  step("result") {(2 * z).show.Right}
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {x + y}
+  step("result") {(2 * z).show}
 
 pub fun make-test-dsl-simple-left(i: int): div-step<string,string,string>
-  with x <- sbind("x") {i.Right}
-  with y <- sbind("y") {10.Right}
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
   // TODO - a bit awkward - if we return a Left, inference can't get the Right type without help
-  with z <- step("z") {val r: either<string,int> = "foo".Left ; r}.bind
-  step("result") {(2 * z).show.Right}
+  with z <- step("z") {fail("foo") ; 1}.bind
+  step("result") {(2 * z).show}
 
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-div("simple",id)
@@ -320,11 +312,11 @@ pub fun test-dsl-simple-error-fix-rerun()
   log2'.pp.println
 
 pub fun make-test-dsl-simple-pause(i: int): div-step<string,string,string>
-  with x <- sbind("x") {Right(i)}
+  with x <- sbind("x") {i}
   pause("pause")
-  with y <- sbind("y") {Right(10)}
-  with z <- sbind("z")  {Right(x + y)}
-  step("result") {pause("again") ; Right(z.show ++ ":stuff")}
+  with y <- sbind("y") {10}
+  with z <- sbind("z")  {x + y}
+  step("result") {pause("again") ; z.show ++ ":stuff"}
 
 val rule = string/repeat("-", 20)
 
@@ -364,16 +356,16 @@ pub fun test-dsl-simple-pause-resume()
   rule.println
 
 pub fun make-test-dsl-simple-fail(i: int): div-step<string,string,string>
-  with x <- sbind("x") {i.Right}
-  with y <- sbind("y") {10.Right}
-  with z <- sbind("z")  {fail("boom") ; Right(x.show ++ "/" ++ y.show)}
-  step("result") {Right(z ++ ":" ++ z)}
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z")  {fail("boom") ; x.show ++ "/" ++ y.show}
+  step("result") {z ++ ":" ++ z}
 
 pub fun make-test-dsl-simple-fix(i: int): div-step<string,string,string>
-  with x <- sbind("x") {i.Right}
-  with y <- sbind("y") {10.Right}
-  with z <- sbind("z")  {Right(x.show ++ "/" ++ y.show)}
-  step("result") {Right(z ++ ":" ++ z)}
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z")  {x.show ++ "/" ++ y.show}
+  step("result") {z ++ ":" ++ z}
 
 pub fun test-dsl-simple-fail()
   val (_, log) = make-test-dsl-simple-fail(100).run-div("will-fail", id)
@@ -386,10 +378,10 @@ pub fun test-dsl-simple-resume()
   log2.pp.println
 
 pub fun make-test-dsl-random-effect(i: int): step<string,string,int,<random>>
-  with x <- sbind("x") {i.Right}
-  with y <- sbind("y") {random-int().Right}
-  with z <- sbind("z") {Right(x + y)}
-  step("result") {Right(2 * z)}
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {random-int()}
+  with z <- sbind("z") {x + y}
+  step("result") {2 * z}
 
 fun handle-random<a>(th: thunk<a,<random|e>>): e a
   with pseudo-random(100)
@@ -400,22 +392,22 @@ pub fun test-dsl-random-effect()
   log.pp.println  
 
 fun testdsl/stuff(i: int) : step<string,string,int,<random>>
-  with x <- sbind("i"){Right(i)}
-  with y <- sbind("rand"){random-int().Right}
-  step("stuff") {Right(x + y)}
+  with x <- sbind("i"){i}
+  with y <- sbind("rand"){random-int()}
+  step("stuff") {x + y}
 
 pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<random>>
-  with x <- sbind("x") {i.Right}
-  with y <- sbind("y") { Right(if i>5 then [10,11] else []) }
+  with x <- sbind("x") {i}
+  with y <- sbind("y") { if i>5 then [10,11] else [] }
   val aa' = match y
     [a, b] -> 
-      with z <- sbind("z") {Right(x + a + b)}
+      with z <- sbind("z") {x + a + b}
       // TODO inference totally loses it here
-      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=int/json-fns) {Left("blagh")}
-    _ -> step("aa'-default") {0.Right}
+      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=int/json-fns) {fail("blagh") ; 10}
+    _ -> step("aa'-default") {0}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
-  step("result") {Right(aa.show ++ "/" ++ bb.show)}
+  step("result") {aa.show ++ "/" ++ bb.show}
 
 pub fun test-dsl-more-complext-compact()
   val (_, log) = make-test-dsl-more-complex-compact(10).run("more-complex", id, fn(th) -> pseudo-random(100, th))
