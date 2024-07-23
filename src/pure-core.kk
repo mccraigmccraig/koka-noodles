@@ -26,7 +26,7 @@ pub fun compose(fc: pure-core<a,b,c,d,f,g,e>): total stepmfn<a,b,c,g,e>
     val sb = fc.input()(a)
     val b = sb.run'
     val sc = fc.core()(b)
-    val c = sc.run-pure'
+    val c = sc.run-div'
     val sd = fc.output()(c)
     sd
 

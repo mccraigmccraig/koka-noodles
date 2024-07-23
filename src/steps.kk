@@ -165,17 +165,11 @@ pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
 pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
   st.run'
 
-// don't like this formulation of composing stepmfns - have to use bind rather than calling the 
-// stepmfn directly, because of the left-channel - but that has a consequence of requiring the
-// implicit parameter ?x/json-fns... perhaps this is another evidence-point towards
-// switching to a single-type return value for thunks and only using the step-ctl/fail effect for 
-// short-circuiting ... alternatives which spring to mind include monad-transformers and 
-// interpreting a free-monad... both of which are complicated, so the step-ctl/fail approach 
-// is sounding like an easier life
 pub fun compose-stepmfn(fa: stepmfn<a,b,c,d,e>, fb: stepmfn<a,b,d,x,e>, ?x/json-fns: json-fns<x>): stepmfn<a,b,c,x,e>
   fn (c)
-    val sd = fa(c)
-    sd.bind(fb)
+    val sd = c.fa
+    val d = sd.run'
+    d.fb
 
 // handle the step-ctl effects, using step knowledge to convert them to logger effects
 fun step-ctl-handler<a,b,c,e>(
