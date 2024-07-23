@@ -144,7 +144,7 @@ fun resume/resume-core'<a,b,c,e>(
       Right(rr)
     Left(_err) -> st.thunk/run-core'
 
-pub fun resume/run'<a,b,c,e>(
+fun resume/run'<a,b,c,e>(
   st: step<a,b,c,e>, 
   step-log: step-log
 ): <div,logger,step-ctl<a,b>|e> either<a,c>
@@ -174,7 +174,7 @@ pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> either<a,c>
 //       Right(d) -> fb(d)
 
 // handle the step-ctl effects, using step knowledge to convert them to logger effects
-pub fun step-ctl-handler<a,b,c,e>(
+fun step-ctl-handler<a,b,c,e>(
     st: step<a,b,c,e>,
     handle-fatal-error: (string)->a,
     th: thunk<either<a,c>, <div,logger,step-ctl<a,b>>>
@@ -189,7 +189,7 @@ pub fun step-ctl-handler<a,b,c,e>(
   th()
 
 // handle all the effects! (apart from div)
-pub fun handle-run-resume<a>(
+fun handle-effects<a>(
     st: step<a,b,c,e>,
     maybe-log: maybe<logger/computation-log>,
     handle-fatal-error: (string)->a,
@@ -206,8 +206,9 @@ pub fun run-resume<a>(
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> either<a,c>
   ): div (run-step-result<a,b,c>, logger/computation-log)
-  match handle-run-resume(st, maybe-log, handle-fatal-error, h)
+  match handle-effects(st, maybe-log, handle-fatal-error, h)
     (outcome, log) -> 
+      // convert the more detailed log-outcome to a Fail/Pause/Ok step-run-result
       match outcome
         ReasonFail(a) -> (StepFail(a), log)
         ReasonPause(b) -> (StepPause(b), log)
