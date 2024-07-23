@@ -1,7 +1,7 @@
 module pure-core
 
 import std/core/list
-import logger
+import steps/logger
 import steps
 
 // computations have a potentially effectful input step, which gathers
@@ -14,13 +14,13 @@ import steps
 // for the steps, it seems awfully constricting - but - it's just about
 // getting the input and processing the output for the core, so maybe
 // it's good
-pub struct pure-core<a,b,c,d,e>
-  input: stepmfn<a,b,e>
-  core: pure-stepmfn<b,c>
-  output: stepmfn<c,d,e>
+pub struct pure-core<a,b,c,d,f,g,e>
+  input: stepmfn<a,b,c,d,e>
+  core: div-stepmfn<a,b,d,f>
+  output: stepmfn<a,b,f,g,e>
 
 // compose the input, pure, output computations from a pure-core
-pub fun compose(fc: pure-core<a,b,c,d,e>): total stepmfn<a,d,e>
+pub fun compose(fc: pure-core<a,b,c,d,f,g,e>): total stepmfn<a,b,c,g,e>
   // fc.input.compose-stepmfn(fc.core).compose-stepmfn(fc.output)
   fn (a)
     val sb = fc.input()(a)
