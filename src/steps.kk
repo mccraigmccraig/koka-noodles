@@ -2,7 +2,9 @@ module steps
 
 import std/data/json
 import std/num/random
+import std/pretty/pprint
 import steps/logger
+
 
 // like an either, but with a typed pause channel
 pub value type result<a,b,c>
@@ -260,11 +262,11 @@ pub fun make-test-dsl-trivial(i: int): div-step<string,string,string>
 
 pub fun test-dsl-trivial()
   val (_, log) = make-test-dsl-trivial(100).run-div("trivial", id)
-  log.pp.println
+  log.pretty.show.println
   val logjson = log.to-json
   logjson.println
   val log' = logjson.computation-log/from-json("")
-  log'.pp.println
+  log'.pretty.show.println
 
 pub fun make-test-dsl-simple(i: int): div-step<string,string,string>
   with x <- sbind("x") {i}
@@ -280,11 +282,11 @@ pub fun make-test-dsl-simple-left(i: int): div-step<string,string,string>
 
 pub fun test-dsl-simple()
   val (_, log) = make-test-dsl-simple(100).run-div("simple",id)
-  log.pp.println
+  log.pretty.show.println
   val logjson = log.to-json
   logjson.println
   val log' = logjson.computation-log/from-json("")
-  log'.pp.println
+  log'.pretty.show.println
 
 // resuming a computation after fixing an error
 pub fun test-dsl-simple-error-fix-rerun()
@@ -294,10 +296,10 @@ pub fun test-dsl-simple-error-fix-rerun()
   val log2j = log2.to-json
 
   val log' = logj.computation-log/from-json("")
-  log'.pp.println
+  log'.pretty.show.println
 
   val log2' = log2j.computation-log/from-json("")
-  log2'.pp.println
+  log2'.pretty.show.println
 
 pub fun make-test-dsl-simple-pause(i: int): div-step<string,string,string>
   with x <- sbind("x") {i}
@@ -314,7 +316,7 @@ pub fun test-dsl-simple-pause-resume()
   val (paused-v, paused-log) = computation.run-div("run-1",id)
   val paused-logj = paused-log.to-json
 
-  paused-log.pp.println
+  paused-log.pretty.show.println
   rule.println
   paused-logj.show.println
   rule.println
@@ -325,7 +327,7 @@ pub fun test-dsl-simple-pause-resume()
   val (intermed-v, intermed-log) = computation.resume-div("run-2", paused-log',id)
   val intermed-logj = intermed-log.to-json
 
-  intermed-log.pp.println
+  intermed-log.pretty.show.println
   rule.println
   intermed-logj.show.println
   rule.println
@@ -336,7 +338,7 @@ pub fun test-dsl-simple-pause-resume()
   val (final-v, final-log) = computation.resume-div("run-3", intermed-log',id)
   val final-logj = final-log.to-json
 
-  final-log.pp.println
+  final-log.pretty.show.println
   rule.println
   final-logj.show.println
   rule.println
@@ -357,13 +359,13 @@ pub fun make-test-dsl-simple-fix(i: int): div-step<string,string,string>
 
 pub fun test-dsl-simple-fail()
   val (_, log) = make-test-dsl-simple-fail(100).run-div("will-fail", id)
-  log.pp.println
+  log.pretty.show.println
 
 pub fun test-dsl-simple-resume()
   val (_, log) = make-test-dsl-simple-fail(100).run-div("simple", id)
   val (_, log2) = make-test-dsl-simple-fix(100).resume("rerun", log, id, div-handler)
-  log.pp.println
-  log2.pp.println
+  log.pretty.show.println
+  log2.pretty.show.println
 
 pub fun make-test-dsl-random-effect(i: int): step<string,string,int,<random>>
   with x <- sbind("x") {i}
@@ -377,7 +379,7 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
 
 pub fun test-dsl-random-effect()
   val (_, log) = make-test-dsl-random-effect(100).run("random-effect", id, handle-random)
-  log.pp.println  
+  log.pretty.show.println  
 
 fun testdsl/stuff(i: int) : step<string,string,int,<random>>
   with x <- sbind("i"){i}
@@ -399,7 +401,7 @@ pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<r
 
 pub fun test-dsl-more-complext-compact()
   val (_, log) = make-test-dsl-more-complex-compact(10).run("more-complex", id, fn(th) -> pseudo-random(100, th))
-  log.pp.println
+  log.pretty.show.println
   log.to-json.show.println
 
 

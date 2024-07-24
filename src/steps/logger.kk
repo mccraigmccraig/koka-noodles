@@ -4,7 +4,7 @@ import std/core/string
 import std/core/undiv
 import std/core/vector
 import std/data/json
-import pp=std/pretty/pprint
+import std/pretty/pprint
 
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an
@@ -224,20 +224,20 @@ fun state/log-leave(state: logger-state, outcome: log-outcome): total either<str
 
 // printing and JSON serialisation
 
-pub fun string-src/show(s: string-src): string
+pub fun string-src/show(s: string-src): total string
   s()
-pub fun string-src/to-json(s: string-src): json
+pub fun string-src/to-json(s: string-src): total json
   JSString(s())
-pub fun string-src/from-json(j: json, path: string): pure string-src
+pub fun string-src/from-json(j: json, path: string): exn string-src
   match j
     JSString(s) -> fn () -> s
     _ -> throw("Expecting string-src, got " ++ j.show, info=JsonDeserializationException(j, path))
 
-pub fun json-src/show(a: json-src): string
+pub fun json-src/show(a: json-src): total string
   a().show
-pub fun json-src/to-json(s: json-src): json
+pub fun json-src/to-json(s: json-src): total json
   s()
-pub fun json-src/from-json(j: json, path: string): pure json-src
+pub fun json-src/from-json(j: json, path: string): exn json-src
   fn () -> j
 
 pub fun either/to-json<a,b>(ea: either<a,b>, ?a/to-json: (a)->total json, ?b/to-json: (b)->total json): total json 
@@ -254,32 +254,32 @@ pub fun either/from-json<a,b>(j: json, path: string, ?a/from-json: (json,string)
             Just(jb) -> Right(jb.?b/from-json(path ++ ".Right"))
             _ -> throw("either/dejson: expected Left or Right")
     _ -> throw("either/dejson: expected object")
-pub fun either/make-json-fns<a,b>(a-json-fns: json-fns<a>, b-json-fns: json-fns<b>): json-fns<either<a,b>>
+pub fun either/make-json-fns<a,b>(a-json-fns: json-fns<a>, b-json-fns: json-fns<b>): total json-fns<either<a,b>>
   Json-fns(
     fn(eab) -> either/to-json(eab, ?a/to-json=a-json-fns.to-json, ?b/to-json=b-json-fns.to-json),
     fn(j, path) -> either/from-json(j, path, ?a/from-json=a-json-fns.from-json, ?b/from-json=b-json-fns.from-json)
   )
 
-pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
+pub fun outcome/show<a,b,c>(outcome: outcome<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): total string
   match outcome
     ReasonFail(a) -> "error: " ++ a.?a/show
     ReasonPause(b) -> "paused: " ++ b.?b/show
     ReasonExec(c) -> "exec: " ++ c.?c/show
     ReasonResume(c) -> "resume: " ++ c.?c/show
 
-pub fun log-outcome/show(outcome: log-outcome): string
+pub fun log-outcome/show(outcome: log-outcome): total string
   match outcome
     ReasonFail(a) -> "error: " ++ a().show
     ReasonPause(b) -> "paused: " ++ b().show
     ReasonExec(c) -> "exec: " ++ c().show
     ReasonResume(c) -> "resume: " ++ c().show
-pub fun log-outcome/to-json(o: log-outcome): pure json
+pub fun log-outcome/to-json(o: log-outcome): total json
   match o
     ReasonFail(a) -> JSObj([("ReasonFail", a().to-json)])
     ReasonPause(b) -> JSObj([("ReasonPause", b().to-json)])
     ReasonExec(c) -> JSObj([("ReasonExec", c().to-json)])
     ReasonResume(c) -> JSObj([("ReasonResume", c().to-json)])
-pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
+pub fun log-outcome/from-json(j: json, path: string): exn log-outcome
   match j
     JSObj(l) -> 
       match l.lookup(fn (k) k=="ReasonFail")
@@ -293,12 +293,12 @@ pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
               _ -> throw("Expecting log-outcome, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
     _ -> throw("Expecting log-outcome, got " ++ j.show, info=JsonDeserializationException(j, path))
 
-pub fun step-log/show(a: step-log): string
-  with apply-show-indent(0)
-  a.pp
-pub fun step-log/to-json(sl: step-log): pure json
+pub fun step-log/show(a: step-log): total string
+  with pretend-no-div
+  a.step-log/pretty.show
+pub fun step-log/to-json(sl: step-log): total json
   JSObj([("name", JSString(sl.name)),
-         ("children", JSList(sl.children.map(to-json))), 
+         ("children", JSList(sl.children.map(fn(csl) csl.pretend-decreasing.to-json))), 
          ("outcome", sl.outcome.log-outcome/to-json)])
 pub fun step-log/from-json(j: json, path: string): pure step-log
   match j
@@ -310,10 +310,10 @@ pub fun step-log/from-json(j: json, path: string): pure step-log
       )
     _ -> throw("Expecting step-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
-pub fun computation-log/show(a: computation-log): string
-  with apply-show-indent(0)
-  a.pp
-pub fun computation-log/to-json(cl: computation-log): pure json
+pub fun computation-log/show(a: computation-log): total string
+  with pretend-no-div
+  a.pretty.show
+pub fun computation-log/to-json(cl: computation-log): total json
   JSObj([("name", JSString(cl.name)),
          ("pauses", JSInt(cl.pauses)),
          ("step-logs", JSList(cl.step-logs.map(to-json)))])
@@ -327,31 +327,33 @@ pub fun computation-log/from-json(j: json, path: string): pure computation-log
       )
     _ -> throw("Expecting computation-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
-effect val show-indent: int
-pub fun apply-show-indent<e>(n: int, action: () -> <show-indent|e> a) : e a
-  with val show-indent = n
-  action()
+// TODO it would be good if we could indent with something other than spaces...
+// but I can't see how to do that with the pretty-printer as it stands - this
+// fn only indents the first line of a doc with "| " and the rest get spaces
+// pub fun pipe-indent(d: doc, i: int): doc
+//   val pad = repeat("| ", i)
+//   (pad.text |.| d).hang(i * 2)
 
-fun pad()
-  match show-indent 
-    0 -> ""
-    _ -> " " ++ repeat(" |", (show-indent - 1)) ++ " "
+pub fun step-log-children/pretty(log: step-log): div doc
+  if length(log.children)>0 then 
+    linebreak |.| "children:".text |--| 
+    vcat(log.children.map(fn (sl) sl.step-log/pretty').punctuate(linebreak |.| "--".text)).indent(2)
+  else "".text
 
-pub fun step-log/pp(log: step-log): show-indent string
-  val p = pad()
+pub fun step-log/pretty'(log: step-log): div doc
+  "run: ".text |.| log.name.text |.|  
+  log.step-log-children/pretty |--|
+  "outcome: ".text |.| log.outcome.show.text
 
-  val children-output = apply-show-indent(show-indent + 1)
-   log.children.map(fn (sl) -> sl.pretend-decreasing.step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
+pub fun step-log/pretty(log: step-log): total doc
+  // pretend-decreasing doesn't seem to help with mutually-recursive fns
+  with pretend-no-div
+  step-log/pretty'(log)
 
-  p ++ "run: " ++ log.name ++
-  (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
-  "\n" ++ p ++ "outcome: " ++ log.outcome.show
-
-pub fun computation-log/pp(log: computation-log): total string
-  with apply-show-indent(1)
-  "computation: " ++ log.name ++ "\n" ++
-  "pauses: " ++ log.pauses.show ++ "\n" ++
-  log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
+pub fun computation-log/pretty(log: computation-log): total doc
+  "computation: ".text |.| log.name.text |--|
+  "pauses: ".text |.| log.pauses.show.text |--|
+  vcat(log.step-logs.map(fn(sl) sl.step-log/pretty).punctuate("----".text)).indent(2)
 
 pub val string/json-fns = Json-fns(string/to-json, string/from-json)
 pub val int/json-fns = Json-fns(int/to-json, int/from-json)
@@ -407,12 +409,12 @@ pub fun throws-an-exception()
   log-enter("throws-an-exception")
   throw("oops")
 
-pub fun test-collect-logs()
-  match collect-test-logs()
-    (v, log) -> 
-      log.pp.println
-      println("Result: " ++ v.show)
-  match collect-logs-with-error()
-    (v, log) -> 
-      log.pp.println
-      println("Result: " ++ v.show)
+// pub fun test-collect-logs()
+//   match collect-test-logs()
+//     (v, log) -> 
+//       log.pp.println
+//       println("Result: " ++ v.show)
+//   match collect-logs-with-error()
+//     (v, log) -> 
+//       log.pp.println
+//       println("Result: " ++ v.show)
