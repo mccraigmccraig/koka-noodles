@@ -4,6 +4,7 @@ import std/core/string
 import std/core/undiv
 import std/core/vector
 import std/data/json
+import pp=std/pretty/pprint
 
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an
@@ -293,7 +294,7 @@ pub fun log-outcome/from-json(j: json, path: string): pure log-outcome
     _ -> throw("Expecting log-outcome, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun step-log/show(a: step-log): string
-  with apply-indent(0)
+  with apply-show-indent(0)
   a.pp
 pub fun step-log/to-json(sl: step-log): pure json
   JSObj([("name", JSString(sl.name)),
@@ -310,7 +311,7 @@ pub fun step-log/from-json(j: json, path: string): pure step-log
     _ -> throw("Expecting step-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun computation-log/show(a: computation-log): string
-  with apply-indent(0)
+  with apply-show-indent(0)
   a.pp
 pub fun computation-log/to-json(cl: computation-log): pure json
   JSObj([("name", JSString(cl.name)),
@@ -326,34 +327,34 @@ pub fun computation-log/from-json(j: json, path: string): pure computation-log
       )
     _ -> throw("Expecting computation-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
-effect val indent: int
-pub fun apply-indent<e>(n: int, action: () -> <indent|e> a) : e a
-  with val indent = n
+effect val show-indent: int
+pub fun apply-show-indent<e>(n: int, action: () -> <show-indent|e> a) : e a
+  with val show-indent = n
   action()
 
 fun pad()
-  match indent 
+  match show-indent 
     0 -> ""
-    _ -> " " ++ repeat(" |", (indent - 1)) ++ " "
+    _ -> " " ++ repeat(" |", (show-indent - 1)) ++ " "
 
 pub fun log-outcome/pp(outcome: log-outcome): string
   log-outcome/show(outcome)
 
-pub fun step-log/pp'(log: step-log): <div,indent> string
+pub fun step-log/pp'(log: step-log): <div,show-indent> string
   val p = pad()
 
-  val children-output = apply-indent(indent + 1)
+  val children-output = apply-show-indent(show-indent + 1)
    log.children.map(step-log/pp').joinsep/join("\n" ++ pad() ++ "--\n")
 
   p ++ "run: " ++ log.name ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
   "\n" ++ p ++ "outcome: " ++ log.outcome.pp
-pub fun step-log/pp(log: step-log): indent string
+pub fun step-log/pp(log: step-log): show-indent string
   with pretend-no-div
   log.pp'
 
 pub fun computation-log/pp(log: computation-log): total string
-  with apply-indent(1)
+  with apply-show-indent(1)
   "computation: " ++ log.name ++ "\n" ++
   "pauses: " ++ log.pauses.show ++ "\n" ++
   log.step-logs.map(step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
