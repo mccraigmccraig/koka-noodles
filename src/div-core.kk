@@ -1,4 +1,4 @@
-module pure-core
+module div-core
 
 import std/core/list
 import steps/logger
@@ -7,20 +7,20 @@ import steps
 // computations have a potentially effectful input step, which gathers
 // an input for a pure core step, which returns a value to a potentially 
 // effectful output step. 
-// the pure-core operation is the composed pipeline of
+// the div-core operation is the composed pipeline of
 // input->pure->output steps
 //
 // TODO is this the best structure ? after the thunk-monad bind syntax
 // for the steps, it seems awfully constricting - but - it's just about
 // getting the input and processing the output for the core, so maybe
 // it's good
-pub struct pure-core<a,b,c,d,f,g,e>
+pub struct div-core<a,b,c,d,f,g,e>
   input: stepmfn<a,b,c,d,e>
   core: div-stepmfn<a,b,d,f>
   output: stepmfn<a,b,f,g,e>
 
-// compose the input, pure, output computations from a pure-core
-pub fun compose(fc: pure-core<a,b,c,d,f,g,e>): total stepmfn<a,b,c,g,e>
+// compose the input, pure, output computations from a div-core
+pub fun compose(fc: div-core<a,b,c,d,f,g,e>): total stepmfn<a,b,c,g,e>
   // fc.input.compose-stepmfn(fc.core).compose-stepmfn(fc.output)
   fn (a)
     val sb = fc.input()(a)
