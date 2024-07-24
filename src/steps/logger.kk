@@ -337,9 +337,6 @@ fun pad()
     0 -> ""
     _ -> " " ++ repeat(" |", (show-indent - 1)) ++ " "
 
-pub fun log-outcome/pp(outcome: log-outcome): string
-  log-outcome/show(outcome)
-
 pub fun step-log/pp(log: step-log): show-indent string
   val p = pad()
 
@@ -348,7 +345,7 @@ pub fun step-log/pp(log: step-log): show-indent string
 
   p ++ "run: " ++ log.name ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
-  "\n" ++ p ++ "outcome: " ++ log.outcome.pp
+  "\n" ++ p ++ "outcome: " ++ log.outcome.show
 
 pub fun computation-log/pp(log: computation-log): total string
   with apply-show-indent(1)
