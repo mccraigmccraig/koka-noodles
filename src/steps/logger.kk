@@ -340,18 +340,15 @@ fun pad()
 pub fun log-outcome/pp(outcome: log-outcome): string
   log-outcome/show(outcome)
 
-pub fun step-log/pp'(log: step-log): <div,show-indent> string
+pub fun step-log/pp(log: step-log): show-indent string
   val p = pad()
 
   val children-output = apply-show-indent(show-indent + 1)
-   log.children.map(step-log/pp').joinsep/join("\n" ++ pad() ++ "--\n")
+   log.children.map(fn (sl) -> sl.pretend-decreasing.step-log/pp).joinsep/join("\n" ++ pad() ++ "--\n")
 
   p ++ "run: " ++ log.name ++
   (if length(log.children)>0 then "\n" ++ pad() ++ "children:\n" ++ children-output else "") ++
   "\n" ++ p ++ "outcome: " ++ log.outcome.pp
-pub fun step-log/pp(log: step-log): show-indent string
-  with pretend-no-div
-  log.pp'
 
 pub fun computation-log/pp(log: computation-log): total string
   with apply-show-indent(1)
