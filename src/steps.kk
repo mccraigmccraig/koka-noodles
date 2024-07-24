@@ -1,5 +1,6 @@
 module steps
 
+import std/core/string
 import std/data/json
 import std/num/random
 import std/pretty/pprint
@@ -30,6 +31,10 @@ pub effect step-ctl<a,b>
   ctl fail(a: a): ()
   // Immediately pause the computation with a value
   ctl pause(b: b): ()
+
+effect tmp-ctl<a,b>
+  ctl tmp-fail(a: a): ()
+  ctl tmp-pause(b: b): ()
 
 pub alias thunk<a,e> = () -> e a
 
@@ -88,10 +93,10 @@ pub fun sbind<a,b,c,d,e>(
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
 
-fun step-ctl-fmap<a,b,c,x,y,e>(
+fun handle-step-ctl-fmap<a,b,c,x,y,e>(
     fax: (a)->x,
     fby: (b)->y,
-    th: () -> <step-ctl<a,b>,step-ctl<x,y>|e> c
+    action: () -> <step-ctl<a,b>,step-ctl<x,y>|e> c
   ): <step-ctl<x,y>|e> c
   with handler 
     ctl fail(a)
@@ -100,7 +105,7 @@ fun step-ctl-fmap<a,b,c,x,y,e>(
     ctl pause(b) 
       pause(b.fby) 
       resume(()) 
-  th()
+  action()
 
 // converts an
 //   step<a,b,c,e>
@@ -116,14 +121,15 @@ pub fun trifmap<a,b,c,x,y,z,e>(
     ?x/json-fns: json-fns<x>,
     ?y/json-fns: json-fns<y>,
     ?z/json-fns: json-fns<z>
-  ): <div,logger,step-ctl<x,y>|e> step<x,y,z,e>
+  ): total step<x,y,z,e>
   Step(
     "trifmap--" ++ s.name,
     ?x/json-fns,
     ?y/json-fns,
     ?z/json-fns,
     fn () ->
-      step-ctl-fmap(fax, fby, s.thunk).fcz
+      with handle-step-ctl-fmap(fax, fby)
+      s.run'.fcz
   )
   
 pub fun fmap<a,b,c,d,e>(
@@ -442,7 +448,23 @@ pub fun test-dsl-more-complext-compact()
 
 
 
+pub fun make-test-dsl-ints(i: int): step<string,int,int,e>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {x + y}
+  step("result") {(2 * z)}
 
+// pub fun test-dsl-ints()
+//   val ints-step = make-test-dsl-ints(100)
+//   val (_, log) = ints-step.run-div("ints", id)
+//   log.pretty.show.println
+
+//   val strings-step = trifmap(id, int/show, int/show, ints-step)
+
+//   val (strings-val, strings-log) = strings-step.run-div("strings", string/to-upper)
+//   strings-log.pretty.show.println
+//   rule.println
+//   strings-val.show.println
 
 
 
