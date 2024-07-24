@@ -93,44 +93,44 @@ pub fun sbind<a,b,c,d,e>(
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
 
-fun handle-step-ctl-fmap<a,b,c,x,y,e>(
-    fax: (a)->x,
-    fby: (b)->y,
-    action: () -> <step-ctl<a,b>,step-ctl<x,y>|e> c
-  ): <step-ctl<x,y>|e> c
-  with handler 
-    ctl fail(a)
-      fail(a.fax)
-      resume(()) // never happens
-    ctl pause(b) 
-      pause(b.fby) 
-      resume(()) 
-  action()
+// fun handle-step-ctl-fmap<a,b,c,x,y,e>(
+//     fax: (a)->x,
+//     fby: (b)->y,
+//     action: () -> <step-ctl<a,b>|e> c
+//   ): <step-ctl<x,y>|e> c
+//   with handler 
+//     ctl fail(a)
+//       fail(a.fax)
+//       resume(()) // never happens
+//     ctl pause(b) 
+//       pause(b.fby) 
+//       resume(()) 
+//   action()
 
-// converts an
-//   step<a,b,c,e>
-// into an
-//   step<x,y,z,e>
-// so steps can be composed into steps with 
-// different fail and pause channels
-pub fun trifmap<a,b,c,x,y,z,e>(
-    fax: (a)->x,
-    fby: (b)->y,
-    fcz: (c)->z,
-    s: step<a,b,c,<step-ctl<x,y>|e>>,
-    ?x/json-fns: json-fns<x>,
-    ?y/json-fns: json-fns<y>,
-    ?z/json-fns: json-fns<z>
-  ): total step<x,y,z,e>
-  Step(
-    "trifmap--" ++ s.name,
-    ?x/json-fns,
-    ?y/json-fns,
-    ?z/json-fns,
-    fn () ->
-      with handle-step-ctl-fmap(fax, fby)
-      s.run'.fcz
-  )
+// // converts an
+// //   step<a,b,c,e>
+// // into an
+// //   step<x,y,z,e>
+// // so steps can be composed into steps with 
+// // different fail and pause channels
+// pub fun trifmap<a,b,c,x,y,z,e>(
+//     fax: (a)->x,
+//     fby: (b)->y,
+//     fcz: (c)->z,
+//     s: step<a,b,c,e>,
+//     ?x/json-fns: json-fns<x>,
+//     ?y/json-fns: json-fns<y>,
+//     ?z/json-fns: json-fns<z>
+//   ): total step<x,y,z,e>
+//   Step(
+//     "trifmap--" ++ s.name,
+//     ?x/json-fns,
+//     ?y/json-fns,
+//     ?z/json-fns,
+//     fn () ->
+//       with handle-step-ctl-fmap(fax, fby)
+//       s.run'.fcz
+//   )
   
 pub fun fmap<a,b,c,d,e>(
     f: (c)->d,
@@ -210,11 +210,9 @@ pub fun compose-stepmfn(fa: stepmfn<a,b,c,d,e>, fb: stepmfn<a,b,d,x,e>, ?x/json-
     val d = sd.run'
     d.fb
 
-// handle the step-ctl effects, using step knowledge to convert them to logger effects
+// convert the step-ctl effects to log-ctl
 fun step-ctl-handler<a,b,c,e>(
-    st: step<a,b,c,e>,
-    handle-fatal-error: (string)->a,
-    th: thunk<c, <div,logger,step-ctl<a,b>>>
+    action: thunk<c, <div,logger,step-ctl<a,b>>>
   ): <div,logger,log-ctl<a,b>> c
   with handler
     ctl fail(a)
@@ -223,7 +221,7 @@ fun step-ctl-handler<a,b,c,e>(
     ctl pause(b)
       log-pause(b)
       resume(())
-  th()
+  action()
 
 // handle all the effects! (apart from div)
 fun handle-effects<a>(
@@ -234,7 +232,7 @@ fun handle-effects<a>(
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
   ): div (outcome<a,b,c>, logger/computation-log)
   with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns)
-  with st.step-ctl-handler(handle-fatal-error)
+  with step-ctl-handler
   with h 
   st.run'
 
