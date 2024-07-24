@@ -1,6 +1,5 @@
 module logger
 
-import std/core/exn
 import std/core/string 
 import std/core/undiv
 import std/core/vector

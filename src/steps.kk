@@ -2,7 +2,6 @@ module steps
 
 import std/data/json
 import std/num/random
-import std/pretty/pprint
 import steps/logger
 
 // like an either, but with a typed pause channel
