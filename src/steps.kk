@@ -87,6 +87,44 @@ pub fun sbind<a,b,c,d,e>(
 
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
+
+fun step-ctl-fmap<a,b,c,x,y,e>(
+    fax: (a)->x,
+    fby: (b)->y,
+    th: () -> <step-ctl<a,b>,step-ctl<x,y>|e> c
+  ): <step-ctl<x,y>|e> c
+  with handler 
+    ctl fail(a)
+      fail(a.fax)
+      resume(()) // never happens
+    ctl pause(b) 
+      pause(b.fby) 
+      resume(()) 
+  th()
+
+// converts an
+//   step<a,b,c,e>
+// into an
+//   step<x,y,z,e>
+// so steps can be composed into steps with 
+// different fail and pause channels
+pub fun trifmap<a,b,c,x,y,z,e>(
+    fax: (a)->x,
+    fby: (b)->y,
+    fcz: (c)->z,
+    s: step<a,b,c,<step-ctl<x,y>|e>>,
+    ?x/json-fns: json-fns<x>,
+    ?y/json-fns: json-fns<y>,
+    ?z/json-fns: json-fns<z>
+  ): <div,logger,step-ctl<x,y>|e> step<x,y,z,e>
+  Step(
+    "trifmap--" ++ s.name,
+    ?x/json-fns,
+    ?y/json-fns,
+    ?z/json-fns,
+    fn () ->
+      step-ctl-fmap(fax, fby, s.thunk).fcz
+  )
   
 pub fun fmap<a,b,c,d,e>(
     f: (c)->d,
