@@ -1,25 +1,21 @@
 module steps
 
-import std/core/exn
-import std/core/list
-import std/core/string
-import std/core/undiv
 import std/data/json
 import std/num/random
 import std/pretty/pprint
 import steps/logger
 
 // like an either, but with a typed pause channel
-pub value type run-step-result<a,b,c>
-  StepFail(a: a)
-  StepPause(b: b)
-  StepOk(c: c)
+pub value type result<a,b,c>
+  Fail(a: a)
+  Pause(b: b)
+  Success(c: c)
 
-pub fun run-step-result/show<a,b,c>(r: run-step-result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
+pub fun result/show<a,b,c>(r: result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
   match r
-    StepFail(a) -> "Failed: " ++ a.?a/show
-    StepPause(b) -> "Paused: " ++ b.?b/show
-    StepOk(c) -> "Ok: " ++ c.?c/show
+    Fail(a) -> "Fail: " ++ a.?a/show
+    Pause(b) -> "Pause: " ++ b.?b/show
+    Success(c) -> "Success: " ++ c.?c/show
 
 // consumer control effect - immediately pause or fail a computation.
 // 
@@ -205,15 +201,15 @@ pub fun run-resume<a>(
     maybe-log: maybe<logger/computation-log>,
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-  ): div (run-step-result<a,b,c>, logger/computation-log)
+  ): div (result<a,b,c>, logger/computation-log)
   match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
     (outcome, log) -> 
-      // convert the more detailed log-outcome to a Fail/Pause/Ok step-run-result
+      // convert the more detailed log-outcome to a Fail/Pause/Ok result
       match outcome
-        ReasonFail(a) -> (StepFail(a), log)
-        ReasonPause(b) -> (StepPause(b), log)
-        ReasonExec(c) -> (StepOk(c), log)
-        ReasonResume(c) -> (StepOk(c), log)
+        ReasonFail(a) -> (Fail(a), log)
+        ReasonPause(b) -> (Pause(b), log)
+        ReasonExec(c) -> (Success(c), log)
+        ReasonResume(c) -> (Success(c), log)
 
 // run a step, returning an either result and the computation-log
 // h must handle any non-logger effects from the step - the only 
@@ -223,7 +219,7 @@ pub fun run<a>(
     run-name: string,
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-  ): div (run-step-result<a,b,c>, logger/computation-log)
+  ): div (result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Nothing, handle-fatal-error, h)
 
 // a handler which does nothing but call its thunk
@@ -237,7 +233,7 @@ pub fun run-div(
     st: div-step<a,b,c>,
     run-name: string,
     handle-fatal-error: (string)->a
-  ): div (run-step-result<a,b,c>, logger/computation-log)
+  ): div (result<a,b,c>, logger/computation-log)
   run(st, run-name, handle-fatal-error, div-handler)
 
 pub fun resume<a>(
@@ -246,7 +242,7 @@ pub fun resume<a>(
     log: logger/computation-log,
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-  ): div (run-step-result<a,b,c>, logger/computation-log)
+  ): div (result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Just(log), handle-fatal-error, h)
 
 pub fun resume-div<a>(
@@ -254,7 +250,7 @@ pub fun resume-div<a>(
     run-name: string,
     log: logger/computation-log,
     handle-fatal-error: (string)->a
-  ): div (run-step-result<a,b,c>, logger/computation-log)
+  ): div (result<a,b,c>, logger/computation-log)
   resume(st, run-name, log, handle-fatal-error, div-handler)
 
 // some examples
