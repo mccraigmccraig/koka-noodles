@@ -11,7 +11,6 @@ import std/pretty/pprint
 // "only log final values if there are no errors, but 
 //  log all values if there are errors" policy
 pub alias json-src = () -> total json
-pub alias string-src = () -> total string
 
 pub value struct json-fns<a>
   to-json: (a) -> total json
@@ -223,15 +222,6 @@ fun state/log-leave(state: logger-state, outcome: log-outcome): total either<str
     Left(err) -> Left(err)
 
 // printing and JSON serialisation
-
-pub fun string-src/show(s: string-src): total string
-  s()
-pub fun string-src/to-json(s: string-src): total json
-  JSString(s())
-pub fun string-src/from-json(j: json, path: string): exn string-src
-  match j
-    JSString(s) -> fn () -> s
-    _ -> throw("Expecting string-src, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun json-src/show(a: json-src): total string
   a().show
