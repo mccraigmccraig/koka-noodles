@@ -20,7 +20,7 @@ pub fun result/show<a,b,c>(r: result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)-
 
 // consumer control effect - immediately pause or fail a computation.
 // 
-// There's no short-circuit returning of values - because 
+// There's no short-circuit returning of computation values - because 
 // that would mean parameterising step-ctl on the value type, and 
 // so would require rebinding handlers at every bind, and need
 // (c)->d functions we don't have 
@@ -33,11 +33,9 @@ pub effect step-ctl<a,b>
 
 pub alias thunk<a,e> = () -> e a
 
-// thunks returning an either, and with logger and step-ctl effects
-// TODO thunks returning an either is nice, but it seems to be giving the inference
-// trouble - probably since there are two branches and with literal values only 
-// one is inferrable... would it be better to switch back to single-type return 
-// values and use the fail effect or an exn to return errors ?
+// the logger and step-ctl<a,b> effects are handled by run, while 
+// any polymorphic effect is exepcted to be handled by the
+// handler given to run
 pub alias step-thunk<a,b,c,e> = thunk<c, <div,logger,step-ctl<a,b>|e>>
 
 // steps are a name, a thunk and json de/serializers for all the values.
