@@ -113,6 +113,9 @@ fun handle-step-ctl-fmap<a,b,c,x,y,e>(
 //   step<x,y,z,e>
 // so steps can be composed into steps with 
 // different fail and pause channels
+//
+// TODO can only get this to check with div-steps - 
+// the extension effect seems to break things
 pub fun trifmap<a,b,c,x,y,z>(
     fax: (a)->x,
     fby: (b)->y,
@@ -132,21 +135,6 @@ pub fun trifmap<a,b,c,x,y,z>(
       s.run'.fcz
   )
   
-pub fun fmap<a,b,c,d,e>(
-    f: (c)->d,
-    st: step<a,b,c,e>, 
-    ?d/json-fns: json-fns<d>
-  ): total step<a,b,d,e>
-
-  Step(
-    "bind--" ++ st.name,
-    st.a-json-fns,
-    st.b-json-fns,
-    ?d/json-fns,
-    fn () ->
-      st.run'.f
-  )
-
 pub fun bind<a,b,c,d,e>(
     st: step<a,b,c,e>, 
     f: stepmfn<a,b,c,d,e>,
