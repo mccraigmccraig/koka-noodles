@@ -462,7 +462,9 @@ pub fun test-trifmap()
   int-val.show.println
   rule.println
 
-  // the int pause is converted to a string...
+  // the int pause is converted to a string... resuming the computation shows that
+  // the pause() effect resumption works through the trifmap so trifmap can be used
+  // to compose steps with different error and pause types
   val strings-step = trifmap(id, int/show, int/show, ints-step)
 
   val (strings-val1, strings-log1) = strings-step.run-div("strings1", string/to-upper)
