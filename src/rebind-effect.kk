@@ -49,4 +49,25 @@ pub fun example-handle-foo-x()
   foo(100)
   "blah"
 
+alias foo-thunk<a,b,e> = () -> <console,foo<a>|e> b
 
+pub fun map-foo-x2<a,b,c,e>(
+    fab: (a)->b,
+    action: foo-thunk<a,c,<foo<b>|e>>
+  ): <console,foo<b>|e> c
+  with handler 
+    ctl foo(a)
+      "map-foo-x2".println
+      foo(a.fab)
+      resume(a)
+  action()
+
+fun make-foo-thunk(): foo-thunk<int,string,<>>
+  fn()
+    foo(100)
+    "blah"
+  
+pub fun example-handle-foo-x2()
+  with handle-foo
+  with map-foo-x2(int/show)
+  make-foo-thunk()()
