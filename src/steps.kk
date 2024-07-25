@@ -93,44 +93,44 @@ pub fun sbind<a,b,c,d,e>(
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
 
-// fun handle-step-ctl-fmap<a,b,c,x,y,e>(
-//     fax: (a)->x,
-//     fby: (b)->y,
-//     action: () -> <step-ctl<a,b>|e> c
-//   ): <step-ctl<x,y>|e> c
-//   with handler 
-//     ctl fail(a)
-//       fail(a.fax)
-//       resume(()) // never happens
-//     ctl pause(b) 
-//       pause(b.fby) 
-//       resume(()) 
-//   action()
+fun handle-step-ctl-fmap<a,b,c,x,y,e>(
+    fax: (a)->x,
+    fby: (b)->y,
+    action: () -> <div,logger,step-ctl<a,b>> c
+  ): <div,logger,step-ctl<x,y>> c
+  with handler 
+    ctl fail(a)
+      fail(a.fax)
+      resume(()) // never happens
+    ctl pause(b) 
+      pause(b.fby) 
+      resume(()) 
+  action()
 
-// // converts an
-// //   step<a,b,c,e>
-// // into an
-// //   step<x,y,z,e>
-// // so steps can be composed into steps with 
-// // different fail and pause channels
-// pub fun trifmap<a,b,c,x,y,z,e>(
-//     fax: (a)->x,
-//     fby: (b)->y,
-//     fcz: (c)->z,
-//     s: step<a,b,c,e>,
-//     ?x/json-fns: json-fns<x>,
-//     ?y/json-fns: json-fns<y>,
-//     ?z/json-fns: json-fns<z>
-//   ): total step<x,y,z,e>
-//   Step(
-//     "trifmap--" ++ s.name,
-//     ?x/json-fns,
-//     ?y/json-fns,
-//     ?z/json-fns,
-//     fn () ->
-//       with handle-step-ctl-fmap(fax, fby)
-//       s.run'.fcz
-//   )
+// converts an
+//   step<a,b,c,e>
+// into an
+//   step<x,y,z,e>
+// so steps can be composed into steps with 
+// different fail and pause channels
+pub fun trifmap<a,b,c,x,y,z>(
+    fax: (a)->x,
+    fby: (b)->y,
+    fcz: (c)->z,
+    s: div-step<a,b,c>,
+    ?x/json-fns: json-fns<x>,
+    ?y/json-fns: json-fns<y>,
+    ?z/json-fns: json-fns<z>
+  ): total div-step<x,y,z>
+  Step(
+    "trifmap--" ++ s.name,
+    ?x/json-fns,
+    ?y/json-fns,
+    ?z/json-fns,
+    fn () ->
+      with handle-step-ctl-fmap(fax, fby)
+      s.run'.fcz
+  )
   
 pub fun fmap<a,b,c,d,e>(
     f: (c)->d,
@@ -211,7 +211,7 @@ pub fun compose-stepmfn(fa: stepmfn<a,b,c,d,e>, fb: stepmfn<a,b,d,x,e>, ?x/json-
     d.fb
 
 // convert the step-ctl effects to log-ctl
-fun step-ctl-handler<a,b,c,e>(
+fun step-ctl-handler<a,b,c>(
     action: thunk<c, <div,logger,step-ctl<a,b>>>
   ): <div,logger,log-ctl<a,b>> c
   with handler
@@ -448,21 +448,40 @@ pub fun test-dsl-more-complext-compact()
 
 pub fun make-test-dsl-ints(i: int): step<string,int,int,e>
   with x <- sbind("x") {i}
+  pause(x)
   with y <- sbind("y") {10}
   with z <- sbind("z") {x + y}
+  pause(z)
   step("result") {(2 * z)}
 
-// pub fun test-dsl-ints()
-//   val ints-step = make-test-dsl-ints(100)
-//   val (_, log) = ints-step.run-div("ints", id)
-//   log.pretty.show.println
+pub fun test-trifmap()
+  val ints-step = make-test-dsl-ints(100)
+  val (int-val, log) = ints-step.run-div("ints", id)
+  log.pretty.show.println
+  rule.println
+  int-val.show.println
+  rule.println
 
-//   val strings-step = trifmap(id, int/show, int/show, ints-step)
+  // the int pause is converted to a string...
+  val strings-step = trifmap(id, int/show, int/show, ints-step)
 
-//   val (strings-val, strings-log) = strings-step.run-div("strings", string/to-upper)
-//   strings-log.pretty.show.println
-//   rule.println
-//   strings-val.show.println
+  val (strings-val1, strings-log1) = strings-step.run-div("strings1", string/to-upper)
+  strings-log1.pretty.show.println
+  rule.println
+  strings-val1.show.println
+  rule.println
+
+  val (strings-val2, strings-log2) = strings-step.resume-div("strings2", strings-log1, string/to-lower)
+  strings-log2.pretty.show.println
+  rule.println
+  strings-val2.show.println
+  rule.println
+
+  val (strings-val3, strings-log3) = strings-step.resume-div("strings3", strings-log2, string/to-upper)
+  strings-log3.pretty.show.println
+  rule.println
+  strings-val3.show.println
+  rule.println
 
 
 
