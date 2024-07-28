@@ -5,7 +5,7 @@ import std/data/json
 import std/num/random
 import std/pretty/pprint
 import steps/logger
-
+import steps/step-ctl
 
 // like an either, but with a typed pause channel
 pub value type result<a,b,c>
@@ -18,23 +18,6 @@ pub fun result/show<a,b,c>(r: result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)-
     Fail(a) -> "Fail: " ++ a.?a/show
     Pause(b) -> "Pause: " ++ b.?b/show
     Success(c) -> "Success: " ++ c.?c/show
-
-// consumer control effect - immediately pause or fail a computation.
-// 
-// There's no short-circuit returning of computation values - because 
-// that would mean parameterising step-ctl on the value type, and 
-// so would require rebinding handlers at every bind, and need
-// (c)->d functions we don't have 
-pub effect step-ctl<a,b>
-  // Immediately fail the computation with a value - equivalent
-  // to returning a Left(a) from a thunk
-  ctl fail(a: a): ()
-  // Immediately pause the computation with a value
-  ctl pause(b: b): ()
-
-effect tmp-ctl<a,b>
-  ctl tmp-fail(a: a): ()
-  ctl tmp-pause(b: b): ()
 
 pub alias thunk<a,e> = () -> e a
 
