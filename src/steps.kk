@@ -5,7 +5,6 @@ import std/data/json
 import std/num/random
 import std/pretty/pprint
 import steps/logger
-import steps/step-ctl
 
 // like an either, but with a typed pause channel
 pub value type result<a,b,c>
@@ -184,21 +183,8 @@ pub fun compose-stepmfn(fa: stepmfn<a,b,c,d,e>, fb: stepmfn<a,b,d,x,e>, ?x/json-
     val d = sd.run'
     d.fb
 
-// convert the step-ctl effects to log-ctl
-fun step-ctl-handler<a,b,c>(
-    action: thunk<c, <div,logger,step-ctl<a,b>>>
-  ): <div,logger,log-ctl<a,b>> c
-  with handler
-    ctl fail(a)
-      log-fail(a)
-      resume(()) // never happens
-    ctl pause(b)
-      log-pause(b)
-      resume(())
-  action()
-
 // handle all the effects! (apart from div)
-fun handle-effects<a>(
+fun handle-effects<a,b,c,e>(
     st: step<a,b,c,e>,
     run-name: string,
     maybe-log: maybe<logger/computation-log>,
@@ -206,8 +192,7 @@ fun handle-effects<a>(
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
   ): div (outcome<a,b,c>, logger/computation-log)
   with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns)
-  with step-ctl-handler
-  with h 
+  with h
   st.run'
 
 pub fun run-resume<a>(

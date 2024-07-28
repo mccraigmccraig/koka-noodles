@@ -5,7 +5,6 @@ import std/core/undiv
 import std/core/vector
 import std/data/json
 import std/pretty/pprint
-import step-ctl
 
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an
@@ -50,11 +49,18 @@ pub effect logger
   // the logger can't distinguish Exec from Resume (split this into -leave-exec and -leave-resume ?)
   fun log-leave(outcome: log-outcome) : ()
 
-pub effect log-ctl<a,b>
-  // error the computation with a value, returning a log which can be used to retry later
-  final ctl log-fail(a: a): ()
-  // pause a computation with a value, returning a log which can be used to resume later
-  ctl log-pause(b: b): ()
+// consumer control effect - immediately pause or fail a computation.
+// 
+// There's no short-circuit returning of computation values - because 
+// that would mean parameterising step-ctl on the value type, and 
+// so would require rebinding handlers at every bind, and need
+// (c)->d functions we don't have 
+pub effect step-ctl<a,b>
+  // Immediately fail the computation with a value - equivalent
+  // to returning a Left(a) from a thunk
+  ctl fail(a: a): ()
+  // Immediately pause the computation with a value
+  ctl pause(b: b): ()
 
 value struct step-cursor
   steps: vector<step-log>
@@ -87,7 +93,7 @@ pub fun log-collector<a,b,c>(
     handle-fatal-error: (string) -> a,
     a-json-fns: json-fns<a>,
     b-json-fns: json-fns<b>,
-    action: () -> <div,logger,log-ctl<a,b>> c
+    action: () -> <div,logger,step-ctl<a,b>> c
   ) : div (outcome<a,b,c>, computation-log)
 
   var state := make-logger-state(previous-log)
@@ -105,10 +111,10 @@ pub fun log-collector<a,b,c>(
       ReasonFail(handle-fatal-error(ex.show))
 
   with handler
-    final ctl log-fail(a)
+    final ctl fail(a)
       state := state/close-open-steps(state, ReasonFail({a-json-fns.to-json()(a)}), handle-fatal-error, a-json-fns)
       ReasonFail(a)
-    ctl log-pause(b)
+    ctl pause(b)
       if state.pause-ignores >= 1 then
         state := state(pause-ignores=state.pause-ignores - 1)
         resume(())
@@ -359,7 +365,7 @@ pub fun stuff(i: int)
   0
 
 // note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): <logger,log-ctl<string,string>> int
+pub fun thingz(i: int): <logger,step-ctl<string,string>> int
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
@@ -381,7 +387,7 @@ pub fun collect-test-logs()
 
 pub fun logs-an-error()
   log-enter("logs-an-error")
-  log-fail("boo!")
+  fail("boo!")
 
 pub fun collect-logs-with-error()
   with log-collector(
@@ -400,12 +406,12 @@ pub fun throws-an-exception()
   log-enter("throws-an-exception")
   throw("oops")
 
-// pub fun test-collect-logs()
-//   match collect-test-logs()
-//     (v, log) -> 
-//       log.pp.println
-//       println("Result: " ++ v.show)
-//   match collect-logs-with-error()
-//     (v, log) -> 
-//       log.pp.println
-//       println("Result: " ++ v.show)
+pub fun test-collect-logs()
+  match collect-test-logs()
+    (v, log) -> 
+      log.pretty.show.println
+      println("Result: " ++ v.show)
+  match collect-logs-with-error()
+    (v, log) -> 
+      log.pretty.show.println
+      println("Result: " ++ v.show)
