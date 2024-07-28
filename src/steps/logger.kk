@@ -5,6 +5,7 @@ import std/core/undiv
 import std/core/vector
 import std/data/json
 import std/pretty/pprint
+import step-ctl
 
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an

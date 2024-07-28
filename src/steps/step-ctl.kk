@@ -1,4 +1,4 @@
-module steps/step-ctl
+module step-ctl
 
 // consumer control effect - immediately pause or fail a computation.
 // 
