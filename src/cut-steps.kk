@@ -1,4 +1,4 @@
-module steps
+module cut-steps
 
 import std/core/string
 import std/data/json
