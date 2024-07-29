@@ -3,9 +3,6 @@ module rebind-effect
 pub effect foo<a>
   ctl foo(a: a): a
 
-pub alias foo-thunk-nox<a,b> = () -> <console,foo<a>> b
-pub alias foo-thunk-x<a,b,e> = () -> <console,foo<a>|e> b
-
 pub fun handle-foo<a,b>(
   action: () -> <console,foo<a>> b
   ): console b
@@ -14,6 +11,13 @@ pub fun handle-foo<a,b>(
       "handle-foo".println      
       resume(a)
   action()
+
+// alias, struct and handle-map with no extension
+
+pub alias foo-thunk-nox<a,b> = () -> <console,foo<a>> b
+pub value struct foo-struct-nox<a,b>
+  name: string
+  thunk: foo-thunk-nox<a,b>
 
 pub fun handle-map-foo-nox<a,b,c>(
     fab: (a)->b,
@@ -25,6 +29,13 @@ pub fun handle-map-foo-nox<a,b,c>(
       foo(a.fab)
       resume(a)
   action()
+
+// alias, struct and handle-map with extension
+
+pub alias foo-thunk-x<a,b,e> = () -> <console,foo<a>|e> b
+pub value struct foo-struct-x<a,b,e>
+  name: string
+  thunk: foo-thunk-x<a,b,e>
 
 pub fun handle-map-foo-x<a,b,c,e>(
     fab: (a)->b,
@@ -40,27 +51,45 @@ pub fun handle-map-foo-x<a,b,c,e>(
 ////////////////////////////////
 // map effect no extension
 
-pub fun example-handle-foo-nox()
+pub fun map-foo-nox(
+  fac: (a)->c,
+  fbd: (b)->d,
+  bth: foo-thunk-nox<a,b>): foo-thunk-nox<c,d>
+  fn ()
+    with handle-map-foo-nox(fac)
+    bth().fbd
+
+pub fun example-map-foo-nox()
   with handle-foo
-  with handle-map-foo-nox(int/show)
-  foo(100)
-  "blah"
-  
+  val th: foo-thunk-nox<int,string> = fn() {"blah"}
+  val th2: foo-thunk-nox<string,string> = map-foo-nox(int/show, string/to-upper, th)
+  th2()
+  // checks and runs until a second map is introduced
+  // val th3 = map-foo-nox(string/count, string/count, th2)
+  // th3()
+
 ////////////////////////////////
 // map effect with extension
 
-pub fun example-handle-foo-x()
+pub fun map-foo-x(
+  fac: (a)->c,
+  fbd: (b)->d,
+  bth: foo-thunk-x<a,b,<foo<c>|e>>): foo-thunk-x<c,d,e>
+  fn ()
+    with handle-map-foo-x(fac)
+    bth().fbd
+
+pub fun example-map-foo-x()
   with handle-foo
-  with handle-map-foo-x(int/show)
-  foo(100)
-  "blah"
+  val th: foo-thunk-x<int,string,total> = fn() {"blah"}
+  val th2: foo-thunk-x<string,string,total> = map-foo-x(int/show, string/to-upper, th)
+  th2()
+  // checks and runs until a second map is introduced
+  // val th3 = map-foo-nox(string/count, string/count, th2)
+  // th3()
 
-////////////////////////////////
-// map effect via struct with no extension
-
-pub value struct foo-struct-nox<a,b>
-  name: string
-  thunk: foo-thunk-nox<a,b>
+// ////////////////////////////////
+// // map effect via struct with no extension
 
 pub fun map-foo-struct-nox<a,b,c,d>(
   fac: (a)->c,
@@ -69,24 +98,21 @@ pub fun map-foo-struct-nox<a,b,c,d>(
 ): total foo-struct-nox<c,d>
   Foo-struct-nox(
     "map-foo-struct-nox--"++fs.name,
-    fn () ->
+    fn () 
       with handle-map-foo-nox(fac)
       fs.thunk()().fbd
   )
 
-pub fun example-handle-foo-struct-nox()
+pub fun example-map-foo-struct-nox()
   with handle-foo
   val fsn = Foo-struct-nox("foo", fn()-> {foo(100) ; "blah"})
   val fsn2 = map-foo-struct-nox(int/show, string/to-upper, fsn)
   fsn2.thunk()()
-
+  // val fsn3 = map-foo-struct-nox(string/count, string/to-lower, fsn2)
+  // fsn3.thunk()()
 
 ////////////////////////////////
 // map effect via struct with extension
-
-pub value struct foo-struct-x<a,b,e>
-  name: string
-  thunk: foo-thunk-x<a,b,e>
 
 pub fun map-foo-struct-x<a,b,c,d,e>(
   fac: (a)->c,
@@ -95,13 +121,16 @@ pub fun map-foo-struct-x<a,b,c,d,e>(
 ): total foo-struct-x<c,d,e>
   Foo-struct-x(
     "map-foo-struct-x--"++fs.name,
-    fn () ->
+    fn ()
       with handle-map-foo-x(fac)
       fs.thunk()().fbd
   )
   
-pub fun example-handle-foo-struct-x()
-  with handle-foo
-  val fsn = Foo-struct-x("foo", fn()-> {foo(100) ; "blah"})
-  val fsn2 = map-foo-struct-x(int/show, string/to-upper, fsn)
-  fsn2.thunk()()
+// can't get this to check at all!
+// pub fun example-map-foo-struct-x()
+//   with handle-foo
+//   val fsn: foo-struct-x<int,string,total> = Foo-struct-x("foo", fn()-> {foo(100) ; "blah"})
+//   val fsn2: foo-struct-x<string,string,total> = map-foo-struct-x(int/show, string/to-upper, fsn)
+//   fsn2.thunk()()
+//   // val fsn3 = map-foo-struct-x(string/count, string/count, fsn2)
+//   // fsn3.thunk()()
