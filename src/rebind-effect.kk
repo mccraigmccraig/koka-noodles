@@ -19,6 +19,7 @@ pub value struct foo-struct-nox<a,b>
   name: string
   thunk: foo-thunk-nox<a,b>
 
+// map foo(a: a) to foo(b: b)
 pub fun handle-map-foo-nox<a,b,c>(
     fab: (a)->b,
     action: () -> <console,foo<a>> c
@@ -37,6 +38,7 @@ pub value struct foo-struct-x<a,b,e>
   name: string
   thunk: foo-thunk-x<a,b,e>
 
+// map foo(a: a) to foo(b: b)
 pub fun handle-map-foo-x<a,b,c,e>(
     fab: (a)->b,
     action: () -> <console,foo<a>,foo<b>|e> c
