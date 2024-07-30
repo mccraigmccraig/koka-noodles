@@ -1,4 +1,4 @@
-module rebind-effect
+module map-effect
 
 pub effect foo<a>
   ctl foo(a: a): a
