@@ -63,10 +63,10 @@ pub fun map-foo-nox(
 
 pub fun example-map-foo-nox()
   with handle-foo
-  val th: foo-thunk-nox<int,string> = fn() {"blah"}
+  val th: foo-thunk-nox<int,string> = fn() {foo(100) ; "blah"}
   val th2: foo-thunk-nox<string,string> = map-foo-nox(int/show, string/to-upper, th)
   th2()
-  // checks and runs until a second map is introduced
+  // checks and runs until the foo param is mapped back to int
   // val th3 = map-foo-nox(string/count, string/count, th2)
   // th3()
 
@@ -83,10 +83,10 @@ pub fun map-foo-x(
 
 pub fun example-map-foo-x()
   with handle-foo
-  val th: foo-thunk-x<int,string,total> = fn() {"blah"}
+  val th: foo-thunk-x<int,string,total> = fn() {foo(100) ; "blah"}
   val th2: foo-thunk-x<string,string,total> = map-foo-x(int/show, string/to-upper, th)
   th2()
-  // checks and runs until a second map is introduced
+  // checks and runs until the foo param is mapped back to int
   // val th3 = map-foo-nox(string/count, string/count, th2)
   // th3()
 
