@@ -136,3 +136,49 @@ pub fun map-foo-struct-x<a,b,c,d,e>(
 //   fsn2.thunk()()
 //   // val fsn3 = map-foo-struct-x(string/count, string/count, fsn2)
 //   // fsn3.thunk()()
+
+
+////////////////////////// trying an intermediate mapped effect
+
+pub effect foo-map-int<a>
+  ctl foo-map-int(a: a): a
+
+pub fun handle-map-foo-int-nox<a,b,c>(
+    fab: (a)->b,
+    action: () -> <console,foo<a>> c
+  ): <console,foo-map-int<b>> c
+  with handler 
+    ctl foo(a)
+      "map-foo-int-nox".println
+      foo-map-int(a.fab)
+      resume(a)
+  action()
+
+pub fun handle-map-int-foo-nox<a,b,c>(
+    fab: (a)->b,
+    action: () -> <console,foo-map-int<a>> c
+  ): <console,foo<b>> c
+  with handler 
+    ctl foo-map-int(a)
+      "map-int-foo-nox".println
+      foo(a.fab)
+      resume(a)
+  action()
+
+pub fun map-foo-int-nox(
+  fac: (a)->c,
+  fbd: (b)->d,
+  bth: foo-thunk-nox<a,b>): foo-thunk-nox<c,d>
+  fn ()
+    with handle-map-int-foo-nox(fac)
+    with handle-map-foo-int-nox(id)
+    bth().fbd
+
+pub fun example-map-foo-int-nox()
+  with handle-foo
+  val th: foo-thunk-nox<int,string> = fn() {foo(100) ; "blah"}
+  val th2: foo-thunk-nox<string,string> = map-foo-int-nox(int/show, string/to-upper, th)
+  th2()
+  // checks and runs until the foo param is mapped back to int
+  // val th3: foo-thunk-nox<int,int> = map-foo-int-nox(string/count, string/count, th2)
+  // th3()
