@@ -39,9 +39,6 @@ pub alias div-step<a,b,c> = step<a,b,c,<>>
 pub alias stepmfn<a,b,c,d,e> = (c: c) -> <div,logger,step-ctl<a,b>|e> step<a,b,d,e>
 pub alias div-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
-// map error, pause and success values in a step
-pub alias trifmap<a,b,c,x,y,z,e> = ((a)->x,(b)->y,(c)->z,step<a,b,c,e>) -> step<x,y,z,e>
-
 // allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
 pub fun step<a,b,c,e>(
@@ -129,7 +126,6 @@ pub fun bind<a,b,c,d,e>(
       st.run'.f.run'
   )
 
-// some json-fns for the either result of the thunk
 pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
   st.thunk()()
 
@@ -198,16 +194,16 @@ pub fun run-resume<a>(
   ): div (result<a,b,c>, logger/computation-log)
   match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
     (outcome, log) -> 
-      // convert the more detailed log-outcome to a Fail/Pause/Ok result
+      // convert the more detailed log-outcome to a Fail/Pause/Success result
       match outcome
         ReasonFail(a) -> (Fail(a), log)
         ReasonPause(b) -> (Pause(b), log)
         ReasonExec(c) -> (Success(c), log)
         ReasonResume(c) -> (Success(c), log)
 
-// run a step, returning an either result and the computation-log
+// run a step, returning an either result and the computation-log.
 // h must handle any non-logger effects from the step - the only 
-// effects allowed out are div,exn
+// effects allowed out are div,logger,step-ctl
 pub fun run<a>(
     st: step<a,b,c,e>,
     run-name: string,
