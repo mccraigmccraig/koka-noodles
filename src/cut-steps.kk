@@ -78,8 +78,8 @@ pub fun step/show(a: step<a,b,c,e>): string
 fun handle-step-ctl-fmap<a,b,c,x,y,e>(
     fax: (a)->x,
     fby: (b)->y,
-    action: () -> <div,logger,step-ctl<a,b>> c
-  ): <div,logger,step-ctl<x,y>> c
+    action: () -> <div,logger,step-ctl<a,b>,step-ctl<x,y>|e> c
+  ): <div,logger,step-ctl<x,y>|e> c
   with handler 
     ctl fail(a)
       fail(a.fax)
@@ -101,15 +101,15 @@ fun handle-step-ctl-fmap<a,b,c,x,y,e>(
 // strip stuff out of steps.kk and move it towards the 
 // simple example in rebind-effect.kk - 'cos that seems
 // to check just fine
-pub fun trifmap<a,b,c,x,y,z>(
+pub fun trifmap<a,b,c,x,y,z,e>(
     fax: (a)->x,
     fby: (b)->y,
     fcz: (c)->z,
-    s: div-step<a,b,c>,
+    s: step<a,b,c,<step-ctl<x,y>|e>>,
     ?x/json-fns: json-fns<x>,
     ?y/json-fns: json-fns<y>,
     ?z/json-fns: json-fns<z>
-  ): total div-step<x,y,z>
+  ): total step<x,y,z,e>
   Step(
     "trifmap--" ++ s.name,
     ?x/json-fns,
@@ -411,20 +411,16 @@ pub fun make-test-dsl-ints(i: int): step<string,int,int,e>
   with y <- sbind("y") {10}
   with z <- sbind("z") {x + y}
   pause(z)
+  // fail("foo")
   step("result") {(2 * z)}
 
 pub fun test-trifmap()
   val ints-step = make-test-dsl-ints(100)
-  val (int-val, log) = ints-step.run-div("ints", id)
-  log.pretty.show.println
-  rule.println
-  int-val.show.println
-  rule.println
 
   // the int pause is converted to a string... resuming the computation shows that
   // the pause() effect resumption works through the trifmap so trifmap can be used
   // to compose steps with different error and pause types
-  val strings-step = trifmap(id, int/show, int/show, ints-step)
+  val strings-step = trifmap(string/to-upper, int/show, int/show, ints-step)
 
   val (strings-val1, strings-log1) = strings-step.run-div("strings1", string/to-upper)
   strings-log1.pretty.show.println
