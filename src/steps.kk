@@ -95,12 +95,6 @@ fun handle-step-ctl-fmap<a,b,c,x,y,e>(
 //   step<x,y,z,e>
 // so steps can be composed into steps with 
 // different fail and pause channels
-//
-// TODO can only get this to check with div-steps - 
-// the extension effect seems to break things. next up - 
-// strip stuff out of steps.kk and move it towards the 
-// simple example in rebind-effect.kk - 'cos that seems
-// to check just fine
 pub fun trifmap<a,b,c,x,y,z,e>(
     fax: (a)->x,
     fby: (b)->y,
