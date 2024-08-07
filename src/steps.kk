@@ -253,7 +253,7 @@ pub fun test-dsl-trivial()
   val (_, log) = make-test-dsl-trivial(100).run-div("trivial", id)
   log.pretty.show.println
   val logjson = log.to-json
-  logjson.println
+  logjson.pretty.show.println
   val log' = logjson.computation-log/from-json("")
   log'.pretty.show.println
 
