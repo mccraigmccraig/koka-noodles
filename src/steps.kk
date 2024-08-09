@@ -178,7 +178,8 @@ pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
 pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
   st.run'
 
-pub fun compose-stepmfns<a,b,w,x,y,e>(
+// give the output of one stepmfn to another stepmfn
+pub fun pipe-stepmfns<a,b,w,x,y,e>(
     fw: stepmfn<a,b,w,x,e>, 
     fx: stepmfn<a,b,x,y,e>, 
     ?a/json-fns: json-fns<a>,
