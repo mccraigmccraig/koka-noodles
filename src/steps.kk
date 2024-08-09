@@ -39,8 +39,9 @@ pub struct step<a,b,c,e>
 
 pub alias div-step<a,b,c> = step<a,b,c,<>>
 
-// monadic fns of step values
-pub alias stepmfn<a,b,c,d,e> = (c: c) -> <div,logger,step-ctl<a,b>|e> step<a,b,d,e>
+// monadic fns of step values - we allow stepmfns to directly use the 
+// step-ctl effects while creating steps
+pub alias stepmfn<a,b,c,d,e> = (c: c) -> step-ctl<a,b> step<a,b,d,e>
 pub alias div-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
 // allowing the thunk to be given as a trailing lambda - the
@@ -172,11 +173,25 @@ pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
 pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
   st.run'
 
-pub fun compose-stepmfn(fa: stepmfn<a,b,c,d,e>, fb: stepmfn<a,b,d,x,e>, ?x/json-fns: json-fns<x>): stepmfn<a,b,c,x,e>
-  fn (c)
-    val sd = c.fa
-    val d = sd.run'
-    d.fb
+pub fun compose-stepmfns<a,b,w,x,y,e>(
+    fw: stepmfn<a,b,w,x,e>, 
+    fx: stepmfn<a,b,x,y,e>, 
+    ?a/json-fns: json-fns<a>,
+    ?b/json-fns: json-fns<b>,
+    ?y/json-fns: json-fns<y>
+  ): total stepmfn<a,b,w,y,e>
+  fn (w)
+    Step(
+      "compose-stepmfn",
+      ?a/json-fns,
+      ?b/json-fns,
+      ?y/json-fns,
+      fn ()
+        val sx = w.fw
+        val x = sx.run'
+        val sy = x.fx
+        sy.run'
+    )
 
 // handle all the effects! (apart from div)
 fun handle-effects<a,b,c,e>(
