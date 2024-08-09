@@ -12,7 +12,12 @@ pub value type result<a,b,c>
   Pause(b: b)
   Success(c: c)
 
-pub fun result/show<a,b,c>(r: result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)->string, ?c/show: (c)->string): string
+pub fun result/show<a,b,c>(
+    r: result<a,b,c>, 
+    ?a/show: (a)->string, 
+    ?b/show: (b)->string, 
+    ?c/show: (c)->string
+  ): string
   match r
     Fail(a) -> "Fail: " ++ a.?a/show
     Pause(b) -> "Pause: " ++ b.?b/show
@@ -20,9 +25,8 @@ pub fun result/show<a,b,c>(r: result<a,b,c>, ?a/show: (a)->string, ?b/show: (b)-
 
 pub alias thunk<a,e> = () -> e a
 
-// the logger and step-ctl<a,b> effects are handled by run, while 
-// any polymorphic effect is exepcted to be handled by the
-// handler given to run
+// the logger and step-ctl<a,b> effects will be handled by run, while 
+// any polymorphic effect must be handled by the handler given to run
 pub alias step-thunk<a,b,c,e> = thunk<c, <div,logger,step-ctl<a,b>|e>>
 
 // steps are a name, a thunk and json de/serializers for all the values.
@@ -46,7 +50,7 @@ pub fun step<a,b,c,e>(
   thunk: step-thunk<a,b,c,e>, 
   ?a/json-fns: json-fns<a>,
   ?b/json-fns: json-fns<b>,
-  ?c/json-fns: json-fns<c>): step<a,b,c,e>
+  ?c/json-fns: json-fns<c>): total step<a,b,c,e>
   Step(name, ?a/json-fns, ?b/json-fns, ?c/json-fns, thunk)
 
 // merging the step + bind into a single function
@@ -60,7 +64,7 @@ pub fun sbind<a,b,c,d,e>(
     ?b/json-fns: json-fns<b>,
     ?c/json-fns: json-fns<c>,
     ?d/json-fns: json-fns<d>
-  ): step<a,b,d,e>
+  ): total step<a,b,d,e>
   Step(
       name, 
       ?a/json-fns, 
@@ -72,6 +76,7 @@ pub fun sbind<a,b,c,d,e>(
 pub fun step/show(a: step<a,b,c,e>): string
   a.name ++ ": <unevaluated>"
 
+// map the fail and pause effects
 fun handle-step-ctl-fmap<a,b,c,x,y,e>(
     fax: (a)->x,
     fby: (b)->y,
@@ -90,9 +95,9 @@ fun handle-step-ctl-fmap<a,b,c,x,y,e>(
 //   step<a,b,c,e>
 // into an
 //   step<x,y,z,e>
-// so steps can be composed into steps with 
+// so steps can be composed with steps with 
 // different fail and pause channels
-pub fun trifmap<a,b,c,x,y,z,e>(
+pub fun trimap<a,b,c,x,y,z,e>(
     fax: (a)->x,
     fby: (b)->y,
     fcz: (c)->z,
@@ -410,7 +415,7 @@ pub fun test-trifmap()
   // the int pause is converted to a string... resuming the computation shows that
   // the pause() effect resumption works through the trifmap so trifmap can be used
   // to compose steps with different error and pause types
-  val strings-step = trifmap(string/to-upper, int/show, int/show, ints-step)
+  val strings-step = trimap(string/to-upper, int/show, int/show, ints-step)
 
   val (strings-val1, strings-log1) = strings-step.run-div("strings1", string/to-upper)
   strings-log1.pretty.show.println
