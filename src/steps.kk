@@ -49,6 +49,32 @@ pub alias div-step<a,b,c> = step<a,b,c,<>>
 pub alias stepmfn<a,b,c,d,e> = (c: c) -> step-ctl<a,b> step<a,b,d,e>
 pub alias div-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
+// potential structure for carrying a stepmfn and all its
+// JSON en/decode fns
+pub struct stepmfn-json<a,b,c,d,e>
+  mfn-a-json-fns: json-fns<a>
+  mfn-b-json-fns: json-fns<b>
+  mfn-c-json-fns: json-fns<c>
+  mfn-d-json-fns: json-fns<d>
+  mfn: stepmfn<a,b,c,d,e>
+
+// use with with to convert a fn returning an stepmfn to one
+// returning an stepmfn-json struct
+pub fun make-stepmfn-json(
+    mfn: stepmfn<a,b,c,d,e>, 
+    ?a/json-fns: json-fns<a>,
+    ?b/json-fns: json-fns<b>,
+    ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>
+  ) : stepmfn-json<a,b,c,d,e>
+  Stepmfn-json(
+    ?a/json-fns,
+    ?b/json-fns,
+    ?c/json-fns,
+    ?d/json-fns,
+    mfn
+  )
+
 // allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
 pub fun step<a,b,c,e>(
@@ -124,7 +150,7 @@ pub fun trimap<a,b,c,x,y,z,e>(
   
 pub fun bind<a,b,c,d,e>(
     st: step<a,b,c,e>, 
-    f: stepmfn<a,b,c,d,e>,
+    mf: stepmfn<a,b,c,d,e>,
     ?d/json-fns: json-fns<d>
   ): total step<a,b,d,e>
 
@@ -134,8 +160,15 @@ pub fun bind<a,b,c,d,e>(
     st.b-json-fns,
     ?d/json-fns,
     fn () ->
-      st.run'.f.run'
+      st.run'.mf.run'
   )
+
+pub fun bind-mfn-json<a,b,c,d,e>(
+    st: step<a,b,c,e>, 
+    mf-json: stepmfn-json<a,b,c,d,e>,
+    ?d/json-fns: json-fns<d>
+  ): total step<a,b,d,e>
+  bind(st, mf-json.mfn)
 
 pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
   st.thunk()()
@@ -179,6 +212,13 @@ pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
   st.run'
 
 // give the output of one stepmfn to another stepmfn
+//
+// TODO the current stepmfn doesn't allow for reducing a 
+// list of stepmfns with this fn - because we would need to 
+// marshal all the json-fns for all the steps
+//
+// if stepmfn were a struct, similar to step, with all the json-fns
+// available, then reducing a list of stepmfns would be possible
 pub fun pipe-stepmfns<a,b,w,x,y,e>(
     fw: stepmfn<a,b,w,x,e>, 
     fx: stepmfn<a,b,x,y,e>, 
@@ -198,6 +238,23 @@ pub fun pipe-stepmfns<a,b,w,x,y,e>(
         val sy = x.fx
         sy.run'
     )
+
+pub fun pipe-stepmfn-jsons<a,b,w,x,y,e>(
+    fw: stepmfn-json<a,b,w,x,e>, 
+    fx: stepmfn-json<a,b,x,y,e> 
+  ): total stepmfn-json<a,b,w,y,e>
+  val mfn = pipe-stepmfns(
+    fw.mfn,
+    fx.mfn,
+    ?a/json-fns=fw.mfn-a-json-fns,
+    ?b/json-fns=fw.mfn-b-json-fns,
+    ?y/json-fns=fx.mfn-d-json-fns)
+  make-stepmfn-json(
+    mfn,
+    fw.mfn-a-json-fns,
+    fw.mfn-b-json-fns,
+    fw.mfn-c-json-fns,
+    fx.mfn-d-json-fns)
 
 // handle all the effects! (apart from div)
 fun handle-effects<a,b,c,e>(
