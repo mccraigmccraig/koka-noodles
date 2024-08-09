@@ -27,6 +27,11 @@ pub alias thunk<a,e> = () -> e a
 
 // the logger and step-ctl<a,b> effects will be handled by run, while 
 // any polymorphic effect must be handled by the handler given to run
+// 
+// NB: step-thunk doesn't strictly need the logger effect, but steps 
+// compose and we end up with <logger|e> everywhere that calls run'
+// which is very messy - it seems generally neater and easier to give
+// the step-thunk a logger effect
 pub alias step-thunk<a,b,c,e> = thunk<c, <div,logger,step-ctl<a,b>|e>>
 
 // steps are a name, a thunk and json de/serializers for all the values.
