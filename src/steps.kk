@@ -44,8 +44,7 @@ pub alias div-step<a,b,c> = step<a,b,c,<>>
 pub alias stepmfn<a,b,c,d,e> = (c: c) -> step-ctl<a,b> step<a,b,d,e>
 pub alias div-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
-// potential structure for carrying a stepmfn and all its
-// JSON en/decode fns
+// a stepmfn and all its json de/serializers
 pub struct stepmfn-json<a,b,c,d,e>
   mfn-a-json-fns: json-fns<a>
   mfn-b-json-fns: json-fns<b>
@@ -92,9 +91,8 @@ pub fun stepmfn-json(
 ///////////////////////////////////////////////////////////////////////////////
 
 
-
-// merging the step + bind into a single function
-// giving a more compact DSL syntax... the trailing lambda and 
+// merging step + bind into a single function
+// for a more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
 pub fun sbind<a,b,c,d,e>(
     name: string, 
@@ -112,6 +110,31 @@ pub fun sbind<a,b,c,d,e>(
       ?c/json-fns, 
       thunk
     ).bind(f, ?d/json-fns=?d/json-fns)
+
+// bind a stepmfn to a step
+pub fun bind<a,b,c,d,e>(
+    st: step<a,b,c,e>, 
+    mf: stepmfn<a,b,c,d,e>,
+    ?d/json-fns: json-fns<d>
+  ): total step<a,b,d,e>
+
+  Step(
+    "bind--" ++ st.name,
+    st.a-json-fns,
+    st.b-json-fns,
+    ?d/json-fns,
+    fn () ->
+      st.run'.mf.run'
+  )
+
+// bind a stepmfn-json ... would be nice to use stepmfn-json/bind
+// but haven't yet made that work without breaking inference
+pub fun bind-mfn-json<a,b,c,d,e>(
+    st: step<a,b,c,e>, 
+    mf-json: stepmfn-json<a,b,c,d,e>,
+    ?d/json-fns: json-fns<d>
+  ): total step<a,b,d,e>
+  bind(st, mf-json.mfn)
 
 // map the fail and pause effects
 fun handle-step-ctl-fmap<a,b,c,x,y,e>(
@@ -153,27 +176,81 @@ pub fun trimap<a,b,c,x,y,z,e>(
       s.run'.fcz
   )
   
-pub fun bind<a,b,c,d,e>(
-    st: step<a,b,c,e>, 
-    mf: stepmfn<a,b,c,d,e>,
-    ?d/json-fns: json-fns<d>
-  ): total step<a,b,d,e>
+// give the output of one stepmfn to another stepmfn
+pub fun pipe-stepmfn<a,b,w,x,y,e>(
+    fw: stepmfn<a,b,w,x,e>, 
+    fx: stepmfn<a,b,x,y,e>, 
+    ?a/json-fns: json-fns<a>,
+    ?b/json-fns: json-fns<b>,
+    ?y/json-fns: json-fns<y>
+  ): total stepmfn<a,b,w,y,e>
+  fn (w)
+    Step(
+      "compose-stepmfn",
+      ?a/json-fns,
+      ?b/json-fns,
+      ?y/json-fns,
+      fn () -> w.fw.run'.fx.run'
+    )
 
-  Step(
-    "bind--" ++ st.name,
-    st.a-json-fns,
-    st.b-json-fns,
-    ?d/json-fns,
-    fn () ->
-      st.run'.mf.run'
-  )
+pub fun pipe-div-stepmfn<a,b,w,x,y,e>(
+    fw: stepmfn<a,b,w,x,e>, 
+    fx: div-stepmfn<a,b,x,y>, 
+    ?a/json-fns: json-fns<a>,
+    ?b/json-fns: json-fns<b>,
+    ?y/json-fns: json-fns<y>
+  ): total stepmfn<a,b,w,y,e>
+  fn (w)
+    Step(
+      "compose-div-stepmfn",
+      ?a/json-fns,
+      ?b/json-fns,
+      ?y/json-fns,
+      fn () -> w.fw.run'.fx.run-div'
+    )
 
-pub fun bind-mfn-json<a,b,c,d,e>(
-    st: step<a,b,c,e>, 
-    mf-json: stepmfn-json<a,b,c,d,e>,
-    ?d/json-fns: json-fns<d>
-  ): total step<a,b,d,e>
-  bind(st, mf-json.mfn)
+pub fun pipe-stepmfn-json<a,b,w,x,y,e>(
+    fw: stepmfn-json<a,b,w,x,e>, 
+    fx: stepmfn-json<a,b,x,y,e> 
+  ): total stepmfn-json<a,b,w,y,e>
+  val mfn = pipe-stepmfn(
+    fw.mfn,
+    fx.mfn,
+    ?a/json-fns=fw.mfn-a-json-fns,
+    ?b/json-fns=fw.mfn-b-json-fns,
+    ?y/json-fns=fx.mfn-d-json-fns)
+  stepmfn-json(
+    mfn,
+    fw.mfn-a-json-fns,
+    fw.mfn-b-json-fns,
+    fw.mfn-c-json-fns,
+    fx.mfn-d-json-fns)
+
+pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
+    fw: stepmfn-json<a,b,w,x,e>, 
+    fx: div-stepmfn-json<a,b,x,y> 
+  ): total stepmfn-json<a,b,w,y,e>
+  val mfn = pipe-div-stepmfn(
+    fw.mfn,
+    fx.mfn,
+    ?a/json-fns=fw.mfn-a-json-fns,
+    ?b/json-fns=fw.mfn-b-json-fns,
+    ?y/json-fns=fx.mfn-d-json-fns)
+  stepmfn-json(
+    mfn,
+    fw.mfn-a-json-fns,
+    fw.mfn-b-json-fns,
+    fw.mfn-c-json-fns,
+    fx.mfn-d-json-fns)
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                             internal run'
+//
+// - implements logging and flow-control
+// - can be called during step composition
+///////////////////////////////////////////////////////////////////////////////
+
 
 pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
   st.thunk()()
@@ -216,91 +293,12 @@ pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
 pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
   st.run'
 
-// give the output of one stepmfn to another stepmfn
-//
-// TODO the current stepmfn doesn't allow for reducing a 
-// list of stepmfns with this fn - because we would need to 
-// marshal all the json-fns for all the steps
-//
-// if stepmfn were a struct, similar to step, with all the json-fns
-// available, then reducing a list of stepmfns would be possible
-pub fun pipe-stepmfn<a,b,w,x,y,e>(
-    fw: stepmfn<a,b,w,x,e>, 
-    fx: stepmfn<a,b,x,y,e>, 
-    ?a/json-fns: json-fns<a>,
-    ?b/json-fns: json-fns<b>,
-    ?y/json-fns: json-fns<y>
-  ): total stepmfn<a,b,w,y,e>
-  fn (w)
-    Step(
-      "compose-stepmfn",
-      ?a/json-fns,
-      ?b/json-fns,
-      ?y/json-fns,
-      fn ()
-        val sx = w.fw
-        val x = sx.run'
-        val sy = x.fx
-        sy.run'
-    )
-
-pub fun pipe-div-stepmfn<a,b,w,x,y,e>(
-    fw: stepmfn<a,b,w,x,e>, 
-    fx: div-stepmfn<a,b,x,y>, 
-    ?a/json-fns: json-fns<a>,
-    ?b/json-fns: json-fns<b>,
-    ?y/json-fns: json-fns<y>
-  ): total stepmfn<a,b,w,y,e>
-  fn (w)
-    Step(
-      "compose-stepmfn",
-      ?a/json-fns,
-      ?b/json-fns,
-      ?y/json-fns,
-      fn ()
-        val sx = w.fw
-        val x = sx.run'
-        val sy = x.fx
-        sy.run-div'
-    )
-
-pub fun pipe-stepmfn-json<a,b,w,x,y,e>(
-    fw: stepmfn-json<a,b,w,x,e>, 
-    fx: stepmfn-json<a,b,x,y,e> 
-  ): total stepmfn-json<a,b,w,y,e>
-  val mfn = pipe-stepmfn(
-    fw.mfn,
-    fx.mfn,
-    ?a/json-fns=fw.mfn-a-json-fns,
-    ?b/json-fns=fw.mfn-b-json-fns,
-    ?y/json-fns=fx.mfn-d-json-fns)
-  stepmfn-json(
-    mfn,
-    fw.mfn-a-json-fns,
-    fw.mfn-b-json-fns,
-    fw.mfn-c-json-fns,
-    fx.mfn-d-json-fns)
-
-pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
-    fw: stepmfn-json<a,b,w,x,e>, 
-    fx: div-stepmfn-json<a,b,x,y> 
-  ): total stepmfn-json<a,b,w,y,e>
-  val mfn = pipe-div-stepmfn(
-    fw.mfn,
-    fx.mfn,
-    ?a/json-fns=fw.mfn-a-json-fns,
-    ?b/json-fns=fw.mfn-b-json-fns,
-    ?y/json-fns=fx.mfn-d-json-fns)
-  stepmfn-json(
-    mfn,
-    fw.mfn-a-json-fns,
-    fw.mfn-b-json-fns,
-    fw.mfn-c-json-fns,
-    fx.mfn-d-json-fns)
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //                               run
+//
+// - public run interface
+// - external - not called within steps
 ///////////////////////////////////////////////////////////////////////////////
 
 
