@@ -6,22 +6,17 @@ import std/num/random
 import std/pretty/pprint
 import steps/logger
 
+
+///////////////////////////////////////////////////////////////////////////////
+//                                    types
+///////////////////////////////////////////////////////////////////////////////
+
+
 // like an either, but with a typed pause channel
 pub value type result<a,b,c>
   Fail(a: a)
   Pause(b: b)
   Success(c: c)
-
-pub fun result/show<a,b,c>(
-    r: result<a,b,c>, 
-    ?a/show: (a)->string, 
-    ?b/show: (b)->string, 
-    ?c/show: (c)->string
-  ): string
-  match r
-    Fail(a) -> "Fail: " ++ a.?a/show
-    Pause(b) -> "Pause: " ++ b.?b/show
-    Success(c) -> "Success: " ++ c.?c/show
 
 pub alias thunk<a,e> = () -> e a
 
@@ -60,6 +55,12 @@ pub struct stepmfn-json<a,b,c,d,e>
 
 pub alias div-stepmfn-json<a,b,c,d> = stepmfn-json<a,b,c,d,<>>
 
+
+///////////////////////////////////////////////////////////////////////////////
+//                               constructors
+///////////////////////////////////////////////////////////////////////////////
+
+
 // allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
 pub fun step<a,b,c,e>(
@@ -85,6 +86,13 @@ pub fun stepmfn-json(
     mfn
   )
 
+
+///////////////////////////////////////////////////////////////////////////////
+//                               compose
+///////////////////////////////////////////////////////////////////////////////
+
+
+
 // merging the step + bind into a single function
 // giving a more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
@@ -104,9 +112,6 @@ pub fun sbind<a,b,c,d,e>(
       ?c/json-fns, 
       thunk
     ).bind(f, ?d/json-fns=?d/json-fns)
-
-pub fun step/show(a: step<a,b,c,e>): string
-  a.name ++ ": <unevaluated>"
 
 // map the fail and pause effects
 fun handle-step-ctl-fmap<a,b,c,x,y,e>(
@@ -293,6 +298,12 @@ pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
     fw.mfn-c-json-fns,
     fx.mfn-d-json-fns)
 
+
+///////////////////////////////////////////////////////////////////////////////
+//                               run
+///////////////////////////////////////////////////////////////////////////////
+
+
 // handle all the effects! (apart from div)
 fun handle-effects<a,b,c,e>(
     st: step<a,b,c,e>,
@@ -363,7 +374,11 @@ pub fun resume-div<a>(
   ): div (result<a,b,c>, logger/computation-log)
   resume(st, run-name, log, handle-fatal-error, div-handler)
 
-// some examples
+
+///////////////////////////////////////////////////////////////////////////////
+//                               examples
+///////////////////////////////////////////////////////////////////////////////
+
 
 pub fun make-test-dsl-trivial(i: int): div-step<string,string,string>
   with x <- sbind("x") {i}
@@ -551,10 +566,29 @@ pub fun test-trifmap()
   rule.println
 
 
+///////////////////////////////////////////////////////////////////////////////
+//                                    show
+///////////////////////////////////////////////////////////////////////////////
 
 
+pub fun result/show<a,b,c>(
+    r: result<a,b,c>, 
+    ?a/show: (a)->string, 
+    ?b/show: (b)->string, 
+    ?c/show: (c)->string
+  ): string
+  match r
+    Fail(a) -> "Fail: " ++ a.?a/show
+    Pause(b) -> "Pause: " ++ b.?b/show
+    Success(c) -> "Success: " ++ c.?c/show
+
+pub fun step/show(a: step<a,b,c,e>): string
+  a.name ++ ": <unevaluated>"
 
 
+///////////////////////////////////////////////////////////////////////////////
+//                                  serialize
+///////////////////////////////////////////////////////////////////////////////
 
 
 val listint/json-fns = Json-fns(
