@@ -91,26 +91,6 @@ pub fun stepmfn-json(
 ///////////////////////////////////////////////////////////////////////////////
 
 
-// merging step + bind into a single function
-// for a more compact DSL syntax... the trailing lambda and 
-// the with lambda are desugared into the desired positions
-pub fun sbind<a,b,c,d,e>(
-    name: string, 
-    thunk: step-thunk<a,b,c,e>, 
-    f: stepmfn<a,b,c,d,e>, 
-    ?a/json-fns: json-fns<a>,
-    ?b/json-fns: json-fns<b>,
-    ?c/json-fns: json-fns<c>,
-    ?d/json-fns: json-fns<d>
-  ): total step<a,b,d,e>
-  Step(
-      name, 
-      ?a/json-fns, 
-      ?b/json-fns, 
-      ?c/json-fns, 
-      thunk
-    ).bind(f, ?d/json-fns=?d/json-fns)
-
 // bind a stepmfn to a step
 pub fun bind<a,b,c,d,e>(
     st: step<a,b,c,e>, 
@@ -136,21 +116,6 @@ pub fun bind-mfn-json<a,b,c,d,e>(
   ): total step<a,b,d,e>
   bind(st, mf-json.mfn)
 
-// map the fail and pause effects
-fun handle-step-ctl-fmap<a,b,c,x,y,e>(
-    fax: (a)->x,
-    fby: (b)->y,
-    action: () -> <div,logger,step-ctl<a,b>,step-ctl<x,y>|e> c
-  ): <div,logger,step-ctl<x,y>|e> c
-  with handler 
-    ctl fail(a)
-      fail(a.fax)
-      resume(()) // never happens
-    ctl pause(b) 
-      pause(b.fby) 
-      resume(()) 
-  action()
-
 // converts an
 //   step<a,b,c,e>
 // into an
@@ -175,7 +140,42 @@ pub fun trimap<a,b,c,x,y,z,e>(
       with handle-step-ctl-fmap(fax, fby)
       s.run'.fcz
   )
-  
+
+// map the fail and pause effects for trimap
+fun handle-step-ctl-fmap<a,b,c,x,y,e>(
+    fax: (a)->x,
+    fby: (b)->y,
+    action: () -> <div,logger,step-ctl<a,b>,step-ctl<x,y>|e> c
+  ): <div,logger,step-ctl<x,y>|e> c
+  with handler 
+    ctl fail(a)
+      fail(a.fax)
+      resume(()) // never happens
+    ctl pause(b) 
+      pause(b.fby) 
+      resume(()) 
+  action()
+
+// merging step + bind into a single function
+// for a more compact DSL syntax... the trailing lambda and 
+// the with lambda are desugared into the desired positions
+pub fun sbind<a,b,c,d,e>(
+    name: string, 
+    thunk: step-thunk<a,b,c,e>, 
+    f: stepmfn<a,b,c,d,e>, 
+    ?a/json-fns: json-fns<a>,
+    ?b/json-fns: json-fns<b>,
+    ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>
+  ): total step<a,b,d,e>
+  Step(
+      name, 
+      ?a/json-fns, 
+      ?b/json-fns, 
+      ?c/json-fns, 
+      thunk
+    ).bind(f, ?d/json-fns=?d/json-fns)
+
 // give the output of one stepmfn to another stepmfn
 pub fun pipe-stepmfn<a,b,w,x,y,e>(
     fw: stepmfn<a,b,w,x,e>, 
@@ -248,7 +248,7 @@ pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
 //                             internal run'
 //
 // - implements logging and flow-control
-// - can be called during step composition
+// - to be called during step composition
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -298,7 +298,7 @@ pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
 //                               run
 //
 // - public run interface
-// - external - not called within steps
+// - external - handles all step effects
 ///////////////////////////////////////////////////////////////////////////////
 
 
