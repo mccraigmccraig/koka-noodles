@@ -21,7 +21,7 @@ pub struct div-core<a,b,w,x,y,z,e>
 
 // pipe the input, pure, output computations from a div-core into 
 // a composite stepmfn-json
-pub fun pipe(fc: div-core<a,b,w,x,y,z,e>): stepmfn-json<a,b,w,z,e>
+pub fun pipe(fc: div-core<a,b,w,x,y,z,e>): total stepmfn-json<a,b,w,z,e>
   fc.input.pipe-div-stepmfn-json(fc.core).pipe-stepmfn-json(fc.output)
 
 // // controls the input-gathering and output-performing phases - 

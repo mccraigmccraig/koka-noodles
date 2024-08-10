@@ -156,7 +156,7 @@ fun handle-step-ctl-fmap<a,b,c,x,y,e>(
       resume(()) // never happens
     ctl pause(b) 
       pause(b.fby) 
-      resume(()) 
+      resume(()) // happens when pause returns during resumption
   action()
 
 // merging step + bind into a single function
@@ -305,35 +305,6 @@ pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
 // - external - handles all step effects
 ///////////////////////////////////////////////////////////////////////////////
 
-
-// handle all the effects! (apart from div)
-fun handle-effects<a,b,c,e>(
-    st: step<a,b,c,e>,
-    run-name: string,
-    maybe-log: maybe<logger/computation-log>,
-    handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-  ): div (outcome<a,b,c>, logger/computation-log)
-  with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns)
-  with h
-  st.run'
-
-pub fun run-resume<a>(
-    st: step<a,b,c,e>,
-    run-name: string,
-    maybe-log: maybe<logger/computation-log>,
-    handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-  ): div (result<a,b,c>, logger/computation-log)
-  match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
-    (outcome, log) -> 
-      // convert the more detailed log-outcome to a Fail/Pause/Success result
-      match outcome
-        ReasonFail(a) -> (Fail(a), log)
-        ReasonPause(b) -> (Pause(b), log)
-        ReasonExec(c) -> (Success(c), log)
-        ReasonResume(c) -> (Success(c), log)
-
 // run a step, returning an either result and the computation-log.
 // h must handle any non-logger effects from the step - the only 
 // effects allowed out are div,logger,step-ctl
@@ -344,12 +315,6 @@ pub fun run<a>(
     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
   ): div (result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Nothing, handle-fatal-error, h)
-
-// a handler which does nothing but call its thunk
-pub fun div-handler<a,b,c>(
-    th: thunk<c,<div,logger,step-ctl<a,b>>>
-  ): <div,logger,step-ctl<a,b>> c
-  th()
 
 // convenience function for running a div step
 pub fun run-div(
@@ -375,6 +340,40 @@ pub fun resume-div<a>(
     handle-fatal-error: (string)->a
   ): div (result<a,b,c>, logger/computation-log)
   resume(st, run-name, log, handle-fatal-error, div-handler)
+
+pub fun run-resume<a>(
+    st: step<a,b,c,e>,
+    run-name: string,
+    maybe-log: maybe<logger/computation-log>,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
+  ): div (result<a,b,c>, logger/computation-log)
+  match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
+    (outcome, log) -> 
+      // convert the more detailed log-outcome to a Fail/Pause/Success result
+      match outcome
+        ReasonFail(a) -> (Fail(a), log)
+        ReasonPause(b) -> (Pause(b), log)
+        ReasonExec(c) -> (Success(c), log)
+        ReasonResume(c) -> (Success(c), log)
+
+// a handler which does nothing but call its thunk
+pub fun div-handler<a,b,c>(
+    th: thunk<c,<div,logger,step-ctl<a,b>>>
+  ): <div,logger,step-ctl<a,b>> c
+  th()
+
+// handle all the effects! (apart from div)
+fun handle-effects<a,b,c,e>(
+    st: step<a,b,c,e>,
+    run-name: string,
+    maybe-log: maybe<logger/computation-log>,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
+  ): div (outcome<a,b,c>, logger/computation-log)
+  with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns)
+  with h
+  st.run'
 
 
 ///////////////////////////////////////////////////////////////////////////////
