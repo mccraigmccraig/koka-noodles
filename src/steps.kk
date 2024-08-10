@@ -320,7 +320,7 @@ pub fun run<a>(
   ): div (result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Nothing, handle-fatal-error, h)
 
-// convenience function for running a div step
+// run a nofx-step - total
 pub fun run-nofx(
     st: nofx-step<a,b,c>,
     run-name: string,
@@ -329,6 +329,14 @@ pub fun run-nofx(
   with pretend-no-div
   run(st, run-name, handle-fatal-error, nofx-handler)
 
+// resume a step
+//
+// similar to run, but the log will be followed and, for so long as it 
+// matches the computation structure, steps will be "resumed" rather than executed - 
+// i.e. the logged serialied result value will be returned instead of calling the step thunk. 
+// as soon as the log deviates from the computation, or a failure or pause was logged,
+// then step execution will pick up. even during resumption, bind stepmfns are always
+// executed - but they are only allowed step-ctl effects
 pub fun resume<a>(
     st: step<a,b,c,e>,
     run-name: string,
@@ -338,6 +346,7 @@ pub fun resume<a>(
   ): div (result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Just(log), handle-fatal-error, h)
 
+// resume a nofx-step - total
 pub fun resume-nofx<a>(
     st: nofx-step<a,b,c>,
     run-name: string,
@@ -347,6 +356,7 @@ pub fun resume-nofx<a>(
   with pretend-no-div
   resume(st, run-name, log, handle-fatal-error, nofx-handler)
 
+// run or resume, depending on whether a log is supplied
 pub fun run-resume<a>(
     st: step<a,b,c,e>,
     run-name: string,
