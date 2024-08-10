@@ -30,7 +30,7 @@ alias thunk<a,e> = () -> e a
 // the step-thunk a logger effect
 pub alias step-thunk<a,b,c,e> = thunk<c, <logger,step-ctl<a,b>|e>>
 
-// steps are a name, a thunk and json de/serializers for all the values.
+// step values are a name, a thunk and json de/serializers for all the values.
 pub struct step<a,b,c,e>
   name: string
   a-json-fns: json-fns<a>
@@ -38,11 +38,13 @@ pub struct step<a,b,c,e>
   c-json-fns: json-fns<c>
   thunk: step-thunk<a,b,c,e>
 
-// allows the logger & step-ctl effects and nothing else
+// allows the logger & step-ctl effects and nothing else. the run-nofx result
+// is total
 pub alias nofx-step<a,b,c> = step<a,b,c,<>>
 
-// monadic fns of step values - stepmfns are allowed the step-ctl effect
-// during step creation logic
+// monadic fns of step values - stepmfns are allowed the step-ctl effect,
+// so can pause or fail based on previous step results, but no other effects are
+// allowed. this guarantees that resumption plays nicely
 pub alias stepmfn<a,b,c,d,e> = (c: c) -> step-ctl<a,b> step<a,b,d,e>
 pub alias nofx-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
