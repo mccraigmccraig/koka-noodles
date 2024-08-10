@@ -39,8 +39,8 @@ pub struct step<a,b,c,e>
 
 pub alias div-step<a,b,c> = step<a,b,c,<>>
 
-// monadic fns of step values - we allow stepmfns to directly use the 
-// step-ctl effects while creating steps
+// monadic fns of step values - stepmfns are allowed the step-ctl effect
+// during step creation logic
 pub alias stepmfn<a,b,c,d,e> = (c: c) -> step-ctl<a,b> step<a,b,d,e>
 pub alias div-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
@@ -88,6 +88,9 @@ pub fun stepmfn-json(
 
 ///////////////////////////////////////////////////////////////////////////////
 //                               compose
+//
+// - create new steps from old
+// - compose fns are total
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -252,15 +255,25 @@ pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
 ///////////////////////////////////////////////////////////////////////////////
 
 
-pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
-  st.thunk()()
+// run a step without dismissing any effects
+pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
+  match logger/log-enter(st.name)
+    Just(step-log) ->
+      resume/run'(st, step-log)
+    _ -> st.thunk/run-core'
 
-fun thunk/run-core'<a,b,c,e>(
-  st: step<a,b,c,e>
+// run a div-step without dismissing any effects
+pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
+  st.run'
+
+fun resume/run'<a,b,c,e>(
+  st: step<a,b,c,e>, 
+  step-log: step-log
 ): <div,logger,step-ctl<a,b>|e> c
-    val r = st.thunk/run''
-    logger/log-leave(ReasonExec({st.c-json-fns.to-json()(r)}))
-    r
+  match step-log
+    Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
+    Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
+    _ -> st.thunk/run-core'
 
 fun resume/resume-core'<a,b,c,e>(  
   st: step<a,b,c,e>, 
@@ -273,25 +286,16 @@ fun resume/resume-core'<a,b,c,e>(
       rr
     Left(_err) -> st.thunk/run-core'
 
-fun resume/run'<a,b,c,e>(
-  st: step<a,b,c,e>, 
-  step-log: step-log
+fun thunk/run-core'<a,b,c,e>(
+  st: step<a,b,c,e>
 ): <div,logger,step-ctl<a,b>|e> c
-  match step-log
-    Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
-    Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
-    _ -> st.thunk/run-core'
+    val r = st.thunk/run''
+    logger/log-leave(ReasonExec({st.c-json-fns.to-json()(r)}))
+    r
 
-// run a step without dismissing any effects
-pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
-  match logger/log-enter(st.name)
-    Just(step-log) ->
-      resume/run'(st, step-log)
-    _ -> st.thunk/run-core'
-
-// run a div-step 
-pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
-  st.run'
+// call a thunk
+pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
+  st.thunk()()
 
 
 ///////////////////////////////////////////////////////////////////////////////
