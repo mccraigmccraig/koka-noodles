@@ -61,6 +61,13 @@ pub effect step-ctl<a,b>
   ctl fail(a: a): ()
   // Immediately pause the computation with a value
   ctl pause(b: b): ()
+  // TODO add a user structured-logging effect (make it (level,message) if you want!) - 
+  // data will be serializable
+  // and added to the computation log (and ignored during resume)
+  // this isn't trivial - the step-log will now need different branches for
+  // computation-log and data-log
+  // // log some data
+  // fun log(data: c): ()
 
 value struct step-cursor
   steps: vector<step-log>
