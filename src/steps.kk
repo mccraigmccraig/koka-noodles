@@ -38,6 +38,8 @@ pub struct step<a,b,c,e>
   c-json-fns: json-fns<c>
   thunk: step-thunk<a,b,c,e>
 
+
+// TODO need a new name - there is no div effect anymore 😂
 pub alias div-step<a,b,c> = step<a,b,c,<>>
 
 // monadic fns of step values - stepmfns are allowed the step-ctl effect
