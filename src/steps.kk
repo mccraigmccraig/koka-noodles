@@ -27,7 +27,7 @@ alias thunk<a,e> = () -> e a
 // compose and we end up with <logger|e> everywhere that calls run'
 // which is very messy - it seems generally neater and easier to give
 // the step-thunk a logger effect
-pub alias step-thunk<a,b,c,e> = thunk<c, <div,logger,step-ctl<a,b>|e>>
+pub alias step-thunk<a,b,c,e> = thunk<c, <logger,step-ctl<a,b>|e>>
 
 // steps are a name, a thunk and json de/serializers for all the values.
 pub struct step<a,b,c,e>
@@ -148,8 +148,8 @@ pub fun trimap<a,b,c,x,y,z,e>(
 fun handle-step-ctl-fmap<a,b,c,x,y,e>(
     fax: (a)->x,
     fby: (b)->y,
-    action: () -> <div,logger,step-ctl<a,b>,step-ctl<x,y>|e> c
-  ): <div,logger,step-ctl<x,y>|e> c
+    action: () -> <logger,step-ctl<a,b>,step-ctl<x,y>|e> c
+  ): <logger,step-ctl<x,y>|e> c
   with handler 
     ctl fail(a)
       fail(a.fax)
@@ -256,20 +256,20 @@ pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
 
 
 // run a step without dismissing any effects
-pub fun run'<a,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
+pub fun run'<a,e>(st: step<a,b,c,e>): <logger,step-ctl<a,b>|e> c
   match logger/log-enter(st.name)
     Just(step-log) ->
       resume/run'(st, step-log)
     _ -> st.thunk/run-core'
 
 // run a div-step without dismissing any effects
-pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
+pub fun run-div'<a>(st: div-step<a,b,c>): <logger,step-ctl<a,b>> c
   st.run'
 
 fun resume/run'<a,b,c,e>(
     st: step<a,b,c,e>, 
     step-log: step-log
-  ): <div,logger,step-ctl<a,b>|e> c
+  ): <logger,step-ctl<a,b>|e> c
   match step-log
     Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
@@ -278,7 +278,7 @@ fun resume/run'<a,b,c,e>(
 fun resume/resume-core'<a,b,c,e>(  
     st: step<a,b,c,e>, 
     c-json: json
-  ): <div,logger,step-ctl<a,b>|e> c
+  ): <logger,step-ctl<a,b>|e> c
   match parse-json(c-json, "", st.c-json-fns.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
@@ -288,13 +288,13 @@ fun resume/resume-core'<a,b,c,e>(
 
 fun thunk/run-core'<a,b,c,e>(
     st: step<a,b,c,e>
-  ): <div,logger,step-ctl<a,b>|e> c
+  ): <logger,step-ctl<a,b>|e> c
   val r = st.thunk/run''
   logger/log-leave(ReasonExec({st.c-json-fns.to-json()(r)}))
   r
 
 // call a thunk
-pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
+pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <logger,step-ctl<a,b>|e> c
   st.thunk()()
 
 
@@ -359,8 +359,8 @@ pub fun run-resume<a>(
 
 // a handler which does nothing but call its thunk
 pub fun div-handler<a,b,c>(
-    th: thunk<c,<div,logger,step-ctl<a,b>>>
-  ): <div,logger,step-ctl<a,b>> c
+    th: thunk<c,<logger,step-ctl<a,b>>>
+  ): <logger,step-ctl<a,b>> c
   th()
 
 // handle all the effects! (apart from div)
