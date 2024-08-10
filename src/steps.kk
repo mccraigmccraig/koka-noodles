@@ -18,7 +18,7 @@ pub value type result<a,b,c>
   Pause(b: b)
   Success(c: c)
 
-pub alias thunk<a,e> = () -> e a
+alias thunk<a,e> = () -> e a
 
 // the logger and step-ctl<a,b> effects will be handled by run, while 
 // any polymorphic effect must be handled by the handler given to run
