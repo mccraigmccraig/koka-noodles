@@ -38,14 +38,13 @@ pub struct step<a,b,c,e>
   c-json-fns: json-fns<c>
   thunk: step-thunk<a,b,c,e>
 
-
-// TODO need a new name - there is no div effect anymore 😂
-pub alias div-step<a,b,c> = step<a,b,c,<>>
+// allows the logger & step-ctl effects and nothing else
+pub alias nofx-step<a,b,c> = step<a,b,c,<>>
 
 // monadic fns of step values - stepmfns are allowed the step-ctl effect
 // during step creation logic
 pub alias stepmfn<a,b,c,d,e> = (c: c) -> step-ctl<a,b> step<a,b,d,e>
-pub alias div-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
+pub alias nofx-stepmfn<a,b,c,d> = stepmfn<a,b,c,d,<>>
 
 // a stepmfn and all its json de/serializers
 pub struct stepmfn-json<a,b,c,d,e>
@@ -55,7 +54,7 @@ pub struct stepmfn-json<a,b,c,d,e>
   mfn-d-json-fns: json-fns<d>
   mfn: stepmfn<a,b,c,d,e>
 
-pub alias div-stepmfn-json<a,b,c,d> = stepmfn-json<a,b,c,d,<>>
+pub alias nofx-stepmfn-json<a,b,c,d> = stepmfn-json<a,b,c,d,<>>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -199,20 +198,20 @@ pub fun pipe-stepmfn<a,b,w,x,y,e>(
       fn () -> w.fw.run'.fx.run'
     )
 
-pub fun pipe-div-stepmfn<a,b,w,x,y,e>(
+pub fun pipe-nofx-stepmfn<a,b,w,x,y,e>(
     fw: stepmfn<a,b,w,x,e>, 
-    fx: div-stepmfn<a,b,x,y>, 
+    fx: nofx-stepmfn<a,b,x,y>, 
     ?a/json-fns: json-fns<a>,
     ?b/json-fns: json-fns<b>,
     ?y/json-fns: json-fns<y>
   ): total stepmfn<a,b,w,y,e>
   fn (w)
     Step(
-      "compose-div-stepmfn",
+      "compose-nofx-stepmfn",
       ?a/json-fns,
       ?b/json-fns,
       ?y/json-fns,
-      fn () -> w.fw.run'.fx.run-div'
+      fn () -> w.fw.run'.fx.run-nofx'
     )
 
 pub fun pipe-stepmfn-json<a,b,w,x,y,e>(
@@ -232,11 +231,11 @@ pub fun pipe-stepmfn-json<a,b,w,x,y,e>(
     fw.mfn-c-json-fns,
     fx.mfn-d-json-fns)
 
-pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
+pub fun pipe-nofx-stepmfn-json<a,b,w,x,y,e>(
     fw: stepmfn-json<a,b,w,x,e>, 
-    fx: div-stepmfn-json<a,b,x,y> 
+    fx: nofx-stepmfn-json<a,b,x,y> 
   ): total stepmfn-json<a,b,w,y,e>
-  val mfn = pipe-div-stepmfn(
+  val mfn = pipe-nofx-stepmfn(
     fw.mfn,
     fx.mfn,
     ?a/json-fns=fw.mfn-a-json-fns,
@@ -265,8 +264,8 @@ pub fun run'<a,e>(st: step<a,b,c,e>): <logger,step-ctl<a,b>|e> c
       resume/run'(st, step-log)
     _ -> st.thunk/run-core'
 
-// run a div-step without dismissing any effects
-pub fun run-div'<a>(st: div-step<a,b,c>): <logger,step-ctl<a,b>> c
+// run a nofx-step without dismissing any effects
+pub fun run-nofx'<a>(st: nofx-step<a,b,c>): <logger,step-ctl<a,b>> c
   st.run'
 
 fun resume/run'<a,b,c,e>(
@@ -320,13 +319,13 @@ pub fun run<a>(
   run-resume(st, run-name, Nothing, handle-fatal-error, h)
 
 // convenience function for running a div step
-pub fun run-div(
-    st: div-step<a,b,c>,
+pub fun run-nofx(
+    st: nofx-step<a,b,c>,
     run-name: string,
     handle-fatal-error: (string)->a
   ): total (result<a,b,c>, logger/computation-log)
   with pretend-no-div
-  run(st, run-name, handle-fatal-error, div-handler)
+  run(st, run-name, handle-fatal-error, nofx-handler)
 
 pub fun resume<a>(
     st: step<a,b,c,e>,
@@ -337,14 +336,14 @@ pub fun resume<a>(
   ): div (result<a,b,c>, logger/computation-log)
   run-resume(st, run-name, Just(log), handle-fatal-error, h)
 
-pub fun resume-div<a>(
-    st: div-step<a,b,c>,
+pub fun resume-nofx<a>(
+    st: nofx-step<a,b,c>,
     run-name: string,
     log: logger/computation-log,
     handle-fatal-error: (string)->a
   ): total (result<a,b,c>, logger/computation-log)
   with pretend-no-div
-  resume(st, run-name, log, handle-fatal-error, div-handler)
+  resume(st, run-name, log, handle-fatal-error, nofx-handler)
 
 pub fun run-resume<a>(
     st: step<a,b,c,e>,
@@ -363,7 +362,7 @@ pub fun run-resume<a>(
         ReasonResume(c) -> (Success(c), log)
 
 // a handler which does nothing but call its thunk
-pub fun div-handler<a,b,c>(
+pub fun nofx-handler<a,b,c>(
     th: thunk<c,<logger,step-ctl<a,b>>>
   ): <logger,step-ctl<a,b>> c
   th()
@@ -386,32 +385,32 @@ fun handle-effects<a,b,c,e>(
 ///////////////////////////////////////////////////////////////////////////////
 
 
-pub fun make-test-dsl-trivial(i: int): div-step<string,string,string>
+pub fun make-test-dsl-trivial(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   step("result") {x.show}
 
 pub fun test-dsl-trivial()
-  val (_, log) = make-test-dsl-trivial(100).run-div("trivial", id)
+  val (_, log) = make-test-dsl-trivial(100).run-nofx("trivial", id)
   log.pretty.show.println
   val logjson = log.to-json
   logjson.pretty.show.println
   val log' = logjson.computation-log/from-json("")
   log'.pretty.show.println
 
-pub fun make-test-dsl-simple(i: int): div-step<string,string,string>
+pub fun make-test-dsl-simple(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z") {x + y}
   step("result") {(2 * z).show}
 
-pub fun make-test-dsl-simple-left(i: int): div-step<string,string,string>
+pub fun make-test-dsl-simple-left(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- step("z") {fail("foo") ; 1}.bind
   step("result") {(2 * z).show}
 
 pub fun test-dsl-simple()
-  val (_, log) = make-test-dsl-simple(100).run-div("simple",id)
+  val (_, log) = make-test-dsl-simple(100).run-nofx("simple",id)
   log.pretty.show.println
   val logjson = log.to-json
   logjson.println
@@ -420,9 +419,9 @@ pub fun test-dsl-simple()
 
 // resuming a computation after fixing an error
 pub fun test-dsl-simple-error-fix-rerun()
-  val (_, log) = make-test-dsl-simple-left(100).run-div("will-error",id)
+  val (_, log) = make-test-dsl-simple-left(100).run-nofx("will-error",id)
   val logj = log.to-json
-  val (_, log2) = make-test-dsl-simple(100).resume("fixed",log, id, div-handler)
+  val (_, log2) = make-test-dsl-simple(100).resume("fixed",log, id, nofx-handler)
   val log2j = log2.to-json
 
   val log' = logj.computation-log/from-json("")
@@ -431,7 +430,7 @@ pub fun test-dsl-simple-error-fix-rerun()
   val log2' = log2j.computation-log/from-json("")
   log2'.pretty.show.println
 
-pub fun make-test-dsl-simple-pause(i: int): div-step<string,string,string>
+pub fun make-test-dsl-simple-pause(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   pause("pause")
   with y <- sbind("y") {10}
@@ -443,7 +442,7 @@ val rule = string/repeat("-", 20)
 // resuming a normal computation after it was paused
 pub fun test-dsl-simple-pause-resume()
   val computation = make-test-dsl-simple-pause(100)
-  val (paused-v, paused-log) = computation.run-div("run-1",id)
+  val (paused-v, paused-log) = computation.run-nofx("run-1",id)
   val paused-logj = paused-log.to-json
 
   paused-log.pretty.show.println
@@ -454,7 +453,7 @@ pub fun test-dsl-simple-pause-resume()
   rule.println
 
   val paused-log' = paused-logj.computation-log/from-json("")
-  val (intermed-v, intermed-log) = computation.resume-div("run-2", paused-log',id)
+  val (intermed-v, intermed-log) = computation.resume-nofx("run-2", paused-log',id)
   val intermed-logj = intermed-log.to-json
 
   intermed-log.pretty.show.println
@@ -465,7 +464,7 @@ pub fun test-dsl-simple-pause-resume()
   rule.println
 
   val intermed-log' = intermed-logj.computation-log/from-json("")
-  val (final-v, final-log) = computation.resume-div("run-3", intermed-log',id)
+  val (final-v, final-log) = computation.resume-nofx("run-3", intermed-log',id)
   val final-logj = final-log.to-json
 
   final-log.pretty.show.println
@@ -475,25 +474,25 @@ pub fun test-dsl-simple-pause-resume()
   final-v.show.println
   rule.println
 
-pub fun make-test-dsl-simple-fail(i: int): div-step<string,string,string>
+pub fun make-test-dsl-simple-fail(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z")  {fail("boom") ; x.show ++ "/" ++ y.show}
   step("result") {z ++ ":" ++ z}
 
-pub fun make-test-dsl-simple-fix(i: int): div-step<string,string,string>
+pub fun make-test-dsl-simple-fix(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z")  {x.show ++ "/" ++ y.show}
   step("result") {z ++ ":" ++ z}
 
 pub fun test-dsl-simple-fail()
-  val (_, log) = make-test-dsl-simple-fail(100).run-div("will-fail", id)
+  val (_, log) = make-test-dsl-simple-fail(100).run-nofx("will-fail", id)
   log.pretty.show.println
 
 pub fun test-dsl-simple-resume()
-  val (_, log) = make-test-dsl-simple-fail(100).run-div("simple", id)
-  val (_, log2) = make-test-dsl-simple-fix(100).resume("rerun", log, id, div-handler)
+  val (_, log) = make-test-dsl-simple-fail(100).run-nofx("simple", id)
+  val (_, log2) = make-test-dsl-simple-fix(100).resume("rerun", log, id, nofx-handler)
   log.pretty.show.println
   log2.pretty.show.println
 
@@ -553,19 +552,19 @@ pub fun test-trifmap()
   // to compose steps with different error and pause types
   val strings-step = trimap(string/to-upper, int/show, int/show, ints-step)
 
-  val (strings-val1, strings-log1) = strings-step.run-div("strings1", string/to-upper)
+  val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
   strings-log1.pretty.show.println
   rule.println
   strings-val1.show.println
   rule.println
 
-  val (strings-val2, strings-log2) = strings-step.resume-div("strings2", strings-log1, string/to-lower)
+  val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
   strings-log2.pretty.show.println
   rule.println
   strings-val2.show.println
   rule.println
 
-  val (strings-val3, strings-log3) = strings-step.resume-div("strings3", strings-log2, string/to-upper)
+  val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
   strings-log3.pretty.show.println
   rule.println
   strings-val3.show.println
