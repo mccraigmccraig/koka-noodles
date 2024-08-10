@@ -1,6 +1,7 @@
 module steps
 
 import std/core/string
+import std/core/undiv
 import std/data/json
 import std/num/random
 import std/pretty/pprint
@@ -321,7 +322,8 @@ pub fun run-div(
     st: div-step<a,b,c>,
     run-name: string,
     handle-fatal-error: (string)->a
-  ): div (result<a,b,c>, logger/computation-log)
+  ): total (result<a,b,c>, logger/computation-log)
+  with pretend-no-div
   run(st, run-name, handle-fatal-error, div-handler)
 
 pub fun resume<a>(
@@ -338,7 +340,8 @@ pub fun resume-div<a>(
     run-name: string,
     log: logger/computation-log,
     handle-fatal-error: (string)->a
-  ): div (result<a,b,c>, logger/computation-log)
+  ): total (result<a,b,c>, logger/computation-log)
+  with pretend-no-div
   resume(st, run-name, log, handle-fatal-error, div-handler)
 
 pub fun run-resume<a>(
