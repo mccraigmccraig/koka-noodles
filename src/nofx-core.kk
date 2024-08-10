@@ -1,4 +1,4 @@
-module div-core
+module nofx-core
 
 import std/core/list
 import steps/logger
