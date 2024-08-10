@@ -10,6 +10,13 @@ import steps/logger
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                    types
+//
+// - steps are thunks, with typed short-circuit error and pause channels 
+// - success, error and pause values are serializable
+// - running a step returns the result and a structured, serializable,
+//   computation-log which can be used to:
+//   - examine the values produced by steps
+//   - resume the computation after a pause or failure
 ///////////////////////////////////////////////////////////////////////////////
 
 
