@@ -118,10 +118,9 @@ pub fun bind<a,b,c,d,e>(
 // but haven't yet made that work without breaking inference
 pub fun bind-mfn-json<a,b,c,d,e>(
     st: step<a,b,c,e>, 
-    mf-json: stepmfn-json<a,b,c,d,e>,
-    ?d/json-fns: json-fns<d>
+    mf-json: stepmfn-json<a,b,c,d,e>
   ): total step<a,b,d,e>
-  bind(st, mf-json.mfn)
+  bind(st, mf-json.mfn, ?d/json-fns=mf-json.mfn-d-json-fns)
 
 // converts an
 //   step<a,b,c,e>
