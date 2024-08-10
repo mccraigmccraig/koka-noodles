@@ -15,20 +15,14 @@ import steps
 // getting the input and processing the output for the core, so maybe
 // it's good
 pub struct div-core<a,b,c,d,f,g,e>
-  input: stepmfn<a,b,c,d,e>
-  core: div-stepmfn<a,b,d,f>
-  output: stepmfn<a,b,f,g,e>
+  input: stepmfn-json<a,b,c,d,e>
+  core: div-stepmfn-json<a,b,d,f>
+  output: stepmfn-json<a,b,f,g,e>
 
-// compose the input, pure, output computations from a div-core
-pub fun compose(fc: div-core<a,b,c,d,f,g,e>): total stepmfn<a,b,c,g,e>
-  // fc.input.compose-stepmfn(fc.core).compose-stepmfn(fc.output)
-  fn (a)
-    val sb = fc.input()(a)
-    val b = sb.run'
-    val sc = fc.core()(b)
-    val c = sc.run-div'
-    val sd = fc.output()(c)
-    sd
+// pipe the input, pure, output computations from a div-core into 
+// a composite stepmfn-json
+pub fun pipe(fc: div-core<a,b,c,d,f,g,e>): stepmfn-json<a,b,c,g,e>
+  fc.input.pipe-div-stepmfn-json(fc.core).pipe-stepmfn-json(fc.output)
 
 // // controls the input-gathering and output-performing phases - 
 // // perhaps data is read directly from the serialized log of 
