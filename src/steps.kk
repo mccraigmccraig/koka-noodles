@@ -110,7 +110,7 @@ pub fun bind<a,b,c,d,e>(
       st.run'.mf.run'
   )
 
-// bind a stepmfn-json ... would be nice to use stepmfn-json/bind
+// bind a stepmfn-json ... would be nice to use a qualifier like stepmfn-json/bind
 // but haven't yet made that work without breaking inference
 pub fun bind-mfn-json<a,b,c,d,e>(
     st: step<a,b,c,e>, 
@@ -267,18 +267,18 @@ pub fun run-div'<a>(st: div-step<a,b,c>): <div,logger,step-ctl<a,b>> c
   st.run'
 
 fun resume/run'<a,b,c,e>(
-  st: step<a,b,c,e>, 
-  step-log: step-log
-): <div,logger,step-ctl<a,b>|e> c
+    st: step<a,b,c,e>, 
+    step-log: step-log
+  ): <div,logger,step-ctl<a,b>|e> c
   match step-log
     Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     _ -> st.thunk/run-core'
 
 fun resume/resume-core'<a,b,c,e>(  
-  st: step<a,b,c,e>, 
-  c-json: json
-): <div,logger,step-ctl<a,b>|e> c
+    st: step<a,b,c,e>, 
+    c-json: json
+  ): <div,logger,step-ctl<a,b>|e> c
   match parse-json(c-json, "", st.c-json-fns.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
@@ -287,11 +287,11 @@ fun resume/resume-core'<a,b,c,e>(
     Left(_err) -> st.thunk/run-core'
 
 fun thunk/run-core'<a,b,c,e>(
-  st: step<a,b,c,e>
-): <div,logger,step-ctl<a,b>|e> c
-    val r = st.thunk/run''
-    logger/log-leave(ReasonExec({st.c-json-fns.to-json()(r)}))
-    r
+    st: step<a,b,c,e>
+  ): <div,logger,step-ctl<a,b>|e> c
+  val r = st.thunk/run''
+  logger/log-leave(ReasonExec({st.c-json-fns.to-json()(r)}))
+  r
 
 // call a thunk
 pub fun thunk/run''<a,b,c,e>(st: step<a,b,c,e>): <div,logger,step-ctl<a,b>|e> c
