@@ -10,18 +10,18 @@ import steps
 // the div-core operation is the composed pipeline of
 // input->pure->output steps
 //
-// TODO is this the best structure ? after the thunk-monad bind syntax
+// TODO is this the best structure ? after the thunk-based bind syntax
 // for the steps, it seems awfully constricting - but - it's just about
 // getting the input and processing the output for the core, so maybe
 // it's good
-pub struct div-core<a,b,c,d,f,g,e>
-  input: stepmfn-json<a,b,c,d,e>
-  core: div-stepmfn-json<a,b,d,f>
-  output: stepmfn-json<a,b,f,g,e>
+pub struct div-core<a,b,w,x,y,z,e>
+  input: stepmfn-json<a,b,w,x,e>
+  core: div-stepmfn-json<a,b,x,y>
+  output: stepmfn-json<a,b,y,z,e>
 
 // pipe the input, pure, output computations from a div-core into 
 // a composite stepmfn-json
-pub fun pipe(fc: div-core<a,b,c,d,f,g,e>): stepmfn-json<a,b,c,g,e>
+pub fun pipe(fc: div-core<a,b,w,x,y,z,e>): stepmfn-json<a,b,w,z,e>
   fc.input.pipe-div-stepmfn-json(fc.core).pipe-stepmfn-json(fc.output)
 
 // // controls the input-gathering and output-performing phases - 

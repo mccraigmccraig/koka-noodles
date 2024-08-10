@@ -60,23 +60,6 @@ pub struct stepmfn-json<a,b,c,d,e>
 
 pub alias div-stepmfn-json<a,b,c,d> = stepmfn-json<a,b,c,d,<>>
 
-// use with with to convert a fn returning an stepmfn to one
-// returning an stepmfn-json struct
-pub fun make-stepmfn-json(
-    mfn: stepmfn<a,b,c,d,e>, 
-    ?a/json-fns: json-fns<a>,
-    ?b/json-fns: json-fns<b>,
-    ?c/json-fns: json-fns<c>,
-    ?d/json-fns: json-fns<d>
-  ) : stepmfn-json<a,b,c,d,e>
-  Stepmfn-json(
-    ?a/json-fns,
-    ?b/json-fns,
-    ?c/json-fns,
-    ?d/json-fns,
-    mfn
-  )
-
 // allowing the thunk to be given as a trailing lambda - the
 // desugaring puts the trailing lambda before the implicit args!
 pub fun step<a,b,c,e>(
@@ -86,6 +69,21 @@ pub fun step<a,b,c,e>(
   ?b/json-fns: json-fns<b>,
   ?c/json-fns: json-fns<c>): total step<a,b,c,e>
   Step(name, ?a/json-fns, ?b/json-fns, ?c/json-fns, thunk)
+
+pub fun stepmfn-json(
+    mfn: stepmfn<a,b,c,d,e>, 
+    ?a/json-fns: json-fns<a>,
+    ?b/json-fns: json-fns<b>,
+    ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>
+  ) : total stepmfn-json<a,b,c,d,e>
+  Stepmfn-json(
+    ?a/json-fns,
+    ?b/json-fns,
+    ?c/json-fns,
+    ?d/json-fns,
+    mfn
+  )
 
 // merging the step + bind into a single function
 // giving a more compact DSL syntax... the trailing lambda and 
@@ -271,7 +269,7 @@ pub fun pipe-stepmfn-json<a,b,w,x,y,e>(
     ?a/json-fns=fw.mfn-a-json-fns,
     ?b/json-fns=fw.mfn-b-json-fns,
     ?y/json-fns=fx.mfn-d-json-fns)
-  make-stepmfn-json(
+  stepmfn-json(
     mfn,
     fw.mfn-a-json-fns,
     fw.mfn-b-json-fns,
@@ -288,7 +286,7 @@ pub fun pipe-div-stepmfn-json<a,b,w,x,y,e>(
     ?a/json-fns=fw.mfn-a-json-fns,
     ?b/json-fns=fw.mfn-b-json-fns,
     ?y/json-fns=fx.mfn-d-json-fns)
-  make-stepmfn-json(
+  stepmfn-json(
     mfn,
     fw.mfn-a-json-fns,
     fw.mfn-b-json-fns,
