@@ -55,19 +55,14 @@ pub effect logger
 // that would mean parameterising step-ctl on the value type, and 
 // so would require rebinding handlers at every bind, and need
 // (c)->d functions we don't have 
-pub effect step-ctl<a,b>
+pub effect step-ctl<a,b,c>
   // Immediately fail the computation with a value - equivalent
   // to returning a Left(a) from a thunk
   ctl fail(a: a): ()
   // Immediately pause the computation with a value
   ctl pause(b: b): ()
-  // TODO add a user structured-logging effect (make it (level,message) if you want!) - 
-  // data will be serializable
-  // and added to the computation log (and ignored during resume)
-  // this isn't trivial - the step-log will now need different branches for
-  // computation-log and data-log
-  // // log some data
-  // fun log(data: c): ()
+  // log some data
+  fun log(data: c): ()
 
 value struct step-cursor
   steps: vector<step-log>
@@ -94,14 +89,15 @@ struct logger-state
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect
 // TODO currently using exn internally for fatal programming errors - is that ok?
-pub fun log-collector<a,b,c>(
+pub fun log-collector<a,b,c,d>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
     a-json-fns: json-fns<a>,
     b-json-fns: json-fns<b>,
-    action: () -> <div,logger,step-ctl<a,b>> c
-  ) : div (outcome<a,b,c>, computation-log)
+    c-json-fns: json-fns<c>,
+    action: () -> <div,logger,step-ctl<a,b,c>> d
+  ) : div (outcome<a,b,d>, computation-log)
 
   var state := make-logger-state(previous-log)
 
@@ -129,6 +125,9 @@ pub fun log-collector<a,b,c>(
         val state' = state/close-open-steps(state, ReasonPause({b-json-fns.to-json()(b)}), handle-fatal-error, a-json-fns)
         state := state'(pause-ignores=state.pause-ignores - 1)
         ReasonPause(b)
+    fun log(c)
+      // TODO: implement
+      ()
 
   // the handler implementation fns are all total, but can return errors via either. 
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
@@ -372,7 +371,7 @@ pub fun stuff(i: int)
   0
 
 // note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): <logger,step-ctl<string,string>> int
+pub fun thingz(i: int): <logger,step-ctl<string,string,string>> int
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
@@ -384,6 +383,7 @@ pub fun collect-test-logs()
     Nothing, 
     "test", 
     fn (s: string) -> s,
+    string/json-fns,
     string/json-fns,
     string/json-fns
     )
@@ -401,6 +401,7 @@ pub fun collect-logs-with-error()
     Nothing, 
     "test-with-error",
     fn (s: string) -> s,
+    string/json-fns,
     string/json-fns,
     string/json-fns
   )
