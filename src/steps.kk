@@ -387,32 +387,32 @@ fun handle-effects<a,b,c,e>(
 ///////////////////////////////////////////////////////////////////////////////
 
 
-pub fun make-test-dsl-trivial(i: int): nofx-step<string,string,string>
+pub fun make-example-dsl-trivial(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   step("result") {x.show}
 
-pub fun test-dsl-trivial()
-  val (_, log) = make-test-dsl-trivial(100).run-nofx("trivial", id)
+pub fun example-dsl-trivial()
+  val (_, log) = make-example-dsl-trivial(100).run-nofx("trivial", id)
   log.pretty.show.println
   val logjson = log.to-json
   logjson.pretty.show.println
   val log' = logjson.computation-log/from-json("")
   log'.pretty.show.println
 
-pub fun make-test-dsl-simple(i: int): nofx-step<string,string,string>
+pub fun make-example-dsl-simple(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z") {x + y}
   step("result") {(2 * z).show}
 
-pub fun make-test-dsl-simple-left(i: int): nofx-step<string,string,string>
+pub fun make-example-dsl-simple-left(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- step("z") {fail("foo") ; 1}.bind
   step("result") {(2 * z).show}
 
-pub fun test-dsl-simple()
-  val (_, log) = make-test-dsl-simple(100).run-nofx("simple",id)
+pub fun example-dsl-simple()
+  val (_, log) = make-example-dsl-simple(100).run-nofx("simple",id)
   log.pretty.show.println
   val logjson = log.to-json
   logjson.println
@@ -420,10 +420,10 @@ pub fun test-dsl-simple()
   log'.pretty.show.println
 
 // resuming a computation after fixing an error
-pub fun test-dsl-simple-error-fix-rerun()
-  val (_, log) = make-test-dsl-simple-left(100).run-nofx("will-error",id)
+pub fun example-dsl-simple-error-fix-rerun()
+  val (_, log) = make-example-dsl-simple-left(100).run-nofx("will-error",id)
   val logj = log.to-json
-  val (_, log2) = make-test-dsl-simple(100).resume("fixed",log, id, nofx-handler)
+  val (_, log2) = make-example-dsl-simple(100).resume("fixed",log, id, nofx-handler)
   val log2j = log2.to-json
 
   val log' = logj.computation-log/from-json("")
@@ -432,7 +432,7 @@ pub fun test-dsl-simple-error-fix-rerun()
   val log2' = log2j.computation-log/from-json("")
   log2'.pretty.show.println
 
-pub fun make-test-dsl-simple-pause(i: int): nofx-step<string,string,string>
+pub fun make-example-dsl-simple-pause(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   pause("pause")
   with y <- sbind("y") {10}
@@ -442,8 +442,8 @@ pub fun make-test-dsl-simple-pause(i: int): nofx-step<string,string,string>
 val rule = string/repeat("-", 20)
 
 // resuming a normal computation after it was paused
-pub fun test-dsl-simple-pause-resume()
-  val computation = make-test-dsl-simple-pause(100)
+pub fun example-dsl-simple-pause-resume()
+  val computation = make-example-dsl-simple-pause(100)
   val (paused-v, paused-log) = computation.run-nofx("run-1",id)
   val paused-logj = paused-log.to-json
 
@@ -476,29 +476,29 @@ pub fun test-dsl-simple-pause-resume()
   final-v.show.println
   rule.println
 
-pub fun make-test-dsl-simple-fail(i: int): nofx-step<string,string,string>
+pub fun make-example-dsl-simple-fail(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z")  {fail("boom") ; x.show ++ "/" ++ y.show}
   step("result") {z ++ ":" ++ z}
 
-pub fun make-test-dsl-simple-fix(i: int): nofx-step<string,string,string>
+pub fun make-example-dsl-simple-fix(i: int): nofx-step<string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z")  {x.show ++ "/" ++ y.show}
   step("result") {z ++ ":" ++ z}
 
-pub fun test-dsl-simple-fail()
-  val (_, log) = make-test-dsl-simple-fail(100).run-nofx("will-fail", id)
+pub fun example-dsl-simple-fail()
+  val (_, log) = make-example-dsl-simple-fail(100).run-nofx("will-fail", id)
   log.pretty.show.println
 
-pub fun test-dsl-simple-resume()
-  val (_, log) = make-test-dsl-simple-fail(100).run-nofx("simple", id)
-  val (_, log2) = make-test-dsl-simple-fix(100).resume("rerun", log, id, nofx-handler)
+pub fun example-dsl-simple-resume()
+  val (_, log) = make-example-dsl-simple-fail(100).run-nofx("simple", id)
+  val (_, log2) = make-example-dsl-simple-fix(100).resume("rerun", log, id, nofx-handler)
   log.pretty.show.println
   log2.pretty.show.println
 
-pub fun make-test-dsl-random-effect(i: int): step<string,string,int,<random>>
+pub fun make-example-dsl-random-effect(i: int): step<string,string,int,<random>>
   with x <- sbind("x") {i}
   with y <- sbind("y") {random-int()}
   with z <- sbind("z") {x + y}
@@ -508,8 +508,8 @@ fun handle-random<a>(th: thunk<a,<random|e>>): e a
   with pseudo-random(100)
   th()
 
-pub fun test-dsl-random-effect()
-  val (_, log) = make-test-dsl-random-effect(100).run("random-effect", id, handle-random)
+pub fun example-dsl-random-effect()
+  val (_, log) = make-example-dsl-random-effect(100).run("random-effect", id, handle-random)
   log.pretty.show.println  
 
 fun testdsl/stuff(i: int) : step<string,string,int,<random>>
@@ -517,7 +517,7 @@ fun testdsl/stuff(i: int) : step<string,string,int,<random>>
   with y <- sbind("rand"){random-int()}
   step("stuff") {x + y}
 
-pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<random>>
+pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string,<random>>
   with x <- sbind("x") {i}
   with y <- sbind("y") { if i>5 then [10,11] else [] }
   val aa' = match y
@@ -530,14 +530,14 @@ pub fun make-test-dsl-more-complex-compact(i: int): step<string,string,string,<r
   with bb: int <- testdsl/stuff(i).bind
   step("result") {aa.show ++ "/" ++ bb.show}
 
-pub fun test-dsl-more-complext-compact()
-  val (_, log) = make-test-dsl-more-complex-compact(10).run("more-complex", id, fn(th) -> pseudo-random(100, th))
+pub fun example-dsl-more-complext-compact()
+  val (_, log) = make-example-dsl-more-complex-compact(10).run("more-complex", id, fn(th) -> pseudo-random(100, th))
   log.pretty.show.println
   log.to-json.show.println
 
 
 
-pub fun make-test-dsl-ints(i: int): step<string,int,int,e>
+pub fun make-example-dsl-ints(i: int): step<string,int,int,e>
   with x <- sbind("x") {i}
   pause(x)
   with y <- sbind("y") {10}
@@ -546,8 +546,8 @@ pub fun make-test-dsl-ints(i: int): step<string,int,int,e>
   // fail("foo")
   step("result") {(2 * z)}
 
-pub fun test-trifmap()
-  val ints-step = make-test-dsl-ints(100)
+pub fun example-trifmap()
+  val ints-step = make-example-dsl-ints(100)
 
   // the int pause is converted to a string... resuming the computation shows that
   // the pause() effect resumption works through the trifmap so trifmap can be used
