@@ -480,39 +480,39 @@ pub fun make-example-dsl-simple-pause(i: int): nofx-step<string,string,string,st
 val rule = string/repeat("-", 20)
 
 // resuming a normal computation after it was paused
-// pub fun example-dsl-simple-pause-resume()
-//   val computation = make-example-dsl-simple-pause(100)
-//   val (paused-v, paused-log) = computation.run-nofx("run-1",id)
-//   val paused-logj = paused-log.to-json
+pub fun example-dsl-simple-pause-resume()
+  val computation = make-example-dsl-simple-pause(100)
+  val (paused-v, paused-log) = computation.run-nofx("run-1",id)
+  val paused-logj = paused-log.to-json
 
-//   paused-log.pretty.show.println
-//   rule.println
-//   paused-logj.show.println
-//   rule.println
-//   paused-v.show.println 
-//   rule.println
+  paused-log.pretty.show.println
+  rule.println
+  paused-logj.show.println
+  rule.println
+  paused-v.show.println 
+  rule.println
 
-//   val paused-log' = paused-logj.computation-log/from-json("")
-//   val (intermed-v, intermed-log) = computation.resume-nofx("run-2", paused-log',id)
-//   val intermed-logj = intermed-log.to-json
+  val paused-log' = paused-logj.computation-log/from-json("")
+  val (intermed-v, intermed-log) = computation.resume-nofx("run-2", paused-log',id)
+  val intermed-logj = intermed-log.to-json
 
-//   intermed-log.pretty.show.println
-//   rule.println
-//   intermed-logj.show.println
-//   rule.println
-//   intermed-v.show.println
-//   rule.println
+  intermed-log.pretty.show.println
+  rule.println
+  intermed-logj.show.println
+  rule.println
+  intermed-v.show.println
+  rule.println
 
-//   val intermed-log' = intermed-logj.computation-log/from-json("")
-//   val (final-v, final-log) = computation.resume-nofx("run-3", intermed-log',id)
-//   val final-logj = final-log.to-json
+  val intermed-log' = intermed-logj.computation-log/from-json("")
+  val (final-v, final-log) = computation.resume-nofx("run-3", intermed-log',id)
+  val final-logj = final-log.to-json
 
-//   final-log.pretty.show.println
-//   rule.println
-//   final-logj.show.println
-//   rule.println
-//   final-v.show.println
-//   rule.println
+  final-log.pretty.show.println
+  rule.println
+  final-logj.show.println
+  rule.println
+  final-v.show.println
+  rule.println
 
 pub fun make-example-dsl-simple-fail(i: int): nofx-step<string,string,string,string>
   with x <- sbind("x") {i}
@@ -555,23 +555,23 @@ fun testdsl/stuff(i: int) : step<string,string,string,int,<random>>
   with y <- sbind("rand"){random-int()}
   step("stuff") {x + y}
 
-// pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string,string,<random>>
-//   with x <- sbind("x") {i}
-//   with y <- sbind("y") { if i>5 then [10,11] else [] }
-//   val aa' = match y
-//     [a, b] -> 
-//       with z <- sbind("z") {x + a + b}
-//       // TODO inference doesn't do a great job here...
-//       step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=string/json-fns) {fail("blagh") ; 10}
-//     _ -> step("aa'-default") {0}
-//   with aa: int <- aa'.bind
-//   with bb: int <- testdsl/stuff(i).bind
-//   step("result") {aa.show ++ "/" ++ bb.show}
+pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string,string,<random>>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") { if i>5 then [10,11] else [] }
+  val aa' = match y
+    [a, b] -> 
+      with z <- sbind("z") {x + a + b}
+      // TODO inference doesn't do a great job here...
+      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=string/json-fns) {fail("blagh") ; 10}
+    _ -> step("aa'-default") {0}
+  with aa: int <- aa'.bind
+  with bb: int <- testdsl/stuff(i).bind
+  step("result") {aa.show ++ "/" ++ bb.show}
 
-// pub fun example-dsl-more-complext-compact()
-//   val (_, log) = make-example-dsl-more-complex-compact(10).run("more-complex", id, fn(th) -> pseudo-random(100, th))
-//   log.pretty.show.println
-//   log.to-json.show.println
+pub fun example-dsl-more-complext-compact()
+  val (_, log) = make-example-dsl-more-complex-compact(10).run("more-complex", id, fn(th) -> pseudo-random(100, th))
+  log.pretty.show.println
+  log.to-json.show.println
 
 
 
