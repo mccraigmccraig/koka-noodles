@@ -21,10 +21,10 @@ import steps/logger
 
 
 // like an either, but with a typed pause channel
-pub value type result<a,b,c>
+pub value type result<a,b,x>
   Fail(a: a)
   Pause(b: b)
-  Success(c: c)
+  Success(x: x)
 
 alias thunk<a,e> = () -> e a
 
@@ -35,20 +35,20 @@ alias thunk<a,e> = () -> e a
 // compose and we end up with <logger|e> everywhere that calls run'
 // which is very messy - it seems generally neater and easier to give
 // the step-thunk a logger effect
-pub alias step-thunk<a,b,c,d,e> = thunk<d, <logger,step-ctl<a,b,c>|e>>
+pub alias step-thunk<a,b,c,x,e> = thunk<x, <logger,step-ctl<a,b,c>|e>>
 
 // step values are a name, a thunk and json de/serializers for all the values.
-pub struct step<a,b,c,d,e>
+pub struct step<a,b,c,x,e>
   name: string
   a-json-fns: json-fns<a>
   b-json-fns: json-fns<b>
   c-json-fns: json-fns<c>
-  d-json-fns: json-fns<d>
-  thunk: step-thunk<a,b,c,d,e>
+  x-json-fns: json-fns<x>
+  thunk: step-thunk<a,b,c,x,e>
 
 // allows the logger & step-ctl effects and nothing else. the run-nofx result
 // is total
-pub alias nofx-step<a,b,c,d> = step<a,b,c,d,<>>
+pub alias nofx-step<a,b,c,x> = step<a,b,c,x,<>>
 
 // monadic fns of step values - stepmfns are allowed the step-ctl effect,
 // so can pause or fail based on previous step results, but no other effects are
@@ -311,7 +311,7 @@ fun resume/resume-core'(
     st: step<a,b,c,x,e>, 
     d-json: json
   ): <logger,step-ctl<a,b,c>|e> x
-  match parse-json(d-json, "", st.d-json-fns.from-json)
+  match parse-json(d-json, "", st.x-json-fns.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
       logger/log-leave(ReasonResume({d-json}))
@@ -322,7 +322,7 @@ fun thunk/run-core'(
     st: step<a,b,c,x,e>
   ): <logger,step-ctl<a,b,c>|e> x
   val r = st.thunk/run''
-  logger/log-leave(ReasonExec({st.d-json-fns.to-json()(r)}))
+  logger/log-leave(ReasonExec({st.x-json-fns.to-json()(r)}))
   r
 
 // call a thunk
