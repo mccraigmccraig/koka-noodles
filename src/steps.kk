@@ -340,7 +340,7 @@ pub fun thunk/run''(st: step<a,b,c,x,e>): <logger,step-ctl<a,b,c>|e> x
 // run a step, returning an either result and the computation-log.
 // h must handle any non-logger effects from the step - the only 
 // effects allowed out are div,logger,step-ctl
-pub fun run<a>(
+pub fun run(
     st: step<a,b,c,x,e>,
     run-name: string,
     handle-fatal-error: (string)->a,
