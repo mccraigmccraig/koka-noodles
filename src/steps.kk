@@ -337,87 +337,87 @@ pub fun thunk/run''(st: step<a,b,c,x,e>): <logger,step-ctl<a,b,c>|e> x
 // // - external - handles all step effects
 // ///////////////////////////////////////////////////////////////////////////////
 
-// // run a step, returning an either result and the computation-log.
-// // h must handle any non-logger effects from the step - the only 
-// // effects allowed out are div,logger,step-ctl
-// pub fun run<a>(
-//     st: step<a,b,c,e>,
-//     run-name: string,
-//     handle-fatal-error: (string)->a,
-//     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-//   ): div (result<a,b,c>, logger/computation-log)
-//   run-resume(st, run-name, Nothing, handle-fatal-error, h)
+// run a step, returning an either result and the computation-log.
+// h must handle any non-logger effects from the step - the only 
+// effects allowed out are div,logger,step-ctl
+pub fun run<a>(
+    st: step<a,b,c,x,e>,
+    run-name: string,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+  ): div (result<a,b,x>, logger/computation-log)
+  run-resume(st, run-name, Nothing, handle-fatal-error, h)
 
-// // run a nofx-step - total
-// pub fun run-nofx(
-//     st: nofx-step<a,b,c>,
-//     run-name: string,
-//     handle-fatal-error: (string)->a
-//   ): total (result<a,b,c>, logger/computation-log)
-//   with pretend-no-div
-//   run(st, run-name, handle-fatal-error, nofx-handler)
+// run a nofx-step - total
+pub fun run-nofx(
+    st: nofx-step<a,b,c,x>,
+    run-name: string,
+    handle-fatal-error: (string)->a
+  ): total (result<a,b,x>, logger/computation-log)
+  with pretend-no-div
+  run(st, run-name, handle-fatal-error, nofx-handler)
 
-// // resume a step
-// //
-// // similar to run, but the log will be followed and, for so long as it 
-// // matches the computation structure, steps will be "resumed" rather than executed - 
-// // i.e. the logged serialied result value will be returned instead of calling the step thunk. 
-// // as soon as the log deviates from the computation, or a failure or pause was logged,
-// // then step execution will pick up. even during resumption, bind stepmfns are always
-// // executed - but they are only allowed step-ctl effects
-// pub fun resume<a>(
-//     st: step<a,b,c,e>,
-//     run-name: string,
-//     log: logger/computation-log,
-//     handle-fatal-error: (string)->a,
-//     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-//   ): div (result<a,b,c>, logger/computation-log)
-//   run-resume(st, run-name, Just(log), handle-fatal-error, h)
+// resume a step
+//
+// similar to run, but the log will be followed and, for so long as it 
+// matches the computation structure, steps will be "resumed" rather than executed - 
+// i.e. the logged serialied result value will be returned instead of calling the step thunk. 
+// as soon as the log deviates from the computation, or a failure or pause was logged,
+// then step execution will pick up. even during resumption, bind stepmfns are always
+// executed - but they are only allowed step-ctl effects
+pub fun resume(
+    st: step<a,b,c,x,e>,
+    run-name: string,
+    log: logger/computation-log,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+  ): div (result<a,b,x>, logger/computation-log)
+  run-resume(st, run-name, Just(log), handle-fatal-error, h)
 
-// // resume a nofx-step - total
-// pub fun resume-nofx<a>(
-//     st: nofx-step<a,b,c>,
-//     run-name: string,
-//     log: logger/computation-log,
-//     handle-fatal-error: (string)->a
-//   ): total (result<a,b,c>, logger/computation-log)
-//   with pretend-no-div
-//   resume(st, run-name, log, handle-fatal-error, nofx-handler)
+// resume a nofx-step - total
+pub fun resume-nofx(
+    st: nofx-step<a,b,c,x>,
+    run-name: string,
+    log: logger/computation-log,
+    handle-fatal-error: (string)->a
+  ): total (result<a,b,x>, logger/computation-log)
+  with pretend-no-div
+  resume(st, run-name, log, handle-fatal-error, nofx-handler)
 
-// // run or resume, depending on whether a log is supplied
-// pub fun run-resume<a>(
-//     st: step<a,b,c,e>,
-//     run-name: string,
-//     maybe-log: maybe<logger/computation-log>,
-//     handle-fatal-error: (string)->a,
-//     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-//   ): div (result<a,b,c>, logger/computation-log)
-//   match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
-//     (outcome, log) -> 
-//       // convert the more detailed log-outcome to a Fail/Pause/Success result
-//       match outcome
-//         ReasonFail(a) -> (Fail(a), log)
-//         ReasonPause(b) -> (Pause(b), log)
-//         ReasonExec(c) -> (Success(c), log)
-//         ReasonResume(c) -> (Success(c), log)
+// run or resume, depending on whether a log is supplied
+pub fun run-resume(
+    st: step<a,b,c,x,e>,
+    run-name: string,
+    maybe-log: maybe<logger/computation-log>,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+  ): div (result<a,b,x>, logger/computation-log)
+  match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
+    (outcome, log) -> 
+      // convert the more detailed log-outcome to a Fail/Pause/Success result
+      match outcome
+        ReasonFail(a) -> (Fail(a), log)
+        ReasonPause(b) -> (Pause(b), log)
+        ReasonExec(x) -> (Success(x), log)
+        ReasonResume(x) -> (Success(x), log)
 
-// // a handler which does nothing but call its thunk
-// pub fun nofx-handler<a,b,c>(
-//     th: thunk<c,<logger,step-ctl<a,b>>>
-//   ): <logger,step-ctl<a,b>> c
-//   th()
+// a handler which does nothing but call its thunk
+pub fun nofx-handler(
+    th: thunk<x,<logger,step-ctl<a,b,c>>>
+  ): <logger,step-ctl<a,b,c>> x
+  th()
 
-// // handle all the effects! (apart from div)
-// fun handle-effects<a,b,c,e>(
-//     st: step<a,b,c,e>,
-//     run-name: string,
-//     maybe-log: maybe<logger/computation-log>,
-//     handle-fatal-error: (string)->a,
-//     h: (step-thunk<a,b,c,e>) -> <div,logger,step-ctl<a,b>> c
-//   ): div (outcome<a,b,c>, logger/computation-log)
-//   with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns)
-//   with h
-//   st.run'
+// handle all the effects! (apart from div)
+fun handle-effects(
+    st: step<a,b,c,x,e>,
+    run-name: string,
+    maybe-log: maybe<logger/computation-log>,
+    handle-fatal-error: (string)->a,
+    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+  ): div (outcome<a,b,x>, logger/computation-log)
+  with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns, st.c-json-fns)
+  with h
+  st.run'
 
 
 // ///////////////////////////////////////////////////////////////////////////////
