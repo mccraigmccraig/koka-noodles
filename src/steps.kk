@@ -425,61 +425,61 @@ fun handle-effects(
 // ///////////////////////////////////////////////////////////////////////////////
 
 
-// pub fun make-example-dsl-trivial(i: int): nofx-step<string,string,string>
-//   with x <- sbind("x") {i}
-//   step("result") {x.show}
+pub fun make-example-dsl-trivial(i: int): nofx-step<string,string,string,string>
+  with x <- sbind("x") {i}
+  step("result") {x.show}
 
-// pub fun example-dsl-trivial()
-//   val (_, log) = make-example-dsl-trivial(100).run-nofx("trivial", id)
-//   log.pretty.show.println
-//   val logjson = log.to-json
-//   logjson.pretty.show.println
-//   val log' = logjson.computation-log/from-json("")
-//   log'.pretty.show.println
+pub fun example-dsl-trivial()
+  val (_, log) = make-example-dsl-trivial(100).run-nofx("trivial", id)
+  log.pretty.show.println
+  val logjson = log.to-json
+  logjson.pretty.show.println
+  val log' = logjson.computation-log/from-json("")
+  log'.pretty.show.println
 
-// pub fun make-example-dsl-simple(i: int): nofx-step<string,string,string>
-//   with x <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {x + y}
-//   step("result") {(2 * z).show}
+pub fun make-example-dsl-simple(i: int): nofx-step<string,string,string,string>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {x + y}
+  step("result") {(2 * z).show}
 
-// pub fun make-example-dsl-simple-left(i: int): nofx-step<string,string,string>
-//   with x <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- step("z") {fail("foo") ; 1}.bind
-//   step("result") {(2 * z).show}
+pub fun make-example-dsl-simple-left(i: int): nofx-step<string,string,string,string>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- step("z") {fail("foo") ; 1}.bind
+  step("result") {(2 * z).show}
 
-// pub fun example-dsl-simple()
-//   val (_, log) = make-example-dsl-simple(100).run-nofx("simple",id)
-//   log.pretty.show.println
-//   val logjson = log.to-json
-//   logjson.println
-//   val log' = logjson.computation-log/from-json("")
-//   log'.pretty.show.println
+pub fun example-dsl-simple()
+  val (_, log) = make-example-dsl-simple(100).run-nofx("simple",id)
+  log.pretty.show.println
+  val logjson = log.to-json
+  logjson.println
+  val log' = logjson.computation-log/from-json("")
+  log'.pretty.show.println
 
-// // resuming a computation after fixing an error
-// pub fun example-dsl-simple-error-fix-rerun()
-//   val (_, log) = make-example-dsl-simple-left(100).run-nofx("will-error",id)
-//   val logj = log.to-json
-//   val (_, log2) = make-example-dsl-simple(100).resume("fixed",log, id, nofx-handler)
-//   val log2j = log2.to-json
+// resuming a computation after fixing an error
+pub fun example-dsl-simple-error-fix-rerun()
+  val (_, log) = make-example-dsl-simple-left(100).run-nofx("will-error",id)
+  val logj = log.to-json
+  val (_, log2) = make-example-dsl-simple(100).resume("fixed",log, id, nofx-handler)
+  val log2j = log2.to-json
 
-//   val log' = logj.computation-log/from-json("")
-//   log'.pretty.show.println
+  val log' = logj.computation-log/from-json("")
+  log'.pretty.show.println
 
-//   val log2' = log2j.computation-log/from-json("")
-//   log2'.pretty.show.println
+  val log2' = log2j.computation-log/from-json("")
+  log2'.pretty.show.println
 
-// pub fun make-example-dsl-simple-pause(i: int): nofx-step<string,string,string>
-//   with x <- sbind("x") {i}
-//   pause("pause")
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z")  {x + y}
-//   step("result") {pause("again") ; z.show ++ ":stuff"}
+pub fun make-example-dsl-simple-pause(i: int): nofx-step<string,string,string,string>
+  with x <- sbind("x") {i}
+  pause("pause")
+  with y <- sbind("y") {10}
+  with z <- sbind("z")  {x + y}
+  step("result") {pause("again") ; z.show ++ ":stuff"}
 
-// val rule = string/repeat("-", 20)
+val rule = string/repeat("-", 20)
 
-// // resuming a normal computation after it was paused
+// resuming a normal computation after it was paused
 // pub fun example-dsl-simple-pause-resume()
 //   val computation = make-example-dsl-simple-pause(100)
 //   val (paused-v, paused-log) = computation.run-nofx("run-1",id)
@@ -514,55 +514,55 @@ fun handle-effects(
 //   final-v.show.println
 //   rule.println
 
-// pub fun make-example-dsl-simple-fail(i: int): nofx-step<string,string,string>
-//   with x <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z")  {fail("boom") ; x.show ++ "/" ++ y.show}
-//   step("result") {z ++ ":" ++ z}
+pub fun make-example-dsl-simple-fail(i: int): nofx-step<string,string,string,string>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z")  {fail("boom") ; x.show ++ "/" ++ y.show}
+  step("result") {z ++ ":" ++ z}
 
-// pub fun make-example-dsl-simple-fix(i: int): nofx-step<string,string,string>
-//   with x <- sbind("x") {i}
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z")  {x.show ++ "/" ++ y.show}
-//   step("result") {z ++ ":" ++ z}
+pub fun make-example-dsl-simple-fix(i: int): nofx-step<string,string,string,string>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {10}
+  with z <- sbind("z")  {x.show ++ "/" ++ y.show}
+  step("result") {z ++ ":" ++ z}
 
-// pub fun example-dsl-simple-fail()
-//   val (_, log) = make-example-dsl-simple-fail(100).run-nofx("will-fail", id)
-//   log.pretty.show.println
+pub fun example-dsl-simple-fail()
+  val (_, log) = make-example-dsl-simple-fail(100).run-nofx("will-fail", id)
+  log.pretty.show.println
 
-// pub fun example-dsl-simple-resume()
-//   val (_, log) = make-example-dsl-simple-fail(100).run-nofx("simple", id)
-//   val (_, log2) = make-example-dsl-simple-fix(100).resume("rerun", log, id, nofx-handler)
-//   log.pretty.show.println
-//   log2.pretty.show.println
+pub fun example-dsl-simple-resume()
+  val (_, log) = make-example-dsl-simple-fail(100).run-nofx("simple", id)
+  val (_, log2) = make-example-dsl-simple-fix(100).resume("rerun", log, id, nofx-handler)
+  log.pretty.show.println
+  log2.pretty.show.println
 
-// pub fun make-example-dsl-random-effect(i: int): step<string,string,int,<random>>
-//   with x <- sbind("x") {i}
-//   with y <- sbind("y") {random-int()}
-//   with z <- sbind("z") {x + y}
-//   step("result") {2 * z}
+pub fun make-example-dsl-random-effect(i: int): step<string,string,string,int,<random>>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {random-int()}
+  with z <- sbind("z") {x + y}
+  step("result") {2 * z}
 
-// fun handle-random<a>(th: thunk<a,<random|e>>): e a
-//   with pseudo-random(100)
-//   th()
+fun handle-random<a>(th: thunk<a,<random|e>>): e a
+  with pseudo-random(100)
+  th()
 
-// pub fun example-dsl-random-effect()
-//   val (_, log) = make-example-dsl-random-effect(100).run("random-effect", id, handle-random)
-//   log.pretty.show.println  
+pub fun example-dsl-random-effect()
+  val (_, log) = make-example-dsl-random-effect(100).run("random-effect", id, handle-random)
+  log.pretty.show.println  
 
-// fun testdsl/stuff(i: int) : step<string,string,int,<random>>
-//   with x <- sbind("i"){i}
-//   with y <- sbind("rand"){random-int()}
-//   step("stuff") {x + y}
+fun testdsl/stuff(i: int) : step<string,string,string,int,<random>>
+  with x <- sbind("i"){i}
+  with y <- sbind("rand"){random-int()}
+  step("stuff") {x + y}
 
-// pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string,<random>>
+// pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string,string,<random>>
 //   with x <- sbind("x") {i}
 //   with y <- sbind("y") { if i>5 then [10,11] else [] }
 //   val aa' = match y
 //     [a, b] -> 
 //       with z <- sbind("z") {x + a + b}
 //       // TODO inference doesn't do a great job here...
-//       step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns) {fail("blagh") ; 10}
+//       step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=string/json-fns) {fail("blagh") ; 10}
 //     _ -> step("aa'-default") {0}
 //   with aa: int <- aa'.bind
 //   with bb: int <- testdsl/stuff(i).bind
@@ -575,40 +575,40 @@ fun handle-effects(
 
 
 
-// pub fun make-example-dsl-ints(i: int): step<string,int,int,e>
-//   with x <- sbind("x") {i}
-//   pause(x)
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {x + y}
-//   pause(z)
-//   // fail("foo")
-//   step("result") {(2 * z)}
+pub fun make-example-dsl-ints(i: int): step<string,int,string,int,e>
+  with x <- sbind("x") {i}
+  pause(x)
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {x + y}
+  pause(z)
+  // fail("foo")
+  step("result") {(2 * z)}
 
-// pub fun example-trifmap()
-//   val ints-step = make-example-dsl-ints(100)
+pub fun example-quadmap()
+  val ints-step = make-example-dsl-ints(100)
 
-//   // the int pause is converted to a string... resuming the computation shows that
-//   // the pause() effect resumption works through the trifmap so trifmap can be used
-//   // to compose steps with different error and pause types
-//   val strings-step = trimap(string/to-upper, int/show, int/show, ints-step)
+  // the int pause is converted to a string... resuming the computation shows that
+  // the pause() effect resumption works through the trifmap so trifmap can be used
+  // to compose steps with different error and pause types
+  val strings-step = quadmap(string/to-upper, int/show, id, int/show, ints-step)
 
-//   val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
-//   strings-log1.pretty.show.println
-//   rule.println
-//   strings-val1.show.println
-//   rule.println
+  val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
+  strings-log1.pretty.show.println
+  rule.println
+  strings-val1.show.println
+  rule.println
 
-//   val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
-//   strings-log2.pretty.show.println
-//   rule.println
-//   strings-val2.show.println
-//   rule.println
+  val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
+  strings-log2.pretty.show.println
+  rule.println
+  strings-val2.show.println
+  rule.println
 
-//   val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
-//   strings-log3.pretty.show.println
-//   rule.println
-//   strings-val3.show.println
-//   rule.println
+  val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
+  strings-log3.pretty.show.println
+  rule.println
+  strings-val3.show.println
+  rule.println
 
 
 // ///////////////////////////////////////////////////////////////////////////////
@@ -616,29 +616,29 @@ fun handle-effects(
 // ///////////////////////////////////////////////////////////////////////////////
 
 
-// pub fun result/show<a,b,c>(
-//     r: result<a,b,c>, 
-//     ?a/show: (a)->string, 
-//     ?b/show: (b)->string, 
-//     ?c/show: (c)->string
-//   ): string
-//   match r
-//     Fail(a) -> "Fail: " ++ a.?a/show
-//     Pause(b) -> "Pause: " ++ b.?b/show
-//     Success(c) -> "Success: " ++ c.?c/show
+pub fun result/show(
+    r: result<a,b,x>, 
+    ?a/show: (a)->string, 
+    ?b/show: (b)->string, 
+    ?x/show: (x)->string
+  ): string
+  match r
+    Fail(a) -> "Fail: " ++ a.?a/show
+    Pause(b) -> "Pause: " ++ b.?b/show
+    Success(x) -> "Success: " ++ x.?x/show
 
-// pub fun step/show(a: step<a,b,c,e>): string
-//   a.name ++ ": <unevaluated>"
-
-
-// ///////////////////////////////////////////////////////////////////////////////
-// //                                  serialize
-// ///////////////////////////////////////////////////////////////////////////////
+pub fun step/show(a: step<a,b,c,x,e>): string
+  a.name ++ ": <unevaluated>"
 
 
-// val listint/json-fns = Json-fns(
-//   fn(l: list<int>) -> JSList(l.map(int/to-json)),
-//   fn(j: json, path: string) -> match j
-//     JSList(l) -> l.map(fn (jj: json)->int/from-json(jj, "[]." ++ path))
-//     _ -> throw("listint/from-json: expected list")
-// )
+///////////////////////////////////////////////////////////////////////////////
+//                                  serialize
+///////////////////////////////////////////////////////////////////////////////
+
+
+val listint/json-fns = Json-fns(
+  fn(l: list<int>) -> JSList(l.map(int/to-json)),
+  fn(j: json, path: string) -> match j
+    JSList(l) -> l.map(fn (jj: json)->int/from-json(jj, "[]." ++ path))
+    _ -> throw("listint/from-json: expected list")
+)
