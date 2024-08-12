@@ -583,7 +583,7 @@ pub fun make-example-dsl-ints(i: int): step<string,int,string,int,e>
   with z <- sbind("z") {x + y}
   pause(z)
   // fail("foo")
-  step("result") {(2 * z)}
+  step("result") {log("woop") ; (2 * z)}
 
 pub fun example-quadmap()
   val ints-step = make-example-dsl-ints(100)
