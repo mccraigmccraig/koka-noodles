@@ -439,16 +439,16 @@ pub fun example-dsl-trivial()
   log'.pretty.show.println
 
 pub fun make-example-dsl-simple(i: int): nofx-step<string,string,string,string>
-  with x <- sbind("x") {i}
-  with y <- sbind("y") {10}
-  with z <- sbind("z") {x + y}
-  step("result") {(2 * z).show}
+  with x <- sbind("x") {log("making x") ;i}
+  with y <- sbind("y") {log("making y") ;10}
+  with z <- sbind("z") {log("making z") ; x + y}
+  step("result") {log("making r") ; (2 * z).show}
 
 pub fun make-example-dsl-simple-left(i: int): nofx-step<string,string,string,string>
-  with x <- sbind("x") {i}
-  with y <- sbind("y") {10}
+  with x <- sbind("x") {log("making x") ; i}
+  with y <- sbind("y") {log("making y") ; 10}
   with z <- step("z") {fail("foo") ; 1}.bind
-  step("result") {(2 * z).show}
+  step("result") {log("making r") ; (2 * z).show}
 
 pub fun example-dsl-simple()
   val (_, log) = make-example-dsl-simple(100).run-nofx("simple",id)
