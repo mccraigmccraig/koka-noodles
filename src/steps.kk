@@ -302,7 +302,7 @@ fun resume/run'(
     st: step<a,b,c,x,e>, 
     run-log: run-log
   ): <logger,step-ctl<a,b,c>|e> x
-  match run-log
+  match run-log // TODO json is wrong here
     Run-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     Run-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     _ -> st.thunk/run-core'

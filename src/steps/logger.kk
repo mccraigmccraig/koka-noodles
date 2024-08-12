@@ -131,7 +131,8 @@ pub fun log-collector<a,b,c,d>(
         state := state'(pause-ignores=state.pause-ignores - 1)
         ReasonPause(b)
     fun log(c)
-      // TODO: implement
+      val state' = state/add-thunk-log(state, {c-json-fns.to-json()(c)})
+      state := state'
       ()
 
   // the handler implementation fns are all total, but can return errors via either. 
@@ -170,6 +171,15 @@ fun make-logger-state(previous-log: maybe<computation-log>): logger-state
   match previous-log
     Just(pl) -> Logger-state(Just(make-log-cursor(pl)), pl.pauses, [], [])
     _ -> Logger-state(Nothing, 0, [], [])
+
+fun state/add-thunk-log(state: logger-state, c-src: json-src): total logger-state 
+  match state.open-steps
+    [] -> 
+      state
+    Cons(first, rest) ->
+      val step-log = ThunkLog(c-src)
+      val first' = first(children = Cons(step-log, first.children))
+      state(open-steps=(Cons(first', rest)))
 
 // propagate an outcome through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree. Add a
