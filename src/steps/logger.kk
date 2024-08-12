@@ -393,8 +393,8 @@ pub fun step-log/pretty'(log: step-log): div doc
       "run: ".text |.| rl.name.text |.|  
       log.step-log-children/pretty |--|
       "outcome: ".text |.| rl.outcome.show.text
-    ThunkLog(_c) -> 
-      "ThunkLog".text
+    ThunkLog(c-src) -> 
+      "log:".text |.| c-src().show.text
 
 pub fun step-log/pretty(log: step-log): total doc
   // pretend-decreasing doesn't seem to help with mutually-recursive fns

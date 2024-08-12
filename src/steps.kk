@@ -427,7 +427,8 @@ fun handle-effects(
 
 pub fun make-example-dsl-trivial(i: int): nofx-step<string,string,string,string>
   with x <- sbind("x") {i}
-  step("result") {x.show}
+  log("hi")
+  step("result") {log("there") ; x.show}
 
 pub fun example-dsl-trivial()
   val (_, log) = make-example-dsl-trivial(100).run-nofx("trivial", id)
