@@ -302,28 +302,28 @@ fun resume/run'(
     st: step<a,b,c,x,e>, 
     run-log: run-log
   ): <logger,step-ctl<a,b,c>|e> x
-  match run-log // TODO json is wrong here
-    Run-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
-    Run-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
+  match run-log
+    Run-log(_,_,ReasonExec(x-jsrc)) -> resume/resume-core'(st, x-jsrc())
+    Run-log(_,_,ReasonResume(x-jsrc)) -> resume/resume-core'(st, x-jsrc())
     _ -> st.thunk/run-core'
 
 fun resume/resume-core'(  
     st: step<a,b,c,x,e>, 
-    d-json: json
+    x-json: json
   ): <logger,step-ctl<a,b,c>|e> x
-  match parse-json(d-json, "", st.x-json-fns.from-json)
+  match parse-json(x-json, "", st.x-json-fns.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
-      logger/log-leave(ReasonResume({d-json}))
+      logger/log-leave(ReasonResume({x-json}))
       rr
     Left(_err) -> st.thunk/run-core'
 
 fun thunk/run-core'(
     st: step<a,b,c,x,e>
   ): <logger,step-ctl<a,b,c>|e> x
-  val r = st.thunk/run''
-  logger/log-leave(ReasonExec({st.x-json-fns.to-json()(r)}))
-  r
+  val x = st.thunk/run''
+  logger/log-leave(ReasonExec({st.x-json-fns.to-json()(x)}))
+  x
 
 // call a thunk
 pub fun thunk/run''(st: step<a,b,c,x,e>): <logger,step-ctl<a,b,c>|e> x
