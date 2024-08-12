@@ -300,11 +300,11 @@ pub fun run-nofx'(st: nofx-step<a,b,c,x>): <logger,step-ctl<a,b,c>> x
 
 fun resume/run'(
     st: step<a,b,c,x,e>, 
-    step-log: step-log
+    run-log: run-log
   ): <logger,step-ctl<a,b,c>|e> x
-  match step-log
-    Step-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
-    Step-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
+  match run-log
+    Run-log(_,_,ReasonExec(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
+    Run-log(_,_,ReasonResume(c-jsrc)) -> resume/resume-core'(st, c-jsrc())
     _ -> st.thunk/run-core'
 
 fun resume/resume-core'(  
