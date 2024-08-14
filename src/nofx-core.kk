@@ -14,14 +14,14 @@ import steps
 // for the steps, it seems awfully constricting - but - it's just about
 // getting the input and processing the output for the core, so maybe
 // it's good
-pub struct nofx-core<a,b,w,x,y,z,e>
-  input: stepmfn-json<a,b,w,x,e>
-  core: nofx-stepmfn-json<a,b,x,y>
-  output: stepmfn-json<a,b,y,z,e>
+pub struct nofx-core<a,b,c,w,x,y,z,e>
+  input: stepmfn-json<a,b,c,w,x,e>
+  core: nofx-stepmfn-json<a,b,c,x,y>
+  output: stepmfn-json<a,b,c,y,z,e>
 
 // pipe the input, pure, output computations from a div-core into 
 // a composite stepmfn-json
-pub fun pipe(fc: nofx-core<a,b,w,x,y,z,e>): total stepmfn-json<a,b,w,z,e>
+pub fun pipe(fc: nofx-core<a,b,c,w,x,y,z,e>): total stepmfn-json<a,b,c,w,z,e>
   fc.input.pipe-nofx-stepmfn-json(fc.core).pipe-stepmfn-json(fc.output)
 
 // // controls the input-gathering and output-performing phases - 
