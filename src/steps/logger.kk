@@ -5,6 +5,7 @@ import std/core/undiv
 import std/core/vector
 import std/data/json
 import std/pretty/pprint
+import steps/types
 
 // a thunk for step values - we don't always need to 
 // serialize or deserialise all values, e.g. we might have an
@@ -53,20 +54,7 @@ pub effect logger
   // the logger can't distinguish Exec from Resume (split this into -leave-exec and -leave-resume ?)
   fun log-leave(outcome: log-outcome) : ()
 
-// consumer control effect - immediately pause or fail a computation.
-// 
-// There's no short-circuit returning of computation values - because 
-// that would mean parameterising step-ctl on the value type, and 
-// so would require rebinding handlers at every bind, and need
-// (c)->d functions we don't have 
-pub effect step-ctl<a,b,c>
-  // Immediately fail the computation with a value - equivalent
-  // to returning a Left(a) from a thunk
-  ctl fail(a: a): ()
-  // Immediately pause the computation with a value
-  ctl pause(b: b): ()
-  // log some data
-  fun log(data: c): ()
+
 
 // step-cursor only needs to follow the run-logs - thunk-logs can be ignored
 value struct step-cursor

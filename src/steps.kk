@@ -6,6 +6,7 @@ import std/data/json
 import std/num/random
 import std/pretty/pprint
 import steps/logger
+import steps/types
 
 ///////////////////////////////////////////////////////////////////////////////
 //
