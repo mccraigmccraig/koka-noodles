@@ -24,19 +24,23 @@ pub fun jsond/parse-json<a>(j: json, path: string, p: (j: json, path: string) ->
     Error(e) -> Left(e.message)
 
 // matches the run-step-result
-pub value type outcome<a,b,c>
+pub value type outcome<a,b,x>
   ReasonFail(a: a)
   ReasonPause(b: b)
-  ReasonExec(c: c)
-  ReasonResume(c: c)
+  ReasonExec(x: x)
+  ReasonResume(x: x)
 
 pub alias log-outcome = outcome<json-src, json-src, json-src>
 
-pub struct step-log
+pub type step-log
+  RunLog(rl: run-log)
+  ThunkLog(c-src: json-src)
+
+pub struct run-log
   name: string
   children: list<step-log>
   outcome: log-outcome
-
+  
 pub struct computation-log
   name: string
   pauses: int
@@ -44,7 +48,7 @@ pub struct computation-log
 
 pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
-  fun log-enter(name: string) : maybe<step-log>
+  fun log-enter(name: string) : maybe<run-log>
   // close a step-log - must provide a log-outcome param because
   // the logger can't distinguish Exec from Resume (split this into -leave-exec and -leave-resume ?)
   fun log-leave(outcome: log-outcome) : ()
@@ -55,22 +59,18 @@ pub effect logger
 // that would mean parameterising step-ctl on the value type, and 
 // so would require rebinding handlers at every bind, and need
 // (c)->d functions we don't have 
-pub effect step-ctl<a,b>
+pub effect step-ctl<a,b,c>
   // Immediately fail the computation with a value - equivalent
   // to returning a Left(a) from a thunk
   ctl fail(a: a): ()
   // Immediately pause the computation with a value
   ctl pause(b: b): ()
-  // TODO add a user structured-logging effect (make it (level,message) if you want!) - 
-  // data will be serializable
-  // and added to the computation log (and ignored during resume)
-  // this isn't trivial - the step-log will now need different branches for
-  // computation-log and data-log
-  // // log some data
-  // fun log(data: c): ()
+  // log some data
+  fun log(data: c): ()
 
+// step-cursor only needs to follow the run-logs - thunk-logs can be ignored
 value struct step-cursor
-  steps: vector<step-log>
+  steps: vector<run-log>
   next-idx: int
 
 // enables navigation through a computation-log tree, 
@@ -94,14 +94,15 @@ struct logger-state
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect
 // TODO currently using exn internally for fatal programming errors - is that ok?
-pub fun log-collector<a,b,c>(
+pub fun log-collector<a,b,c,d>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
     a-json-fns: json-fns<a>,
     b-json-fns: json-fns<b>,
-    action: () -> <div,logger,step-ctl<a,b>> c
-  ) : div (outcome<a,b,c>, computation-log)
+    c-json-fns: json-fns<c>,
+    action: () -> <div,logger,step-ctl<a,b,c>> d
+  ) : div (outcome<a,b,d>, computation-log)
 
   var state := make-logger-state(previous-log)
 
@@ -129,6 +130,10 @@ pub fun log-collector<a,b,c>(
         val state' = state/close-open-steps(state, ReasonPause({b-json-fns.to-json()(b)}), handle-fatal-error, a-json-fns)
         state := state'(pause-ignores=state.pause-ignores - 1)
         ReasonPause(b)
+    fun log(c)
+      val state' = state/add-thunk-log(state, {c-json-fns.to-json()(c)})
+      state := state'
+      ()
 
   // the handler implementation fns are all total, but can return errors via either. 
   // Such errors will be thrown to the throw-exn handler, to immediately terminate 
@@ -151,15 +156,30 @@ pub fun log-collector<a,b,c>(
 // state helpers
 
 fun make-step-cursor(sls: list<step-log>): step-cursor
-  Step-cursor(steps = vector(sls), next-idx = 0)
+  // filter out ThunkLogs here - they aren't needed for following the computation
+  val run-logs = sls.filter-map(fn (el) ->
+    match el 
+      RunLog(rl) -> Just(rl)
+      _ -> Nothing
+  )
+  Step-cursor(steps = vector(run-logs), next-idx = 0)
 
 fun make-log-cursor(log: computation-log): log-cursor
   Log-cursor(step-cursors = Cons(make-step-cursor(log.step-logs), Nil))
 
-fun make-logger-state(previous-log: maybe<computation-log>)
+fun make-logger-state(previous-log: maybe<computation-log>): logger-state
   match previous-log
     Just(pl) -> Logger-state(Just(make-log-cursor(pl)), pl.pauses, [], [])
     _ -> Logger-state(Nothing, 0, [], [])
+
+fun state/add-thunk-log(state: logger-state, c-src: json-src): total logger-state 
+  match state.open-steps
+    [] -> 
+      state
+    Cons(first, rest) ->
+      val step-log = ThunkLog(c-src)
+      val first' = first(children = Cons(step-log, first.children))
+      state(open-steps=(Cons(first', rest)))
 
 // propagate an outcome through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree. Add a
@@ -167,22 +187,22 @@ fun make-logger-state(previous-log: maybe<computation-log>)
 fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-fns: json-fns<a>): total logger-state
   match state.open-steps
     [] -> 
-      val fatal-step = Step-Log("error", [], ReasonFail({a-json-fns.to-json()("no open steps".handle-fatal-error)}))
+      val fatal-step = RunLog(Run-Log("error", [], ReasonFail({a-json-fns.to-json()("no open steps".handle-fatal-error)})))
       val completed-steps' = Cons(fatal-step, state.completed-steps)
       state(completed-steps=completed-steps')
     Cons(first, Nil) -> 
-      val step-log = Step-Log(first.name, first.children.reverse, outcome)
+      val step-log = RunLog(Run-Log(first.name, first.children.reverse, outcome))
       val completed-steps' = Cons(step-log, state.completed-steps)
       state(completed-steps=completed-steps', open-steps=[])
     Cons(first, Cons(next, rest)) -> 
-      val step-log = Step-Log(first.name, first.children.reverse, outcome)
+      val step-log = RunLog(Run-Log(first.name, first.children.reverse, outcome))
       val next' = next(children = Cons(step-log, next.children))
       state/close-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), outcome, handle-fatal-error, a-json-fns)
 
 // if we are following a log and have a step to enter, update the log cursor
 // and return the logged step. either way, create a new `open-step` to 
 // record the outcome
-fun state/log-enter(state: logger-state, step-name: string): total (logger-state, maybe<step-log>)
+fun state/log-enter(state: logger-state, step-name: string): total (logger-state, maybe<run-log>)
   // follow the resumed log, if it matches
   val state-resumed-step = match state.resume-cursor
     Just(lc) -> 
@@ -221,10 +241,10 @@ fun state/log-leave(state: logger-state, outcome: log-outcome): total either<str
   // then update the completed-steps / open-steps
   val error-completed-steps-open-steps = match state.open-steps
     Cons(first, Nil) -> 
-      Right((Cons(Step-Log(first.name, first.children.reverse, outcome), state.completed-steps),
+      Right((Cons(RunLog(Run-Log(first.name, first.children.reverse, outcome)), state.completed-steps),
             []))
     Cons(first, Cons(next, rest)) -> 
-      val step-log = Step-Log(first.name, first.children.reverse, outcome)
+      val step-log = RunLog(Run-Log(first.name, first.children.reverse, outcome))
       val next' = next(children = Cons(step-log, next.children))
       val open-steps' = Cons(next', rest)
       Right((state.completed-steps, open-steps'))
@@ -297,22 +317,41 @@ pub fun log-outcome/from-json(j: json, path: string): exn log-outcome
               _ -> throw("Expecting log-outcome, got " ++ l.show, info=JsonDeserializationException(JSObj(l), path))
     _ -> throw("Expecting log-outcome, got " ++ j.show, info=JsonDeserializationException(j, path))
 
-pub fun step-log/show(a: step-log): total string
-  with pretend-no-div
-  a.step-log/pretty.show
-pub fun step-log/to-json(sl: step-log): total json
-  JSObj([("name", JSString(sl.name)),
-         ("children", JSList(sl.children.map(fn(csl) csl.pretend-decreasing.to-json))), 
-         ("outcome", sl.outcome.log-outcome/to-json)])
-pub fun step-log/from-json(j: json, path: string): pure step-log
+pub fun run-log/to-json'(rl: run-log): div json
+  JSObj([("name", JSString(rl.name)),
+         ("children", JSList(rl.children.map(fn(csl) csl.to-json'))), 
+         ("outcome", rl.outcome.log-outcome/to-json)])
+pub fun run-log/from-json(j: json, path: string): pure run-log 
   match j
     JSObj(l) -> 
-      Step-log(
+      Run-Log(
         l.from-json("name", path),
         l.from-json("children", path),
         l.from-json("outcome", path)
       )
     _ -> throw("Expecting step-log, got " ++ j.show, info=JsonDeserializationException(j, path))
+
+
+pub fun step-log/show(a: step-log): total string
+  with pretend-no-div
+  a.step-log/pretty.show
+pub fun step-log/to-json'(sl: step-log): div json
+  match sl 
+    RunLog(rl) -> 
+      JSObj([("RunLog", run-log/to-json'(rl))])
+    ThunkLog(c-src) -> 
+      JSObj([("ThunkLog", c-src())])      
+pub fun step-log/to-json(sl: step-log): total json
+  with pretend-no-div 
+  step-log/to-json'(sl)
+pub fun step-log/from-json(j: json, path: string): pure step-log
+  match j
+    JSObj(l) -> 
+      match l.lookup(fn (k) k=="ThunkLog")
+        Just(tl) -> ThunkLog(json-src/from-json(tl, path ++ "->ThunkLog"))
+        _ -> match l.lookup(fn (k) k=="RunLog")
+          Just(rl) -> rl.run-log/from-json(path ++ "->RunLog").RunLog
+          _ -> throw("Expecting run-log, got " ++ j.show, info=JsonDeserializationException(j, path))
 
 pub fun computation-log/show(a: computation-log): total string
   with pretend-no-div
@@ -339,20 +378,29 @@ pub fun computation-log/from-json(j: json, path: string): pure computation-log
 //   (pad.text |.| d).hang(i * 2)
 
 pub fun step-log-children/pretty(log: step-log): div doc
-  if length(log.children)>0 then 
-    linebreak |.| "children:".text |--| 
-    vcat(log.children.map(fn (sl) sl.step-log/pretty').punctuate(linebreak |.| "--".text)).indent(2)
-  else "".text
+  match log 
+    RunLog(rl) ->
+      if length(rl.children)>0 then 
+        linebreak |.| "children:".text |--| 
+        vcat(rl.children.map(fn (sl) sl.step-log/pretty').punctuate(linebreak |.| "--".text)).indent(2)
+      else "".text
+    ThunkLog(_c) ->
+      "".text
 
 pub fun step-log/pretty'(log: step-log): div doc
-  "run: ".text |.| log.name.text |.|  
-  log.step-log-children/pretty |--|
-  "outcome: ".text |.| log.outcome.show.text
+  match log
+    RunLog(rl) ->
+      "run: ".text |.| rl.name.text |.|  
+      log.step-log-children/pretty |--|
+      "outcome: ".text |.| rl.outcome.show.text
+    ThunkLog(c-src) -> 
+      "log:".text |.| c-src().show.text
 
 pub fun step-log/pretty(log: step-log): total doc
   // pretend-decreasing doesn't seem to help with mutually-recursive fns
   with pretend-no-div
   step-log/pretty'(log)
+
 
 pub fun computation-log/pretty(log: computation-log): total doc
   "computation: ".text |.| log.name.text |--|
@@ -372,7 +420,7 @@ pub fun stuff(i: int)
   0
 
 // note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): <logger,step-ctl<string,string>> int
+pub fun thingz(i: int): <logger,step-ctl<string,string,string>> int
   log-enter("thingz")
   val o = i * i
   // throw("oops: " ++ o.show)
@@ -384,6 +432,7 @@ pub fun collect-test-logs()
     Nothing, 
     "test", 
     fn (s: string) -> s,
+    string/json-fns,
     string/json-fns,
     string/json-fns
     )
@@ -401,6 +450,7 @@ pub fun collect-logs-with-error()
     Nothing, 
     "test-with-error",
     fn (s: string) -> s,
+    string/json-fns,
     string/json-fns,
     string/json-fns
   )
