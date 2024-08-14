@@ -27,8 +27,8 @@ import steps/logger
 // - the computation-log captures the execution structure of a step-thunk, 
 //     (which may be composed of further step-thunks), and records the 
 //     results of thunk calls. The log can be used to inspect or resume a 
-//     computation after an error or pause (or success for that matter)
-// - when resuming thunks which logged a success value will short-circuit 
+//     computation after an error, pause, or success
+// - when resuming, thunks which logged a success value will short-circuit 
 //     with their recorded result. Bind thunks are always run, even when 
 //     resuming, but they only admit a step-ctl<a,b,c> effect
 // - the step-ctl<a,b,c> effect, available to all thunks, provides 3 
@@ -50,7 +50,7 @@ pub value type result<a,b,x>
 
 alias thunk<a,e> = () -> e a
 
-// the logger and step-ctl<a,b> effects will be handled by run, while 
+// the logger and step-ctl<a,b,c> effects will be handled by run, while 
 // any polymorphic effect must be handled by the handler given to run
 // 
 // NB: step-thunk doesn't strictly need the logger effect, but steps 
@@ -73,8 +73,8 @@ pub struct step<a,b,c,x,e>
 pub alias nofx-step<a,b,c,x> = step<a,b,c,x,<>>
 
 // monadic fns of step values - stepmfns are allowed the step-ctl effect,
-// so can pause or fail based on previous step results, but no other effects are
-// allowed. this guarantees that resumption plays nicely
+// so can pause, fail, and log based on previous step results, but no other
+// effects are allowed. this guarantees that resumption plays nicely
 pub alias stepmfn<a,b,c,x,y,e> = (x: x) -> step-ctl<a,b,c> step<a,b,c,y,e>
 pub alias nofx-stepmfn<a,b,c,x,y> = stepmfn<a,b,c,x,y,<>>
 
