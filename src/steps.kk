@@ -22,23 +22,23 @@ import steps/logger
 //     than div, or, if the step is a nofx-step<a,b,c,x>, then it's total
 // - the result<a,b,x> has a success channel of x, a short-circuit error 
 //     channel of a, short-circuit pause channel of b, and caller-defined logs 
-//     of c values are included in the computation-log. a,b,c,x and the 
-//     computation-log itself are all de/serializable
+//     of (lazily serialized) c values are included in the computation-log.
+//     a,b,c,x and the computation-log itself are all de/serializable
 // - the computation-log captures the execution structure of a step-thunk, 
 //     (which may be composed of further step-thunks), and records the 
-//     results of thunk calls. The log can be used to inspect or resume a 
-//     computation after an error, pause, or success
+//     (lazily serialized) results of thunk calls. The log can be used to 
+//     inspect or resume a computation after an error, pause, or success
 // - when resuming, thunks which logged a success value will short-circuit 
 //     with their recorded result. Bind thunks are always run, even when 
 //     resuming, but they only admit a step-ctl<a,b,c> effect
 // - the step-ctl<a,b,c> effect, available to all thunks, provides 3 
 //     operations:
-//   - fail: immediately returns a value to the error channel of the 
+//   - fail<a>: immediately returns a value to the error channel of the 
 //     current (in dynamic context) run
-//   - pause: immediately returns a value to the pause channel of the 
+//   - pause<b>: immediately returns a value to the pause channel of the 
 //     current run, but will be ignored the next time the computation 
 //     is resumed
-//   - log: log a value of type c to the computation-log
+//   - log<c>: log a value of type c to the computation-log
 ///////////////////////////////////////////////////////////////////////////////
 
 
