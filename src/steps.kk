@@ -7,16 +7,38 @@ import std/num/random
 import std/pretty/pprint
 import steps/logger
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// introspectable, serializable, and resumable computations
+// 
+///////////////////////////////////////////////////////////////////////////////
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                    types
 //
-// - steps are thunks, with typed short-circuit error and pause channels 
-// - success, error and pause values are serializable
-// - running a step returns the result and a structured, serializable,
-//   computation-log which can be used to:
-//   - examine the values produced by steps
-//   - resume the computation after a pause or failure
+// - steps are named thunks - step-thunk<a,b,c,x,e>. run ning a step<a,b,c,x,e>
+//     returns a result<a,b,x> and a computation-log, with no effects other 
+//     than div, or, if the step is a nofx-step<a,b,c,x>, then it's total
+// - the result<a,b,x> has a success channel of x, a short-circuit error 
+//     channel of a, short-circuit pause channel of b, and caller-defined logs 
+//     of c values are included in the computation-log. a,b,c,x and the 
+//     computation-log itself are all de/serializable
+// - the computation-log captures the execution structure of a step-thunk, 
+//     (which may be composed of further step-thunks), and records the 
+//     results of thunk calls. The log can be used to inspect or resume a 
+//     computation after an error or pause (or success for that matter)
+// - when resuming thunks which logged a success value will short-circuit 
+//     with their recorded result. Bind thunks are always run, even when 
+//     resuming, but they only admit a step-ctl<a,b,c> effect
+// - the step-ctl<a,b,c> effect, available to all thunks, provides 3 
+//     operations:
+//   - fail: immediately returns a value to the error channel of the 
+//     current (in dynamic context) run
+//   - pause: immediately returns a value to the pause channel of the 
+//     current run, but will be ignored the next time the computation 
+//     is resumed
+//   - log: log a value of type c to the computation-log
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -439,7 +461,8 @@ pub fun example-dsl-trivial()
   log'.pretty.show.println
 
 pub fun make-example-dsl-simple(i: int): nofx-step<string,string,string,string>
-  with x <- sbind("x") {log("making x") ;i}
+  with x <- sbind("x") {log("making x") ;log("moar") ;i}
+  log("in the binds")
   with y <- sbind("y") {log("making y") ;10}
   with z <- sbind("z") {log("making z") ; x + y}
   step("result") {log("making r") ; (2 * z).show}
@@ -472,11 +495,11 @@ pub fun example-dsl-simple-error-fix-rerun()
   log2'.pretty.show.println
 
 pub fun make-example-dsl-simple-pause(i: int): nofx-step<string,string,string,string>
-  with x <- sbind("x") {i}
+  with x <- sbind("x") {log("making x"); i}
   pause("pause")
   with y <- sbind("y") {10}
   with z <- sbind("z")  {x + y}
-  step("result") {pause("again") ; z.show ++ ":stuff"}
+  step("result") {log("pre-pause"); pause("again"); log("post-pause"); z.show ++ ":stuff"}
 
 val rule = string/repeat("-", 20)
 
