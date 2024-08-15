@@ -7,22 +7,18 @@ import std/data/json
 import std/pretty/pprint
 import steps/types
 
-// a thunk for step values - we don't always need to 
-// serialize or deserialise all values, e.g. we might have an
-// "only log final values if there are no errors, but 
-//  log all values if there are errors" policy
+
+///////////////////////////////////////////////////////////////////////////////
+//                                  public types
+///////////////////////////////////////////////////////////////////////////////
+
+
+// delayed serialization for step values
 pub alias json-src = () -> total json
 
 pub value struct json-fns<a>
   to-json: (a) -> total json
   from-json: (json: json, path: string) -> pure a
-
-// parse json, converting exn into an either
-pub fun jsond/parse-json<a>(j: json, path: string, p: (j: json, path: string) -> pure a): either<string,a>
-  with pretend-no-div
-  match try({p(j, path)})
-    Ok(a) -> Right(a)
-    Error(e) -> Left(e.message)
 
 // matches the run-step-result
 pub value type outcome<a,b,x>
@@ -33,6 +29,8 @@ pub value type outcome<a,b,x>
 
 pub alias log-outcome = outcome<json-src, json-src, json-src>
 
+// RunLog is built by the logger effect, ThunkLog by
+// the step-ctl.log operation
 pub type step-log
   RunLog(rl: run-log)
   ThunkLog(c-src: json-src)
@@ -47,6 +45,7 @@ pub struct computation-log
   pauses: int
   step-logs: list<step-log>
 
+// capture execution structure of a computation
 pub effect logger
   // open a step-log. If following a log, returns the corresponding step-log
   fun log-enter(name: string) : maybe<run-log>
@@ -55,8 +54,12 @@ pub effect logger
   fun log-leave(outcome: log-outcome) : ()
 
 
+///////////////////////////////////////////////////////////////////////////////
+//                                 private types
+///////////////////////////////////////////////////////////////////////////////
 
-// step-cursor only needs to follow the run-logs - thunk-logs can be ignored
+
+// follows the log as a step is run
 value struct step-cursor
   steps: vector<run-log>
   next-idx: int
@@ -67,7 +70,7 @@ value struct step-cursor
 value struct log-cursor
   step-cursors: list<step-cursor>
 
-// accumulating a single step
+// accumulating a new step-log
 value struct open-step
   name: string
   children: list<step-log>
@@ -78,6 +81,12 @@ struct logger-state
   pause-ignores: int
   completed-steps: list<step-log>
   open-steps: list<open-step>
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                      logger / step-ctl effect handlers
+///////////////////////////////////////////////////////////////////////////////
+
 
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect
@@ -141,7 +150,11 @@ pub fun log-collector<a,b,c,d>(
 
   ReasonExec(action())
 
-// state helpers
+
+///////////////////////////////////////////////////////////////////////////////
+//                                 state helpers
+///////////////////////////////////////////////////////////////////////////////
+
 
 fun make-step-cursor(sls: list<step-log>): step-cursor
   // filter out ThunkLogs here - they aren't needed for following the computation
@@ -172,6 +185,9 @@ fun state/add-thunk-log(state: logger-state, c-src: json-src): total logger-stat
 // propagate an outcome through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree. Add a
 // fatal error if there are no open-steps
+// TODO this is broken when effect type parameters are mapped with quadmap - 
+// although the breakage doesn't affect anything, other than setting observably
+// wrong result types
 fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-fns: json-fns<a>): total logger-state
   match state.open-steps
     [] -> 
@@ -243,7 +259,18 @@ fun state/log-leave(state: logger-state, outcome: log-outcome): total either<str
       Right(state'(completed-steps=completed-steps', open-steps=open-steps'))
     Left(err) -> Left(err)
 
-// printing and JSON serialisation
+
+///////////////////////////////////////////////////////////////////////////////
+//                       printing and JSON serialisation
+///////////////////////////////////////////////////////////////////////////////
+
+
+// parse json, converting exn into an either
+pub fun jsond/parse-json<a>(j: json, path: string, p: (j: json, path: string) -> pure a): either<string,a>
+  with pretend-no-div
+  match try({p(j, path)})
+    Ok(a) -> Right(a)
+    Error(e) -> Left(e.message)
 
 pub fun json-src/show(a: json-src): total string
   a().show
@@ -398,7 +425,11 @@ pub fun computation-log/pretty(log: computation-log): total doc
 pub val string/json-fns = Json-fns(string/to-json, string/from-json)
 pub val int/json-fns = Json-fns(int/to-json, int/from-json)
 
-// test/example
+
+///////////////////////////////////////////////////////////////////////////////
+//                       examples
+///////////////////////////////////////////////////////////////////////////////
+
 
 pub fun stuff(i: int)
   log-enter("stuff")
