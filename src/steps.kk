@@ -512,7 +512,7 @@ pub fun example-dsl-simple-pause-resume()
 
   paused-log.pretty.show.println
   rule.println
-  paused-logj.show.println
+  paused-logj.pretty.show.println
   rule.println
   paused-v.show.println 
   rule.println
@@ -587,7 +587,7 @@ pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string
     [a, b] -> 
       with z <- sbind("z") {x + a + b}
       // TODO inference doesn't do a great job here...
-      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=string/json-fns) {fail("blagh") ; 10}
+      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=string/json-fns) {10}
     _ -> step("aa'-default") {0}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
@@ -613,8 +613,8 @@ pub fun example-quadmap()
   val ints-step = make-example-dsl-ints(100)
 
   // the int pause is converted to a string... resuming the computation shows that
-  // the pause() effect resumption works through the trifmap so trifmap can be used
-  // to compose steps with different error and pause types
+  // the pause() effect resumption works through the quadmap so quadmap can be used
+  // to compose steps with different error, pause and log types
   val strings-step = quadmap(string/to-upper, int/show, id, int/show, ints-step)
 
   val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
