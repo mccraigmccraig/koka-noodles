@@ -6,12 +6,13 @@ module types
 // There's no short-circuit returning of computation values - because 
 // that would mean parameterising step-ctl on the value type, and 
 // so would require rebinding handlers at every bind, and need
-// (c)->d functions we don't have 
-pub effect step-ctl<a,b,c>
-  // Immediately fail the computation with a value - equivalent
+// (x)->y functions we don't have 
+pub effect step-ctl<a,b,c,d>
+  // Immediately fail the computation with a value - similar
   // to returning a Left(a) from a thunk
   ctl fail(a: a): ()
-  // Immediately pause the computation with a value
-  ctl pause(b: b): ()
-  // log some data
-  fun log(data: c): ()
+  // Immediately pause the computation with a value - resuming with 
+  // a value from outside
+  ctl pause(b: b): c
+  // log some data in the structured computation log
+  fun log(data: d): ()

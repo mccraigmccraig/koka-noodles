@@ -37,12 +37,14 @@ pub type step-log
 
 pub struct run-log
   name: string
+  pauses: int // # of pauses detected inside this step
   children: list<step-log>
   outcome: log-outcome
   
 pub struct computation-log
   name: string
-  pauses: int
+  pauses: int // total # of pauses
+  resume-values: list<json-src>
   step-logs: list<step-log>
 
 // capture execution structure of a computation
@@ -91,24 +93,30 @@ struct logger-state
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect
 // TODO currently using exn internally for fatal programming errors - is that ok?
-pub fun log-collector<a,b,c,d>(
+pub fun log-collector<a,b,c,d,x>(
     previous-log: maybe<computation-log>, 
     computation-name: string, 
     handle-fatal-error: (string) -> a,
     a-json-fns: json-fns<a>,
     b-json-fns: json-fns<b>,
     c-json-fns: json-fns<c>,
-    action: () -> <div,logger,step-ctl<a,b,c>> d
-  ) : div (outcome<a,b,d>, computation-log)
+    d-json-fns: json-fns<d>,
+    action: () -> <div,logger,step-ctl<a,b,c,d>> x
+  ) : div (outcome<a,b,x>, computation-log)
 
   var state := make-logger-state(previous-log)
 
-  with return(v) 
-    val pauses = match previous-log
-      Just(pl) -> pl.pauses - state.pause-ignores
-      _ -> 0 - state.pause-ignores
+  // we ignore as many pauses as the previous run had
+  val max-pause-ignores = match previous-log
+    Just(pl) -> pl.pauses
+    _ -> 0
 
-    (v, Computation-Log(computation-name, pauses, state.completed-steps.reverse))
+  with return(v) 
+    val (pauses, resume-values) = match previous-log
+      Just(pl) -> (max(pl.pauses, state.pause-ignores), pl.resume-values)
+      _ -> (state.pause-ignores, [])
+
+    (v, Computation-Log(computation-name, pauses, resume-values, state.completed-steps.reverse))
 
   with handler
     final ctl throw-exn(ex)
@@ -120,15 +128,21 @@ pub fun log-collector<a,b,c,d>(
       state := state/close-open-steps(state, ReasonFail({a-json-fns.to-json()(a)}), handle-fatal-error, a-json-fns)
       ReasonFail(a)
     ctl pause(b)
-      if state.pause-ignores >= 1 then
-        state := state(pause-ignores=state.pause-ignores - 1)
-        resume(())
+      if state.pause-ignores < max-pause-ignores then
+        // it's a pause from a previous run - return the recorded resume value
+        val resume-val = match previous-log
+          Just(pl) -> match @index(pl.resume-values, state.pause-ignores)
+            Just(vjs) -> c-json-fns.from-json()(vjs(), "") 
+            _ -> throw("missing resume value")
+          _ -> throw("missing resume value")
+        state := state(pause-ignores=state.pause-ignores + 1)
+        resume(resume-val)
       else
         val state' = state/close-open-steps(state, ReasonPause({b-json-fns.to-json()(b)}), handle-fatal-error, a-json-fns)
         state := state'(pause-ignores=state.pause-ignores - 1)
         ReasonPause(b)
-    fun log(c)
-      val state' = state/add-thunk-log(state, {c-json-fns.to-json()(c)})
+    fun log(d)
+      val state' = state/add-thunk-log(state, {d-json-fns.to-json()(d)})
       state := state'
       ()
 
@@ -170,7 +184,7 @@ fun make-log-cursor(log: computation-log): log-cursor
 
 fun make-logger-state(previous-log: maybe<computation-log>): logger-state
   match previous-log
-    Just(pl) -> Logger-state(Just(make-log-cursor(pl)), pl.pauses, [], [])
+    Just(pl) -> Logger-state(Just(make-log-cursor(pl)), 0, [], [])
     _ -> Logger-state(Nothing, 0, [], [])
 
 fun state/add-thunk-log(state: logger-state, c-src: json-src): total logger-state 
@@ -191,15 +205,15 @@ fun state/add-thunk-log(state: logger-state, c-src: json-src): total logger-stat
 fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-fns: json-fns<a>): total logger-state
   match state.open-steps
     [] -> 
-      val fatal-step = RunLog(Run-Log("error", [], ReasonFail({a-json-fns.to-json()("no open steps".handle-fatal-error)})))
+      val fatal-step = RunLog(Run-Log("error", 0, [], ReasonFail({a-json-fns.to-json()("no open steps".handle-fatal-error)})))
       val completed-steps' = Cons(fatal-step, state.completed-steps)
       state(completed-steps=completed-steps')
     Cons(first, Nil) -> 
-      val step-log = RunLog(Run-Log(first.name, first.children.reverse, outcome))
+      val step-log = RunLog(Run-Log(first.name, 0, first.children.reverse, outcome))
       val completed-steps' = Cons(step-log, state.completed-steps)
       state(completed-steps=completed-steps', open-steps=[])
     Cons(first, Cons(next, rest)) -> 
-      val step-log = RunLog(Run-Log(first.name, first.children.reverse, outcome))
+      val step-log = RunLog(Run-Log(first.name, 0, first.children.reverse, outcome))
       val next' = next(children = Cons(step-log, next.children))
       state/close-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), outcome, handle-fatal-error, a-json-fns)
 
@@ -245,10 +259,10 @@ fun state/log-leave(state: logger-state, outcome: log-outcome): total either<str
   // then update the completed-steps / open-steps
   val error-completed-steps-open-steps = match state.open-steps
     Cons(first, Nil) -> 
-      Right((Cons(RunLog(Run-Log(first.name, first.children.reverse, outcome)), state.completed-steps),
+      Right((Cons(RunLog(Run-Log(first.name, 0, first.children.reverse, outcome)), state.completed-steps),
             []))
     Cons(first, Cons(next, rest)) -> 
-      val step-log = RunLog(Run-Log(first.name, first.children.reverse, outcome))
+      val step-log = RunLog(Run-Log(first.name, 0, first.children.reverse, outcome))
       val next' = next(children = Cons(step-log, next.children))
       val open-steps' = Cons(next', rest)
       Right((state.completed-steps, open-steps'))
@@ -334,6 +348,7 @@ pub fun log-outcome/from-json(j: json, path: string): exn log-outcome
 
 pub fun run-log/to-json'(rl: run-log): div json
   JSObj([("name", JSString(rl.name)),
+         ("pauses", JSInt(rl.pauses)),
          ("children", JSList(rl.children.map(fn(csl) csl.to-json'))), 
          ("outcome", rl.outcome.log-outcome/to-json)])
 pub fun run-log/from-json(j: json, path: string): pure run-log 
@@ -341,6 +356,7 @@ pub fun run-log/from-json(j: json, path: string): pure run-log
     JSObj(l) -> 
       Run-Log(
         l.from-json("name", path),
+        l.from-json("pauses", path),
         l.from-json("children", path),
         l.from-json("outcome", path)
       )
@@ -374,6 +390,7 @@ pub fun computation-log/show(a: computation-log): total string
 pub fun computation-log/to-json(cl: computation-log): total json
   JSObj([("name", JSString(cl.name)),
          ("pauses", JSInt(cl.pauses)),
+         ("resume-values", JSList(cl.resume-values.map(to-json))),
          ("step-logs", JSList(cl.step-logs.map(to-json)))])
 pub fun computation-log/from-json(j: json, path: string): pure computation-log
   match j
@@ -381,6 +398,7 @@ pub fun computation-log/from-json(j: json, path: string): pure computation-log
       Computation-log(
         l.from-json("name", path),
         l.from-json("pauses", path),
+        l.from-json("resume-values", path),
         l.from-json("step-logs", path)
       )
     _ -> throw("Expecting computation-log, got " ++ j.show, info=JsonDeserializationException(j, path))
@@ -431,63 +449,63 @@ pub val int/json-fns = Json-fns(int/to-json, int/from-json)
 ///////////////////////////////////////////////////////////////////////////////
 
 
-pub fun stuff(i: int)
-  log-enter("stuff")
-  val o = i + i
-  // log-fail({o.show})
-  log-leave(ReasonExec({o.to-json}))
-  0
+// pub fun stuff(i: int)
+//   log-enter("stuff")
+//   val o = i + i
+//   // log-fail({o.show})
+//   log-leave(ReasonExec({o.to-json}))
+//   0
 
-// note: need to annotate fn to set the right outcome type for the log-collector
-pub fun thingz(i: int): <logger,step-ctl<string,string,string>> int
-  log-enter("thingz")
-  val o = i * i
-  // throw("oops: " ++ o.show)
-  log-leave(ReasonExec({o.to-json}))
-  o
+// // note: need to annotate fn to set the right outcome type for the log-collector
+// pub fun thingz(i: int): <logger,step-ctl<string,string,string>> int
+//   log-enter("thingz")
+//   val o = i * i
+//   // throw("oops: " ++ o.show)
+//   log-leave(ReasonExec({o.to-json}))
+//   o
 
-pub fun collect-test-logs()
-  with log-collector(
-    Nothing, 
-    "test", 
-    fn (s: string) -> s,
-    string/json-fns,
-    string/json-fns,
-    string/json-fns
-    )
-  // log-pause("foo", string/json-fns)
-  val v = stuff(5)
-  val w = thingz(v)
-  w
+// pub fun collect-test-logs()
+//   with log-collector(
+//     Nothing, 
+//     "test", 
+//     fn (s: string) -> s,
+//     string/json-fns,
+//     string/json-fns,
+//     string/json-fns
+//     )
+//   // log-pause("foo", string/json-fns)
+//   val v = stuff(5)
+//   val w = thingz(v)
+//   w
 
-pub fun logs-an-error()
-  log-enter("logs-an-error")
-  fail("boo!")
+// pub fun logs-an-error()
+//   log-enter("logs-an-error")
+//   fail("boo!")
 
-pub fun collect-logs-with-error()
-  with log-collector(
-    Nothing, 
-    "test-with-error",
-    fn (s: string) -> s,
-    string/json-fns,
-    string/json-fns,
-    string/json-fns
-  )
-  val v = stuff(5)
-  val w = thingz(v)
-  logs-an-error()
-  w
+// pub fun collect-logs-with-error()
+//   with log-collector(
+//     Nothing, 
+//     "test-with-error",
+//     fn (s: string) -> s,
+//     string/json-fns,
+//     string/json-fns,
+//     string/json-fns
+//   )
+//   val v = stuff(5)
+//   val w = thingz(v)
+//   logs-an-error()
+//   w
 
-pub fun throws-an-exception()
-  log-enter("throws-an-exception")
-  throw("oops")
+// pub fun throws-an-exception()
+//   log-enter("throws-an-exception")
+//   throw("oops")
 
-pub fun test-collect-logs()
-  match collect-test-logs()
-    (v, log) -> 
-      log.pretty.show.println
-      println("Result: " ++ v.show)
-  match collect-logs-with-error()
-    (v, log) -> 
-      log.pretty.show.println
-      println("Result: " ++ v.show)
+// pub fun test-collect-logs()
+//   match collect-test-logs()
+//     (v, log) -> 
+//       log.pretty.show.println
+//       println("Result: " ++ v.show)
+//   match collect-logs-with-error()
+//     (v, log) -> 
+//       log.pretty.show.println
+//       println("Result: " ++ v.show)
