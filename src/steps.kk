@@ -18,28 +18,28 @@ import steps/types
 ///////////////////////////////////////////////////////////////////////////////
 //                                    types
 //
-// - steps are named thunks - step-thunk<a,b,c,x,e>. run ning a step<a,b,c,x,e>
+// - steps are named thunks - step-thunk<a,b,c,d,x,e>. run ning a step<a,b,c,x,e>
 //     returns a result<a,b,x> and a computation-log, with no effects other 
 //     than div, or, if the step is a nofx-step<a,b,c,x>, then it's total
 // - the result<a,b,x> has a success channel of x, a short-circuit error 
 //     channel of a, short-circuit pause channel of b, and caller-defined logs 
-//     of (lazily serialized) c values are included in the computation-log.
-//     a,b,c,x and the computation-log itself are all de/serializable
+//     of (lazily serialized) d values are included in the computation-log.
+//     a,b,c,d,x and the computation-log itself are all de/serializable
 // - the computation-log captures the execution structure of a step-thunk, 
 //     (which may be composed of further step-thunks), and records the 
 //     (lazily serialized) results of thunk calls. The log can be used to 
 //     inspect or resume a computation after an error, pause, or success
 // - when resuming, thunks which logged a success value will short-circuit 
 //     with their recorded result. Bind thunks are always run, even when 
-//     resuming, but they only admit a step-ctl<a,b,c> effect
-// - the step-ctl<a,b,c> effect, available to all thunks, provides 3 
+//     resuming, but they only admit a step-ctl<a,b,c,d> effect
+// - the step-ctl<a,b,c,d> effect, available to all thunks, provides 3 
 //     operations:
 //   - fail<a>: immediately returns a value to the error channel of the 
 //     current (in dynamic context) run
 //   - pause<b>: immediately returns a value to the pause channel of the 
-//     current run, but will be ignored the next time the computation 
-//     is resumed
-//   - log<c>: log a value of type c to the computation-log
+//     current run (and receives a value d on resume), but will immediately
+//     return the value d on the next execution run
+//   - log<d>: log a value of type d to the computation-log
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -51,44 +51,46 @@ pub value type result<a,b,x>
 
 alias thunk<a,e> = () -> e a
 
-// the logger and step-ctl<a,b,c> effects will be handled by run, while 
+// the logger and step-ctl<a,b,c,d> effects will be handled by run, while 
 // any polymorphic effect must be handled by the handler given to run
 // 
 // NB: step-thunk doesn't strictly need the logger effect, but steps 
 // compose and we end up with <logger|e> everywhere that calls run'
 // which is very messy - it seems generally neater and easier to give
 // the step-thunk a logger effect
-pub alias step-thunk<a,b,c,x,e> = thunk<x, <logger,step-ctl<a,b,c>|e>>
+pub alias step-thunk<a,b,c,d,x,e> = thunk<x, <logger,step-ctl<a,b,c,d>|e>>
 
 // step values are a name, a thunk and json de/serializers for all the values.
-pub struct step<a,b,c,x,e>
+pub struct step<a,b,c,d,x,e>
   name: string
   a-json-fns: json-fns<a>
   b-json-fns: json-fns<b>
   c-json-fns: json-fns<c>
+  d-json-fns: json-fns<d>
   x-json-fns: json-fns<x>
-  thunk: step-thunk<a,b,c,x,e>
+  thunk: step-thunk<a,b,c,d,x,e>
 
 // allows the logger & step-ctl effects and nothing else. the run-nofx result
 // is total
-pub alias nofx-step<a,b,c,x> = step<a,b,c,x,<>>
+pub alias nofx-step<a,b,c,d,x> = step<a,b,c,d,x,<>>
 
 // monadic fns of step values - stepmfns are allowed the step-ctl effect,
 // so can pause, fail, and log based on previous step results, but no other
 // effects are allowed. this guarantees that resumption plays nicely
-pub alias stepmfn<a,b,c,x,y,e> = (x: x) -> step-ctl<a,b,c> step<a,b,c,y,e>
-pub alias nofx-stepmfn<a,b,c,x,y> = stepmfn<a,b,c,x,y,<>>
+pub alias stepmfn<a,b,c,d,x,y,e> = (x: x) -> step-ctl<a,b,c,d> step<a,b,c,d,y,e>
+pub alias nofx-stepmfn<a,b,c,d,x,y> = stepmfn<a,b,c,d,x,y,<>>
 
 // a stepmfn and all its json de/serializers
-pub struct stepmfn-json<a,b,c,x,y,e>
+pub struct stepmfn-json<a,b,c,d,x,y,e>
   mfn-a-json-fns: json-fns<a>
   mfn-b-json-fns: json-fns<b>
   mfn-c-json-fns: json-fns<c>
+  mfn-d-json-fns: json-fns<d>
   mfn-x-json-fns: json-fns<x>
   mfn-y-json-fns: json-fns<y>
-  mfn: stepmfn<a,b,c,x,y,e>
+  mfn: stepmfn<a,b,c,d,x,y,e>
 
-pub alias nofx-stepmfn-json<a,b,c,x,y> = stepmfn-json<a,b,c,x,y,<>>
+pub alias nofx-stepmfn-json<a,b,c,d,x,y> = stepmfn-json<a,b,c,d,x,y,<>>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,25 +102,28 @@ pub alias nofx-stepmfn-json<a,b,c,x,y> = stepmfn-json<a,b,c,x,y,<>>
 // desugaring puts the trailing lambda before the implicit args!
 pub fun step(
   name: string, 
-  thunk: step-thunk<a,b,c,x,e>, 
+  thunk: step-thunk<a,b,c,d,x,e>, 
   ?a/json-fns: json-fns<a>,
   ?b/json-fns: json-fns<b>,
   ?c/json-fns: json-fns<c>,
-  ?x/json-fns: json-fns<x>): total step<a,b,c,x,e>
-  Step(name, ?a/json-fns, ?b/json-fns, ?c/json-fns, ?x/json-fns, thunk)
+  ?d/json-fns: json-fns<d>,
+  ?x/json-fns: json-fns<x>): total step<a,b,c,d,x,e>
+  Step(name, ?a/json-fns, ?b/json-fns, ?c/json-fns, ?d/json-fns, ?x/json-fns, thunk)
 
 pub fun stepmfn-json(
-    mfn: stepmfn<a,b,c,x,y,e>, 
+    mfn: stepmfn<a,b,c,d,x,y,e>, 
     ?a/json-fns: json-fns<a>,
     ?b/json-fns: json-fns<b>,
     ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>,
     ?x/json-fns: json-fns<x>,
     ?y/json-fns: json-fns<y>
-  ) : total stepmfn-json<a,b,c,x,y,e>
+  ) : total stepmfn-json<a,b,c,d,x,y,e>
   Stepmfn-json(
     ?a/json-fns,
     ?b/json-fns,
     ?c/json-fns,
+    ?d/json-fns,
     ?x/json-fns,
     ?y/json-fns,
     mfn
@@ -135,16 +140,17 @@ pub fun stepmfn-json(
 
 // bind a stepmfn to a step
 pub fun bind(
-    st: step<a,b,c,x,e>, 
-    mf: stepmfn<a,b,c,x,y,e>,
+    st: step<a,b,c,d,x,e>, 
+    mf: stepmfn<a,b,c,d,x,y,e>,
     ?y/json-fns: json-fns<y>
-  ): total step<a,b,c,y,e>
+  ): total step<a,b,c,d,y,e>
 
   Step(
     "bind--" ++ st.name,
     st.a-json-fns,
     st.b-json-fns,
     st.c-json-fns,
+    st.d-json-fns,
     ?y/json-fns,
     fn () ->
       st.run'.mf.run'
@@ -153,151 +159,163 @@ pub fun bind(
 // bind a stepmfn-json ... would be nice to use a qualifier like stepmfn-json/bind
 // but haven't yet made that work without breaking inference
 pub fun bind-mfn-json(
-    st: step<a,b,c,x,e>, 
-    mf-json: stepmfn-json<a,b,c,x,y,e>
-  ): total step<a,b,c,y,e>
+    st: step<a,b,c,d,x,e>, 
+    mf-json: stepmfn-json<a,b,c,d,x,y,e>
+  ): total step<a,b,c,d,y,e>
   bind(st, mf-json.mfn, ?y/json-fns=mf-json.mfn-y-json-fns)
 
-// converts an
-//   step<a,b,c,d,e>
-// into an
-//   step<w,x,y,z,e>
-// so steps can be composed with steps with 
-// different fail, pause and log channels
-pub fun quadmap(
-    faw: (a)->w,
-    fbx: (b)->x,
-    fcy: (c)->y,
-    fdz: (d)->z,
-    s: step<a,b,c,d,<step-ctl<w,x,y>|e>>,
-    ?w/json-fns: json-fns<w>,
-    ?x/json-fns: json-fns<x>,
-    ?y/json-fns: json-fns<y>,
-    ?z/json-fns: json-fns<z>
-  ): total step<w,x,y,z,e>
-  Step(
-    "quadmap--" ++ s.name,
-    ?w/json-fns,
-    ?x/json-fns,
-    ?y/json-fns,
-    ?z/json-fns,
-    fn () ->
-      with handle-step-ctl-fmap(faw, fbx, fcy)
-      s.run'.fdz
-  )
+// // converts an
+// //   step<a,b,c,d,f,e>
+// // into an
+// //   step<v,w,x,y,z,e>
+// // so steps can be composed with steps with 
+// // different fail, pause and log channels
+// pub fun pentamap(
+//     fav: (a)->v,
+//     fbw: (b)->w,
+//     fcx: (c)->x,
+//     fdy: (d)->y,
+//     ffz: (f)->z,
+//     s: step<a,b,c,d,f,<step-ctl<v,w,x,y>|e>>,
+//     ?v/json-fns: json-fns<v>,
+//     ?w/json-fns: json-fns<w>,
+//     ?x/json-fns: json-fns<x>,
+//     ?y/json-fns: json-fns<y>,
+//     ?z/json-fns: json-fns<z>
+//   ): total step<v,w,x,y,z,e>
+//   Step(
+//     "pentamap--" ++ s.name,
+//     ?w/json-fns,
+//     ?x/json-fns,
+//     ?y/json-fns,
+//     ?z/json-fns,
+//     fn () ->
+//       with handle-step-ctl-fmap(fav, fbw, fcx, fdy)
+//       s.run'.ffz
+//   )
 
-// map the fail and pause effects for trimap
-fun handle-step-ctl-fmap(
-    faw: (a)->w,
-    fbx: (b)->x,
-    fcy: (c)->y,
-    action: () -> <logger,step-ctl<a,b,c>,step-ctl<w,x,y>|e> d
-  ): <logger,step-ctl<w,x,y>|e> d
-  with handler 
-    ctl fail(a)
-      fail(a.faw)
-      resume(()) // never happens
-    ctl pause(b) 
-      pause(b.fbx) 
-      resume(()) // happens when pause returns during resumption
-    fun log(c)
-      log(c.fcy)
-  action()
+// // map the fail and pause effects for trimap
+// fun handle-step-ctl-fmap(
+//     fav: (a)->v,
+//     fbw: (b)->w,
+//     fcx: (c)->x,
+//     fdy: (d)->y,
+//     action: () -> <logger,step-ctl<a,b,c,d>,step-ctl<v,w,x,y>|e> f
+//   ): <logger,step-ctl<v,w,x,y>|e> f 
+//   with handler 
+//     ctl fail(a)
+//       fail(a.fav)
+//       resume(()) // never happens
+//     ctl pause(b) 
+//       pause(b.fbw).fcx.resume
+//     fun log(d)
+//       log(d.fdy)
+//   action()
 
 // merging step + bind into a single function
 // for a more compact DSL syntax... the trailing lambda and 
 // the with lambda are desugared into the desired positions
 pub fun sbind(
     name: string, 
-    thunk: step-thunk<a,b,c,x,e>, 
-    f: stepmfn<a,b,c,x,y,e>, 
+    thunk: step-thunk<a,b,c,d,x,e>, 
+    f: stepmfn<a,b,c,d,x,y,e>, 
     ?a/json-fns: json-fns<a>,
     ?b/json-fns: json-fns<b>,
     ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>,
     ?x/json-fns: json-fns<x>,
     ?y/json-fns: json-fns<y>
-  ): total step<a,b,c,y,e>
+  ): total step<a,b,c,d,y,e>
   Step(
       name, 
       ?a/json-fns, 
       ?b/json-fns, 
       ?c/json-fns, 
+      ?d/json-fns, 
       ?x/json-fns,
       thunk
     ).bind(f, ?y/json-fns=?y/json-fns)
 
 // give the output of one stepmfn to another stepmfn
 pub fun pipe-stepmfn(
-    fw: stepmfn<a,b,c,w,x,e>, 
-    fx: stepmfn<a,b,c,x,y,e>, 
+    fw: stepmfn<a,b,c,d,w,x,e>, 
+    fx: stepmfn<a,b,c,d,x,y,e>, 
     ?a/json-fns: json-fns<a>,
     ?b/json-fns: json-fns<b>,
     ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>,
     ?y/json-fns: json-fns<y>
-  ): total stepmfn<a,b,c,w,y,e>
+  ): total stepmfn<a,b,c,d,w,y,e>
   fn (w)
     Step(
       "compose-stepmfn",
       ?a/json-fns,
       ?b/json-fns,
       ?c/json-fns,
+      ?d/json-fns,
       ?y/json-fns,
       fn () -> w.fw.run'.fx.run'
     )
 
 pub fun pipe-nofx-stepmfn(
-    fw: stepmfn<a,b,c,w,x,e>, 
-    fx: nofx-stepmfn<a,b,c,x,y>, 
+    fw: stepmfn<a,b,c,d,w,x,e>, 
+    fx: nofx-stepmfn<a,b,c,d,x,y>, 
     ?a/json-fns: json-fns<a>,
     ?b/json-fns: json-fns<b>,
     ?c/json-fns: json-fns<c>,
+    ?d/json-fns: json-fns<d>,
     ?y/json-fns: json-fns<y>
-  ): total stepmfn<a,b,c,w,y,e>
+  ): total stepmfn<a,b,c,d,w,y,e>
   fn (w)
     Step(
       "compose-nofx-stepmfn",
       ?a/json-fns,
       ?b/json-fns,
       ?c/json-fns,
+      ?d/json-fns,
       ?y/json-fns,
       fn () -> w.fw.run'.fx.run-nofx'
     )
 
 pub fun pipe-stepmfn-json(
-    fw: stepmfn-json<a,b,c,w,x,e>, 
-    fx: stepmfn-json<a,b,c,x,y,e> 
-  ): total stepmfn-json<a,b,c,w,y,e>
+    fw: stepmfn-json<a,b,c,d,w,x,e>, 
+    fx: stepmfn-json<a,b,c,d,x,y,e> 
+  ): total stepmfn-json<a,b,c,d,w,y,e>
   val mfn = pipe-stepmfn(
     fw.mfn,
     fx.mfn,
     ?a/json-fns=fw.mfn-a-json-fns,
     ?b/json-fns=fw.mfn-b-json-fns,
     ?c/json-fns=fw.mfn-c-json-fns,
+    ?d/json-fns=fw.mfn-d-json-fns,
     ?y/json-fns=fx.mfn-y-json-fns)
   stepmfn-json(
     mfn,
     fw.mfn-a-json-fns,
     fw.mfn-b-json-fns,
     fw.mfn-c-json-fns,
+    fw.mfn-d-json-fns,
     fw.mfn-x-json-fns,
     fx.mfn-y-json-fns)
 
 pub fun pipe-nofx-stepmfn-json(
-    fw: stepmfn-json<a,b,c,w,x,e>, 
-    fx: nofx-stepmfn-json<a,b,c,x,y> 
-  ): total stepmfn-json<a,b,c,w,y,e>
+    fw: stepmfn-json<a,b,c,d,w,x,e>, 
+    fx: nofx-stepmfn-json<a,b,c,d,x,y> 
+  ): total stepmfn-json<a,b,c,d,w,y,e>
   val mfn = pipe-nofx-stepmfn(
     fw.mfn,
     fx.mfn,
     ?a/json-fns=fw.mfn-a-json-fns,
     ?b/json-fns=fw.mfn-b-json-fns,
     ?c/json-fns=fw.mfn-c-json-fns,
+    ?d/json-fns=fw.mfn-d-json-fns,
     ?y/json-fns=fx.mfn-y-json-fns)
   stepmfn-json(
     mfn,
     fw.mfn-a-json-fns,
     fw.mfn-b-json-fns,
     fw.mfn-c-json-fns,
+    fw.mfn-d-json-fns,
     fw.mfn-x-json-fns,
     fx.mfn-y-json-fns)
 
@@ -311,29 +329,29 @@ pub fun pipe-nofx-stepmfn-json(
 
 
 // run a step without dismissing any effects
-pub fun run'(st: step<a,b,c,x,e>): <logger,step-ctl<a,b,c>|e> x
+pub fun run'(st: step<a,b,c,d,x,e>): <logger,step-ctl<a,b,c,d>|e> x
   match logger/log-enter(st.name)
     Just(step-log) ->
       resume/run'(st, step-log)
     _ -> st.thunk/run-core'
 
 // run a nofx-step without dismissing any effects
-pub fun run-nofx'(st: nofx-step<a,b,c,x>): <logger,step-ctl<a,b,c>> x
+pub fun run-nofx'(st: nofx-step<a,b,c,d,x>): <logger,step-ctl<a,b,c,d>> x
   st.run'
 
 fun resume/run'(
-    st: step<a,b,c,x,e>, 
+    st: step<a,b,c,d,x,e>, 
     run-log: run-log
-  ): <logger,step-ctl<a,b,c>|e> x
+  ): <logger,step-ctl<a,b,c,d>|e> x
   match run-log
-    Run-log(_,_,ReasonExec(x-jsrc)) -> resume/resume-core'(st, x-jsrc())
-    Run-log(_,_,ReasonResume(x-jsrc)) -> resume/resume-core'(st, x-jsrc())
+    Run-log(_,_,_,ReasonExec(x-jsrc)) -> resume/resume-core'(st, x-jsrc())
+    Run-log(_,_,_,ReasonResume(x-jsrc)) -> resume/resume-core'(st, x-jsrc())
     _ -> st.thunk/run-core'
 
 fun resume/resume-core'(  
-    st: step<a,b,c,x,e>, 
+    st: step<a,b,c,d,x,e>, 
     x-json: json
-  ): <logger,step-ctl<a,b,c>|e> x
+  ): <logger,step-ctl<a,b,c,d>|e> x
   match parse-json(x-json, "", st.x-json-fns.from-json)
     Right(rr) -> 
       // we are resuming a successful step, short-circuit straight to the result
@@ -342,14 +360,14 @@ fun resume/resume-core'(
     Left(_err) -> st.thunk/run-core'
 
 fun thunk/run-core'(
-    st: step<a,b,c,x,e>
-  ): <logger,step-ctl<a,b,c>|e> x
+    st: step<a,b,c,d,x,e>
+  ): <logger,step-ctl<a,b,c,d>|e> x
   val x = st.thunk/run''
   logger/log-leave(ReasonExec({st.x-json-fns.to-json()(x)}))
   x
 
 // call a thunk
-pub fun thunk/run''(st: step<a,b,c,x,e>): <logger,step-ctl<a,b,c>|e> x
+pub fun thunk/run''(st: step<a,b,c,d,x,e>): <logger,step-ctl<a,b,c,d>|e> x
   st.thunk()()
 
 
@@ -364,16 +382,16 @@ pub fun thunk/run''(st: step<a,b,c,x,e>): <logger,step-ctl<a,b,c>|e> x
 // h must handle any non-logger effects from the step - the only 
 // effects allowed out are div,logger,step-ctl
 pub fun run(
-    st: step<a,b,c,x,e>,
+    st: step<a,b,c,d,x,e>,
     run-name: string,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+    h: (step-thunk<a,b,c,d,x,e>) -> <div,logger,step-ctl<a,b,c,d>> x
   ): div (result<a,b,x>, logger/computation-log)
   run-resume(st, run-name, Nothing, handle-fatal-error, h)
 
 // run a nofx-step - total
 pub fun run-nofx(
-    st: nofx-step<a,b,c,x>,
+    st: nofx-step<a,b,c,d,x>,
     run-name: string,
     handle-fatal-error: (string)->a
   ): total (result<a,b,x>, logger/computation-log)
@@ -389,17 +407,17 @@ pub fun run-nofx(
 // then step execution will pick up. even during resumption, bind stepmfns are always
 // executed - but they are only allowed step-ctl effects
 pub fun resume(
-    st: step<a,b,c,x,e>,
+    st: step<a,b,c,d,x,e>,
     run-name: string,
     log: logger/computation-log,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+    h: (step-thunk<a,b,c,d,x,e>) -> <div,logger,step-ctl<a,b,c,d>> x
   ): div (result<a,b,x>, logger/computation-log)
   run-resume(st, run-name, Just(log), handle-fatal-error, h)
 
 // resume a nofx-step - total
 pub fun resume-nofx(
-    st: nofx-step<a,b,c,x>,
+    st: nofx-step<a,b,c,d,x>,
     run-name: string,
     log: logger/computation-log,
     handle-fatal-error: (string)->a
@@ -409,11 +427,11 @@ pub fun resume-nofx(
 
 // run or resume, depending on whether a log is supplied
 pub fun run-resume(
-    st: step<a,b,c,x,e>,
+    st: step<a,b,c,d,x,e>,
     run-name: string,
     maybe-log: maybe<logger/computation-log>,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+    h: (step-thunk<a,b,c,d,x,e>) -> <div,logger,step-ctl<a,b,c,d>> x
   ): div (result<a,b,x>, logger/computation-log)
   match handle-effects(st, run-name, maybe-log, handle-fatal-error, h)
     (outcome, log) -> 
@@ -426,19 +444,19 @@ pub fun run-resume(
 
 // a handler which does nothing but call its thunk
 pub fun nofx-handler(
-    th: thunk<x,<logger,step-ctl<a,b,c>>>
-  ): <logger,step-ctl<a,b,c>> x
+    th: thunk<x,<logger,step-ctl<a,b,c,d>>>
+  ): <logger,step-ctl<a,b,c,d>> x
   th()
 
 // handle all the effects! (apart from div)
 fun handle-effects(
-    st: step<a,b,c,x,e>,
+    st: step<a,b,c,d,x,e>,
     run-name: string,
     maybe-log: maybe<logger/computation-log>,
     handle-fatal-error: (string)->a,
-    h: (step-thunk<a,b,c,x,e>) -> <div,logger,step-ctl<a,b,c>> x
+    h: (step-thunk<a,b,c,d,x,e>) -> <div,logger,step-ctl<a,b,c,d>> x
   ): div (outcome<a,b,x>, logger/computation-log)
-  with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns, st.c-json-fns)
+  with logger/log-collector(maybe-log, run-name, handle-fatal-error, st.a-json-fns, st.b-json-fns, st.c-json-fns, st.d-json-fns)
   with h
   st.run'
 
@@ -448,7 +466,7 @@ fun handle-effects(
 ///////////////////////////////////////////////////////////////////////////////
 
 
-pub fun make-example-dsl-trivial(i: int): nofx-step<string,string,string,string>
+pub fun make-example-dsl-trivial(i: int): nofx-step<string,string,string,string,string>
   with x <- sbind("x") {i}
   log("hi")
   step("result") {log("there") ; x.show}
@@ -461,14 +479,14 @@ pub fun example-dsl-trivial()
   val log' = logjson.computation-log/from-json("")
   log'.pretty.show.println
 
-pub fun make-example-dsl-simple(i: int): nofx-step<string,string,string,string>
+pub fun make-example-dsl-simple(i: int): nofx-step<string,string,string,string,string>
   with x <- sbind("x") {log("making x") ;log("moar") ;i}
   log("in the binds")
   with y <- sbind("y") {log("making y") ;10}
   with z <- sbind("z") {log("making z") ; x + y}
   step("result") {log("making r") ; (2 * z).show}
 
-pub fun make-example-dsl-simple-left(i: int): nofx-step<string,string,string,string>
+pub fun make-example-dsl-simple-left(i: int): nofx-step<string,string,string,string,string>
   with x <- sbind("x") {log("making x") ; i}
   with y <- sbind("y") {log("making y") ; 10}
   with z <- step("z") {fail("foo") ; 1}.bind
@@ -495,7 +513,7 @@ pub fun example-dsl-simple-error-fix-rerun()
   val log2' = log2j.computation-log/from-json("")
   log2'.pretty.show.println
 
-pub fun make-example-dsl-simple-pause(i: int): nofx-step<string,string,string,string>
+pub fun make-example-dsl-simple-pause(i: int): nofx-step<string,string,string,string,string>
   with x <- sbind("x") {log("making x"); i}
   pause("pause")
   with y <- sbind("y") {10}
@@ -539,13 +557,13 @@ pub fun example-dsl-simple-pause-resume()
   final-v.show.println
   rule.println
 
-pub fun make-example-dsl-simple-fail(i: int): nofx-step<string,string,string,string>
+pub fun make-example-dsl-simple-fail(i: int): nofx-step<string,string,string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z")  {fail("boom") ; x.show ++ "/" ++ y.show}
   step("result") {z ++ ":" ++ z}
 
-pub fun make-example-dsl-simple-fix(i: int): nofx-step<string,string,string,string>
+pub fun make-example-dsl-simple-fix(i: int): nofx-step<string,string,string,string,string>
   with x <- sbind("x") {i}
   with y <- sbind("y") {10}
   with z <- sbind("z")  {x.show ++ "/" ++ y.show}
@@ -561,7 +579,7 @@ pub fun example-dsl-simple-resume()
   log.pretty.show.println
   log2.pretty.show.println
 
-pub fun make-example-dsl-random-effect(i: int): step<string,string,string,int,<random>>
+pub fun make-example-dsl-random-effect(i: int): step<string,string,string,string,int,<random>>
   with x <- sbind("x") {i}
   with y <- sbind("y") {random-int()}
   with z <- sbind("z") {x + y}
@@ -575,19 +593,19 @@ pub fun example-dsl-random-effect()
   val (_, log) = make-example-dsl-random-effect(100).run("random-effect", id, handle-random)
   log.pretty.show.println  
 
-fun testdsl/stuff(i: int) : step<string,string,string,int,<random>>
+fun testdsl/stuff(i: int) : step<string,string,string,string,int,<random>>
   with x <- sbind("i"){i}
   with y <- sbind("rand"){random-int()}
   step("stuff") {x + y}
 
-pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string,string,<random>>
+pub fun make-example-dsl-more-complex-compact(i: int): step<string,string,string,string,string,<random>>
   with x <- sbind("x") {i}
   with y <- sbind("y") { if i>5 then [10,11] else [] }
   val aa' = match y
     [a, b] -> 
       with z <- sbind("z") {x + a + b}
       // TODO inference doesn't do a great job here...
-      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=string/json-fns) {10}
+      step("aa'-pair", ?a/json-fns=string/json-fns, ?b/json-fns=string/json-fns, ?c/json-fns=string/json-fns, ?d/json-fns=string/json-fns) {10}
     _ -> step("aa'-default") {0}
   with aa: int <- aa'.bind
   with bb: int <- testdsl/stuff(i).bind
@@ -600,40 +618,40 @@ pub fun example-dsl-more-complext-compact()
 
 
 
-pub fun make-example-dsl-ints(i: int): step<string,int,string,int,e>
-  with x <- sbind("x") {i}
-  pause(x)
-  with y <- sbind("y") {10}
-  with z <- sbind("z") {x + y}
-  pause(z)
-  // fail("foo")
-  step("result") {log("woop") ; (2 * z)}
+// pub fun make-example-dsl-ints(i: int): step<string,int,string,int,e>
+//   with x <- sbind("x") {i}
+//   pause(x)
+//   with y <- sbind("y") {10}
+//   with z <- sbind("z") {x + y}
+//   pause(z)
+//   // fail("foo")
+//   step("result") {log("woop") ; (2 * z)}
 
-pub fun example-quadmap()
-  val ints-step = make-example-dsl-ints(100)
+// pub fun example-quadmap()
+//   val ints-step = make-example-dsl-ints(100)
 
-  // the int pause is converted to a string... resuming the computation shows that
-  // the pause() effect resumption works through the quadmap so quadmap can be used
-  // to compose steps with different error, pause and log types
-  val strings-step = quadmap(string/to-upper, int/show, id, int/show, ints-step)
+//   // the int pause is converted to a string... resuming the computation shows that
+//   // the pause() effect resumption works through the quadmap so quadmap can be used
+//   // to compose steps with different error, pause and log types
+//   val strings-step = quadmap(string/to-upper, int/show, id, int/show, ints-step)
 
-  val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
-  strings-log1.pretty.show.println
-  rule.println
-  strings-val1.show.println
-  rule.println
+//   val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
+//   strings-log1.pretty.show.println
+//   rule.println
+//   strings-val1.show.println
+//   rule.println
 
-  val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
-  strings-log2.pretty.show.println
-  rule.println
-  strings-val2.show.println
-  rule.println
+//   val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
+//   strings-log2.pretty.show.println
+//   rule.println
+//   strings-val2.show.println
+//   rule.println
 
-  val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
-  strings-log3.pretty.show.println
-  rule.println
-  strings-val3.show.println
-  rule.println
+//   val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
+//   strings-log3.pretty.show.println
+//   rule.println
+//   strings-val3.show.println
+//   rule.println
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -652,7 +670,7 @@ pub fun result/show(
     Pause(b) -> "Pause: " ++ b.?b/show
     Success(x) -> "Success: " ++ x.?x/show
 
-pub fun step/show(a: step<a,b,c,x,e>): string
+pub fun step/show(a: step<a,b,c,d,x,e>): string
   a.name ++ ": <unevaluated>"
 
 
