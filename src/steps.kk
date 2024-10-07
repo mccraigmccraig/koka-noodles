@@ -164,53 +164,54 @@ pub fun bind-mfn-json(
   ): total step<a,b,c,d,y,e>
   bind(st, mf-json.mfn, ?y/json-fns=mf-json.mfn-y-json-fns)
 
-// // converts an
-// //   step<a,b,c,d,f,e>
-// // into an
-// //   step<v,w,x,y,z,e>
-// // so steps can be composed with steps with 
-// // different fail, pause and log channels
-// pub fun pentamap(
-//     fav: (a)->v,
-//     fbw: (b)->w,
-//     fcx: (c)->x,
-//     fdy: (d)->y,
-//     ffz: (f)->z,
-//     s: step<a,b,c,d,f,<step-ctl<v,w,x,y>|e>>,
-//     ?v/json-fns: json-fns<v>,
-//     ?w/json-fns: json-fns<w>,
-//     ?x/json-fns: json-fns<x>,
-//     ?y/json-fns: json-fns<y>,
-//     ?z/json-fns: json-fns<z>
-//   ): total step<v,w,x,y,z,e>
-//   Step(
-//     "pentamap--" ++ s.name,
-//     ?w/json-fns,
-//     ?x/json-fns,
-//     ?y/json-fns,
-//     ?z/json-fns,
-//     fn () ->
-//       with handle-step-ctl-fmap(fav, fbw, fcx, fdy)
-//       s.run'.ffz
-//   )
+// converts an
+//   step<a,b,c,d,f,e>
+// into an
+//   step<v,w,x,y,z,e>
+// so steps can be composed with steps with 
+// different fail, pause and log channels
+pub fun pentamap(
+    fav: (a)->v,
+    fbw: (b)->w,
+    fxc: (x)->c,
+    fdy: (d)->y,
+    ffz: (f)->z,
+    s: step<a,b,c,d,f,<step-ctl<v,w,x,y>|e>>,
+    ?v/json-fns: json-fns<v>,
+    ?w/json-fns: json-fns<w>,
+    ?x/json-fns: json-fns<x>,
+    ?y/json-fns: json-fns<y>,
+    ?z/json-fns: json-fns<z>
+  ): total step<v,w,x,y,z,e>
+  Step(
+    "pentamap--" ++ s.name,
+    ?v/json-fns,
+    ?w/json-fns,
+    ?x/json-fns,
+    ?y/json-fns,
+    ?z/json-fns,
+    fn () ->
+      with handle-step-ctl-fmap(fav, fbw, fxc, fdy)
+      s.run'.ffz
+  )
 
-// // map the fail and pause effects for trimap
-// fun handle-step-ctl-fmap(
-//     fav: (a)->v,
-//     fbw: (b)->w,
-//     fcx: (c)->x,
-//     fdy: (d)->y,
-//     action: () -> <logger,step-ctl<a,b,c,d>,step-ctl<v,w,x,y>|e> f
-//   ): <logger,step-ctl<v,w,x,y>|e> f 
-//   with handler 
-//     ctl fail(a)
-//       fail(a.fav)
-//       resume(()) // never happens
-//     ctl pause(b) 
-//       pause(b.fbw).fcx.resume
-//     fun log(d)
-//       log(d.fdy)
-//   action()
+// map the fail and pause effects for trimap
+fun handle-step-ctl-fmap(
+    fav: (a)->v,
+    fbw: (b)->w,
+    fxc: (x)->c,
+    fdy: (d)->y,
+    action: () -> <logger,step-ctl<a,b,c,d>,step-ctl<v,w,x,y>|e> f
+  ): <logger,step-ctl<v,w,x,y>|e> f 
+  with handler 
+    ctl fail(a)
+      fail(a.fav)
+      resume(()) // never happens
+    ctl pause(b) 
+      pause(b.fbw).fxc.resume
+    fun log(d)
+      log(d.fdy)
+  action()
 
 // merging step + bind into a single function
 // for a more compact DSL syntax... the trailing lambda and 
