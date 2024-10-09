@@ -411,20 +411,22 @@ pub fun resume(
     st: step<a,b,c,d,x,e>,
     run-name: string,
     log: logger/computation-log,
+    resume-value: c,
     handle-fatal-error: (string)->a,
     h: (step-thunk<a,b,c,d,x,e>) -> <div,logger,step-ctl<a,b,c,d>> x
   ): div (result<a,b,x>, logger/computation-log)
-  run-resume(st, run-name, Just(log), handle-fatal-error, h)
+  run-resume(st, run-name, Just(push-resume-value(log, resume-value, ?c/json-fns=st.c-json-fns)), handle-fatal-error, h)
 
 // resume a nofx-step - total
 pub fun resume-nofx(
     st: nofx-step<a,b,c,d,x>,
     run-name: string,
     log: logger/computation-log,
+    resume-value: c,
     handle-fatal-error: (string)->a
   ): total (result<a,b,x>, logger/computation-log)
   with pretend-no-div
-  resume(st, run-name, log, handle-fatal-error, nofx-handler)
+  resume(st, run-name, log, resume-value, handle-fatal-error, nofx-handler)
 
 // run or resume, depending on whether a log is supplied
 pub fun run-resume(
@@ -505,7 +507,7 @@ pub fun example-dsl-simple()
 pub fun example-dsl-simple-error-fix-rerun()
   val (_, log) = make-example-dsl-simple-left(100).run-nofx("will-error",id)
   val logj = log.to-json
-  val (_, log2) = make-example-dsl-simple(100).resume("fixed",log, id, nofx-handler)
+  val (_, log2) = make-example-dsl-simple(100).resume("fixed",log, "", id, nofx-handler)
   val log2j = log2.to-json
 
   val log' = logj.computation-log/from-json("")
@@ -537,7 +539,7 @@ pub fun example-dsl-simple-pause-resume()
   rule.println
 
   val paused-log' = paused-logj.computation-log/from-json("")
-  val (intermed-v, intermed-log) = computation.resume-nofx("run-2", paused-log',id)
+  val (intermed-v, intermed-log) = computation.resume-nofx("run-2", paused-log', "", id)
   val intermed-logj = intermed-log.to-json
 
   intermed-log.pretty.show.println
@@ -548,7 +550,7 @@ pub fun example-dsl-simple-pause-resume()
   rule.println
 
   val intermed-log' = intermed-logj.computation-log/from-json("")
-  val (final-v, final-log) = computation.resume-nofx("run-3", intermed-log',id)
+  val (final-v, final-log) = computation.resume-nofx("run-3", intermed-log', "", id)
   val final-logj = final-log.to-json
 
   final-log.pretty.show.println
@@ -576,7 +578,7 @@ pub fun example-dsl-simple-fail()
 
 pub fun example-dsl-simple-resume()
   val (_, log) = make-example-dsl-simple-fail(100).run-nofx("simple", id)
-  val (_, log2) = make-example-dsl-simple-fix(100).resume("rerun", log, id, nofx-handler)
+  val (_, log2) = make-example-dsl-simple-fix(100).resume("rerun", log, "", id, nofx-handler)
   log.pretty.show.println
   log2.pretty.show.println
 
@@ -648,13 +650,13 @@ pub fun example-pentadmap()
   strings-val1.show.println
   rule.println
 
-  val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
+  val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, "", string/to-lower)
   strings-log2.pretty.show.println
   rule.println
   strings-val2.show.println
   rule.println
 
-  val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
+  val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, "", string/to-upper)
   strings-log3.pretty.show.println
   rule.println
   strings-val3.show.println

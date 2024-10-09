@@ -89,6 +89,12 @@ struct logger-state
 //                      logger / step-ctl effect handlers
 ///////////////////////////////////////////////////////////////////////////////
 
+pub fun push-resume-value<c>(
+    log: computation-log,
+    resume-value: c,
+    ?c/json-fns: json-fns<c>
+  )
+  log(resume-values = Cons({?c/json-fns.to-json()(resume-value)}, log.resume-values))
 
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect
