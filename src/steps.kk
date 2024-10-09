@@ -634,7 +634,13 @@ pub fun example-pentadmap()
   // the int pause is converted to a string... resuming the computation shows that
   // the pause() effect resumption works through the pentamap so pentamap can be used
   // to compose steps with different error, pause and log types
-  val strings-step = pentamap(string/to-upper, int/show, fn(s: string) -> 0, id, int/show, ints-step)
+  val strings-step = pentamap(
+    string/to-upper, 
+    int/show, 
+    fn(s: string) -> s.parse-int.default(0), // converts pause result back to int
+    id, 
+    int/show, 
+    ints-step)
 
   val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
   strings-log1.pretty.show.println
