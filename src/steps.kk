@@ -619,40 +619,40 @@ pub fun example-dsl-more-complext-compact()
 
 
 
-// pub fun make-example-dsl-ints(i: int): step<string,int,string,int,e>
-//   with x <- sbind("x") {i}
-//   pause(x)
-//   with y <- sbind("y") {10}
-//   with z <- sbind("z") {x + y}
-//   pause(z)
-//   // fail("foo")
-//   step("result") {log("woop") ; (2 * z)}
+pub fun make-example-dsl-ints(i: int): step<string,int,int,string,int,e>
+  with x <- sbind("x") {i}
+  pause(x)
+  with y <- sbind("y") {10}
+  with z <- sbind("z") {x + y}
+  pause(z)
+  // fail("foo")
+  step("result") {log("woop") ; (2 * z)}
 
-// pub fun example-quadmap()
-//   val ints-step = make-example-dsl-ints(100)
+pub fun example-pentadmap()
+  val ints-step = make-example-dsl-ints(100)
 
-//   // the int pause is converted to a string... resuming the computation shows that
-//   // the pause() effect resumption works through the quadmap so quadmap can be used
-//   // to compose steps with different error, pause and log types
-//   val strings-step = quadmap(string/to-upper, int/show, id, int/show, ints-step)
+  // the int pause is converted to a string... resuming the computation shows that
+  // the pause() effect resumption works through the pentamap so pentamap can be used
+  // to compose steps with different error, pause and log types
+  val strings-step = pentamap(string/to-upper, int/show, fn(s: string) -> 0, id, int/show, ints-step)
 
-//   val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
-//   strings-log1.pretty.show.println
-//   rule.println
-//   strings-val1.show.println
-//   rule.println
+  val (strings-val1, strings-log1) = strings-step.run-nofx("strings1", string/to-upper)
+  strings-log1.pretty.show.println
+  rule.println
+  strings-val1.show.println
+  rule.println
 
-//   val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
-//   strings-log2.pretty.show.println
-//   rule.println
-//   strings-val2.show.println
-//   rule.println
+  val (strings-val2, strings-log2) = strings-step.resume-nofx("strings2", strings-log1, string/to-lower)
+  strings-log2.pretty.show.println
+  rule.println
+  strings-val2.show.println
+  rule.println
 
-//   val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
-//   strings-log3.pretty.show.println
-//   rule.println
-//   strings-val3.show.println
-//   rule.println
+  val (strings-val3, strings-log3) = strings-step.resume-nofx("strings3", strings-log2, string/to-upper)
+  strings-log3.pretty.show.println
+  rule.println
+  strings-val3.show.println
+  rule.println
 
 
 ///////////////////////////////////////////////////////////////////////////////
