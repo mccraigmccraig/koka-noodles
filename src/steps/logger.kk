@@ -241,8 +241,7 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
     Just(lc) -> 
       match lc.step-cursors
         Cons(Step-cursor(steps, next-idx), rest) | next-idx < length(steps) ->
-          val maybe-sl = at(steps, next-idx)
-          match maybe-sl 
+          match at(steps, next-idx) 
             Just(sl) ->
               // inc the next-idx counter on the current step-cursor, push a new step-cursor
               (state(resume-cursor=Just(Log-cursor(Cons(make-step-cursor(sl.children), 
@@ -267,6 +266,20 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
       (state'(open-steps=open-steps'), resumed-step)
   
 fun state/log-leave(state: logger-state, outcome: log-outcome): total either<string,logger-state>
+  // if the outcome was a Resume, then pause-ignores should be incremented
+  // by the pauses count of the step we are resuming, which is at the
+  // second cursor, 1 before the next-index
+  val pause-ignores-incr = match outcome
+    ReasonResume(_) -> match state.resume-cursor
+      Just(lc) -> match lc.step-cursors
+        Cons(Step-cursor(_,_), Cons(Step-cursor(steps, next-idx), _)) | next-idx > 0 ->
+          match at(steps, next-idx - 1)
+            Just(sl) -> sl.pauses
+            _ -> 0
+        _ -> 0
+      _ -> 0
+    _ -> 0
+
   // first pop a step off the cursor
   val state' = match state.resume-cursor
     Just(lc) ->
@@ -290,7 +303,9 @@ fun state/log-leave(state: logger-state, outcome: log-outcome): total either<str
 
   match error-completed-steps-open-steps
     Right((completed-steps', open-steps')) ->
-      Right(state'(completed-steps=completed-steps', open-steps=open-steps'))
+      Right(state'(pause-ignores=state.pause-ignores + pause-ignores-incr, 
+            completed-steps=completed-steps', 
+            open-steps=open-steps'))
     Left(err) -> Left(err)
 
 
