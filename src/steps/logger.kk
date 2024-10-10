@@ -75,6 +75,7 @@ value struct log-cursor
 // accumulating a new step-log
 value struct open-step
   name: string
+  pauses: int
   children: list<step-log>
 
 // all the logger state
@@ -208,7 +209,7 @@ fun state/add-thunk-log(state: logger-state, c-src: json-src): total logger-stat
 // propagate an outcome through the open-steps, closing them all and 
 // returning a single step-log representing the whole closed tree. Add a
 // fatal error if there are no open-steps
-// TODO this is broken when effect type parameters are mapped with quadmap - 
+// TODO this is broken when effect type parameters are mapped with pentamap - 
 // although the breakage doesn't affect anything, other than setting observably
 // wrong result types
 fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-fns: json-fns<a>): total logger-state
@@ -250,9 +251,14 @@ fun state/log-enter(state: logger-state, step-name: string): total (logger-state
   // always accumulate a new open-step
   match state-resumed-step
     (state', resumed-step) -> 
+      // copy the pause count from any resumed-step... it may be incremented
+      // by further pauses
+      val pauses = match resumed-step
+        Just(rl) -> rl.pauses()
+        _ -> 0
       val open-steps' = match state.open-steps
-        [] -> [Open-Step(step-name, [])]
-        rest -> Cons(Open-Step(step-name, []), rest)
+        [] -> [Open-Step(step-name, pauses, [])]
+        rest -> Cons(Open-Step(step-name, pauses, []), rest)
       (state'(open-steps=open-steps'), resumed-step)
   
 fun state/log-leave(state: logger-state, outcome: log-outcome): total either<string,logger-state>
