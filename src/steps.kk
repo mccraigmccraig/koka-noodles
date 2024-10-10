@@ -596,6 +596,19 @@ pub fun example-dsl-random-effect()
   val (_, log) = make-example-dsl-random-effect(100).run("random-effect", id, handle-random)
   log.pretty.show.println  
 
+pub fun make-example-dsl-coroutine(i: int): nofx-step<string, string, int, string, int>
+  with x <- sbind("x") {i}
+  with y <- sbind("y") {pause("pause")}
+  step("result") {x * y}
+
+pub fun example-dsl-coroutine()
+  val comp = make-example-dsl-coroutine(100)
+  val (_v, paused-log) = comp.run-nofx("run-1", id)
+  val (v2, final-log) = comp.resume-nofx("run-2", paused-log, 5, id)
+  paused-log.pretty.show.println
+  final-log.pretty.show.println
+  v2
+
 fun testdsl/stuff(i: int) : step<string,string,string,string,int,<random>>
   with x <- sbind("i"){i}
   with y <- sbind("rand"){random-int()}
