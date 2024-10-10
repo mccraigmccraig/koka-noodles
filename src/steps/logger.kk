@@ -433,6 +433,7 @@ pub fun step-log/pretty'(log: step-log): div doc
   match log
     RunLog(rl) ->
       "run: ".text |.| rl.name.text |.|  
+      (if rl.pauses>0 then linebreak |.| "pauses: ".text |.| rl.pauses.show.text else "".text) |.|
       log.step-log-children/pretty |--|
       "outcome: ".text |.| rl.outcome.show.text
     ThunkLog(c-src) -> 
