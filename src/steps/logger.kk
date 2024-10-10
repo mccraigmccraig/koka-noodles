@@ -213,17 +213,22 @@ fun state/add-thunk-log(state: logger-state, c-src: json-src): total logger-stat
 // although the breakage doesn't affect anything, other than setting observably
 // wrong result types
 fun state/close-open-steps<a>(state: logger-state, outcome: log-outcome, handle-fatal-error: (string)-> a, a-json-fns: json-fns<a>): total logger-state
+  // increment all pause counts up the tree if this is a pause
+  val pause-incr = match outcome 
+    ReasonPause(_) -> 1
+    _ -> 0
+    
   match state.open-steps
     [] -> 
       val fatal-step = RunLog(Run-Log("error", 0, [], ReasonFail({a-json-fns.to-json()("no open steps".handle-fatal-error)})))
       val completed-steps' = Cons(fatal-step, state.completed-steps)
       state(completed-steps=completed-steps')
     Cons(first, Nil) -> 
-      val step-log = RunLog(Run-Log(first.name, 0, first.children.reverse, outcome))
+      val step-log = RunLog(Run-Log(first.name, first.pauses + pause-incr, first.children.reverse, outcome))
       val completed-steps' = Cons(step-log, state.completed-steps)
       state(completed-steps=completed-steps', open-steps=[])
     Cons(first, Cons(next, rest)) -> 
-      val step-log = RunLog(Run-Log(first.name, 0, first.children.reverse, outcome))
+      val step-log = RunLog(Run-Log(first.name, first.pauses + pause-incr, first.children.reverse, outcome))
       val next' = next(children = Cons(step-log, next.children))
       state/close-open-steps(pretend-decreasing(state(open-steps=Cons(next', rest))), outcome, handle-fatal-error, a-json-fns)
 
@@ -274,10 +279,10 @@ fun state/log-leave(state: logger-state, outcome: log-outcome): total either<str
   // then update the completed-steps / open-steps
   val error-completed-steps-open-steps = match state.open-steps
     Cons(first, Nil) -> 
-      Right((Cons(RunLog(Run-Log(first.name, 0, first.children.reverse, outcome)), state.completed-steps),
+      Right((Cons(RunLog(Run-Log(first.name, first.pauses, first.children.reverse, outcome)), state.completed-steps),
             []))
     Cons(first, Cons(next, rest)) -> 
-      val step-log = RunLog(Run-Log(first.name, 0, first.children.reverse, outcome))
+      val step-log = RunLog(Run-Log(first.name, first.pauses, first.children.reverse, outcome))
       val next' = next(children = Cons(step-log, next.children))
       val open-steps' = Cons(next', rest)
       Right((state.completed-steps, open-steps'))
