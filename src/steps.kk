@@ -599,7 +599,8 @@ pub fun example-dsl-random-effect()
 pub fun make-example-dsl-coroutine(i: int): nofx-step<string, string, int, string, int>
   with x <- sbind("x") {i}
   with y <- sbind("y") {pause("pause")}
-  step("result") {x * y}
+  with z <- sbind("z") {50}
+  step("result") {x * y + z}
 
 pub fun example-dsl-coroutine()
   val comp = make-example-dsl-coroutine(100)
