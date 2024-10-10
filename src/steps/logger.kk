@@ -89,6 +89,8 @@ struct logger-state
 //                      logger / step-ctl effect handlers
 ///////////////////////////////////////////////////////////////////////////////
 
+// update a log with a resume-value, which will later be retrieved by the 
+// pause operation
 pub fun push-resume-value<c>(
     log: computation-log,
     resume-value: c,
@@ -136,16 +138,18 @@ pub fun log-collector<a,b,c,d,x>(
     ctl pause(b)
       if state.pause-ignores < max-pause-ignores then
         // it's a pause from a previous run - return the recorded resume value
+        // remembering that resume-values is reversed - first value is last
         val resume-val = match previous-log
-          Just(pl) -> match @index(pl.resume-values, state.pause-ignores)
+          Just(pl) -> match @index(pl.resume-values, length(pl.resume-values) - state.pause-ignores - 1)
             Just(vjs) -> c-json-fns.from-json()(vjs(), "") 
             _ -> throw("missing resume value")
           _ -> throw("missing resume value")
         state := state(pause-ignores=state.pause-ignores + 1)
         resume(resume-val)
       else
+        // pausing for realz
         val state' = state/close-open-steps(state, ReasonPause({b-json-fns.to-json()(b)}), handle-fatal-error, a-json-fns)
-        state := state'(pause-ignores=state.pause-ignores - 1)
+        state := state'(pause-ignores=state.pause-ignores + 1)
         ReasonPause(b)
     fun log(d)
       val state' = state/add-thunk-log(state, {d-json-fns.to-json()(d)})
