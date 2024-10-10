@@ -96,7 +96,7 @@ pub fun push-resume-value<c>(
     resume-value: c,
     ?c/json-fns: json-fns<c>
   )
-  log(resume-values = Cons({?c/json-fns.to-json()(resume-value)}, log.resume-values))
+  log(resume-values = log.resume-values ++ [{?c/json-fns.to-json()(resume-value)}])
 
 // collect and return a computation-log from a computation
 // this handler also handles any exn effect
@@ -138,9 +138,8 @@ pub fun log-collector<a,b,c,d,x>(
     ctl pause(b)
       if state.pause-ignores < max-pause-ignores then
         // it's a pause from a previous run - return the recorded resume value
-        // remembering that resume-values is reversed - first value is last
         val resume-val = match previous-log
-          Just(pl) -> match @index(pl.resume-values, length(pl.resume-values) - state.pause-ignores - 1)
+          Just(pl) -> match @index(pl.resume-values, state.pause-ignores)
             Just(vjs) -> c-json-fns.from-json()(vjs(), "") 
             _ -> throw("missing resume value")
           _ -> throw("missing resume value")
@@ -444,10 +443,17 @@ pub fun step-log/pretty(log: step-log): total doc
   with pretend-no-div
   step-log/pretty'(log)
 
+fun computation-log-resume-values/pretty(resume-values: list<json-src>): total doc
+  if length(resume-values)>0 then
+    linebreak |.| "resume-values:".text |--|
+    vcat(resume-values.map(fn(rv-src) rv-src().show.text )).indent(2)
+  else "".text 
 
 pub fun computation-log/pretty(log: computation-log): total doc
   "computation: ".text |.| log.name.text |--|
-  "pauses: ".text |.| log.pauses.show.text |--|
+  "pauses: ".text |.| log.pauses.show.text |.|
+  computation-log-resume-values/pretty(log.resume-values) |--|
+  "steps: ".text |--|
   vcat(log.step-logs.map(fn(sl) sl.step-log/pretty).punctuate("----".text)).indent(2)
 
 pub val string/json-fns = Json-fns(string/to-json, string/from-json)
