@@ -16,10 +16,6 @@ import steps/types
 // delayed serialization for step values
 pub alias json-src = () -> total json
 
-pub value struct json-fns<a>
-  to-json: (a) -> total json
-  from-json: (json: json, path: string) -> pure a
-
 // matches the run-step-result
 pub value type outcome<a,b,x>
   ReasonFail(a: a)
